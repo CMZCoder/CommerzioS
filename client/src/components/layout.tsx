@@ -4,21 +4,10 @@ import { Menu, PlusCircle, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest } from "@/lib/api";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
-
-  const handleLogout = async () => {
-    try {
-      await apiRequest("/api/auth/logout", { method: "POST" });
-      setLocation("/");
-      window.location.reload();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
@@ -69,9 +58,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setLocation("/dashboard")}>My Dashboard</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setLocation("/profile")}>Profile</DropdownMenuItem>
-                      <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                      <DropdownMenuItem onClick={() => setLocation("/dashboard")} data-testid="menu-item-dashboard">My Dashboard</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-item-profile">Profile</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => window.location.href = "/api/logout"} className="text-destructive" data-testid="menu-item-logout">
                         <LogOut className="w-4 h-4 mr-2" />
                         Log out
                       </DropdownMenuItem>
@@ -80,12 +69,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Link href="/auth">
-                    <Button variant="ghost">Log in</Button>
-                  </Link>
-                  <Link href="/auth?mode=register">
-                    <Button>Get Started</Button>
-                  </Link>
+                  <Button variant="ghost" onClick={() => window.location.href = "/api/login"} data-testid="button-login">
+                    Log in
+                  </Button>
+                  <Button onClick={() => window.location.href = "/api/login"} data-testid="button-get-started">
+                    Get Started
+                  </Button>
                 </div>
               )}
             </div>
