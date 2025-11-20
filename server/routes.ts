@@ -48,6 +48,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Service routes
+  app.get('/api/services/search', async (req, res) => {
+    try {
+      const { q, limit = '5' } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.json([]);
+      }
+
+      const services = await storage.getServices({
+        search: q,
+        status: 'active',
+      });
+
+      const limitNum = parseInt(limit as string, 10);
+      const results = services.slice(0, limitNum).map(service => ({
+        id: service.id,
+        title: service.title,
+        category: service.category?.name || 'Uncategorized',
+        price: service.price,
+        priceUnit: service.priceUnit,
+      }));
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching services:", error);
+      res.status(500).json({ message: "Failed to search services" });
+    }
+  });
+
   app.get('/api/services', async (req, res) => {
     try {
       const { categoryId, ownerId, status, search } = req.query;

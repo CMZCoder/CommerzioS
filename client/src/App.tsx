@@ -7,6 +7,12 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import ServiceDetail from "@/pages/service-detail";
 import Dashboard from "@/pages/dashboard";
+import HowItWorks from "@/pages/how-it-works";
+import HelpCenter from "@/pages/help-center";
+import TrustSafety from "@/pages/trust-safety";
+import Contact from "@/pages/contact";
+import Terms from "@/pages/terms";
+import Privacy from "@/pages/privacy";
 
 function Router() {
   return (
@@ -16,6 +22,12 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/categories" component={Home} /> {/* Reusing Home for now */}
       <Route path="/post-service" component={Dashboard} /> {/* Reusing Dashboard for now */}
+      <Route path="/how-it-works" component={HowItWorks} />
+      <Route path="/help-center" component={HelpCenter} />
+      <Route path="/trust-safety" component={TrustSafety} />
+      <Route path="/contact" component={Contact} />
+      <Route path="/terms" component={Terms} />
+      <Route path="/privacy" component={Privacy} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -4,6 +4,7 @@ import { Menu, PlusCircle, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
+import { SearchAutocomplete } from "@/components/search-autocomplete";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -12,19 +13,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
           {/* Logo */}
           <Link href="/">
-            <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight cursor-pointer">
+            <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight cursor-pointer flex-shrink-0">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
                 <span className="text-lg">S</span>
               </div>
-              ServeMkt
+              <span className="hidden sm:inline">ServeMkt</span>
             </div>
           </Link>
 
+          {/* Search - Desktop */}
+          <div className="hidden md:flex flex-1 max-w-md">
+            <SearchAutocomplete />
+          </div>
+
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-8 flex-shrink-0">
             <nav className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
               <Link href="/"><span className="hover:text-primary transition-colors cursor-pointer">Explore</span></Link>
               <Link href="/categories"><span className="hover:text-primary transition-colors cursor-pointer">Categories</span></Link>
@@ -131,16 +137,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary">Help Center</a></li>
-                <li><a href="#" className="hover:text-primary">Trust & Safety</a></li>
-                <li><a href="#" className="hover:text-primary">Contact Us</a></li>
+                <li><Link href="/help-center"><span className="hover:text-primary cursor-pointer">Help Center</span></Link></li>
+                <li><Link href="/trust-safety"><span className="hover:text-primary cursor-pointer">Trust & Safety</span></Link></li>
+                <li><Link href="/contact"><span className="hover:text-primary cursor-pointer">Contact Us</span></Link></li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Legal</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-primary">Privacy Policy</a></li>
+                <li><Link href="/terms"><span className="hover:text-primary cursor-pointer">Terms of Service</span></Link></li>
+                <li><Link href="/privacy"><span className="hover:text-primary cursor-pointer">Privacy Policy</span></Link></li>
               </ul>
             </div>
           </div>
