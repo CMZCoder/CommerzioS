@@ -1,44 +1,128 @@
 import { Layout } from "@/components/layout";
-import { ServiceCard } from "@/components/service-card";
-import { SERVICES, CURRENT_USER, Service } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock } from "lucide-react";
-import { useState } from "react";
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest, type ServiceWithDetails } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
+import type { Service } from "@shared/schema";
 
 export default function Dashboard() {
-  const [myServices, setMyServices] = useState<Service[]>(SERVICES.filter(s => s.ownerId === CURRENT_USER.id));
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
+
+  const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
+    queryKey: ["/api/services", { ownerId: user?.id }],
+    queryFn: () => apiRequest(`/api/services?ownerId=${user?.id}`),
+    enabled: !!user?.id,
+  });
+
+  const updateServiceMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Service> }) =>
+      apiRequest(`/api/services/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({
+        title: "Success",
+        description: "Service updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update service.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const renewServiceMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/services/${id}/renew`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({
+        title: "Service Renewed",
+        description: "Your service has been renewed for 14 days.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to renew service.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest(`/api/services/${id}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      toast({
+        title: "Service Deleted",
+        description: "Your service has been deleted.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete service.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleStatusChange = (id: string, newStatus: Service['status']) => {
-    setMyServices(prev => prev.map(s => s.id === id ? { ...s, status: newStatus } : s));
-    toast({
-      title: "Status Updated",
-      description: `Service status changed to ${newStatus}.`,
-    });
+    updateServiceMutation.mutate({ id, data: { status: newStatus } });
   };
 
   const handleRenew = (id: string) => {
-    // Mock renewal logic - extend expiry by 14 days
-    setMyServices(prev => prev.map(s => {
-      if (s.id === id) {
-        const newDate = new Date();
-        newDate.setDate(newDate.getDate() + 14);
-        return { ...s, expiresAt: newDate.toISOString(), status: 'active' };
-      }
-      return s;
-    }));
-    toast({
-      title: "Service Renewed",
-      description: "Your service has been renewed for 14 days.",
-    });
+    renewServiceMutation.mutate(id);
   };
 
-  const isExpired = (dateStr: string) => {
-    return new Date(dateStr).getTime() < new Date().getTime();
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this service? This action cannot be undone.")) {
+      deleteServiceMutation.mutate(id);
+    }
   };
+
+  const isExpired = (date: string | Date) => {
+    return new Date(date).getTime() < new Date().getTime();
+  };
+
+  const totalViews = useMemo(() => {
+    return myServices.reduce((sum, service) => sum + service.viewCount, 0);
+  }, [myServices]);
+
+  if (authLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold">Loading...</h1>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    setLocation("/auth");
+    return null;
+  }
 
   return (
     <Layout>
@@ -62,7 +146,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Total Views</p>
-                  <h3 className="text-2xl font-bold">1,234</h3>
+                  <h3 className="text-2xl font-bold">{totalViews.toLocaleString()}</h3>
                 </div>
               </div>
             </div>
@@ -73,7 +157,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Active Plan</p>
-                  <h3 className="text-2xl font-bold capitalize">{CURRENT_USER.marketingPackage}</h3>
+                  <h3 className="text-2xl font-bold capitalize">{user.marketingPackage}</h3>
                 </div>
               </div>
             </div>
@@ -85,8 +169,10 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground font-medium">Account Status</p>
                   <h3 className="text-2xl font-bold flex items-center gap-2">
-                    Verified
-                    <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">✓</Badge>
+                    {user.isVerified ? "Verified" : "Not Verified"}
+                    {user.isVerified && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">✓</Badge>
+                    )}
                   </h3>
                 </div>
               </div>
@@ -104,7 +190,11 @@ export default function Dashboard() {
               <div className="bg-white rounded-xl border border-border shadow-sm p-6">
                 <h2 className="text-xl font-semibold mb-6">Active Listings</h2>
                 
-                {myServices.length > 0 ? (
+                {servicesLoading ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">Loading your services...</p>
+                  </div>
+                ) : myServices.length > 0 ? (
                   <div className="grid grid-cols-1 gap-6">
                     {myServices.map(service => {
                       const expired = isExpired(service.expiresAt);
@@ -127,7 +217,7 @@ export default function Dashboard() {
                               </div>
                               <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
                               <div className="flex items-center gap-4 text-sm text-slate-500">
-                                 <span>Price: <strong>${service.price}</strong>/{service.priceUnit}</span>
+                                 <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
                                  <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
                                    <Clock className="w-3 h-3" />
                                    Expires: {new Date(service.expiresAt).toLocaleDateString()}
@@ -136,20 +226,47 @@ export default function Dashboard() {
                            </div>
                            <div className="flex md:flex-col gap-2 justify-center shrink-0">
                               {expired ? (
-                                <Button className="w-full" size="sm" onClick={() => handleRenew(service.id)}>
-                                  <RefreshCw className="w-3 h-3 mr-2" /> Renew
+                                <Button 
+                                  className="w-full" 
+                                  size="sm" 
+                                  onClick={() => handleRenew(service.id)}
+                                  disabled={renewServiceMutation.isPending}
+                                >
+                                  <RefreshCw className="w-3 h-3 mr-2" /> 
+                                  {renewServiceMutation.isPending ? "Renewing..." : "Renew"}
                                 </Button>
                               ) : (
                                 <>
                                   <Button variant="outline" size="sm">Edit</Button>
                                   {service.status === 'active' ? (
-                                    <Button variant="secondary" size="sm" onClick={() => handleStatusChange(service.id, 'paused')}>Pause</Button>
+                                    <Button 
+                                      variant="secondary" 
+                                      size="sm" 
+                                      onClick={() => handleStatusChange(service.id, 'paused')}
+                                      disabled={updateServiceMutation.isPending}
+                                    >
+                                      Pause
+                                    </Button>
                                   ) : (
-                                    <Button variant="default" size="sm" onClick={() => handleStatusChange(service.id, 'active')}>Activate</Button>
+                                    <Button 
+                                      variant="default" 
+                                      size="sm" 
+                                      onClick={() => handleStatusChange(service.id, 'active')}
+                                      disabled={updateServiceMutation.isPending}
+                                    >
+                                      Activate
+                                    </Button>
                                   )}
                                 </>
                               )}
-                              <Button variant="destructive" size="sm">Delete</Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                onClick={() => handleDelete(service.id)}
+                                disabled={deleteServiceMutation.isPending}
+                              >
+                                Delete
+                              </Button>
                            </div>
                         </div>
                       );
@@ -172,7 +289,7 @@ export default function Dashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                    <div className="border rounded-xl p-6 hover:border-primary transition-colors cursor-pointer">
                       <h3 className="font-bold text-lg mb-2">Basic</h3>
-                      <p className="text-3xl font-bold mb-4">$0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+                      <p className="text-3xl font-bold mb-4">CHF 0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
                       <ul className="text-sm space-y-2 mb-6 text-slate-600">
                         <li>• 1 Active Listing</li>
                         <li>• Standard Support</li>
@@ -183,7 +300,7 @@ export default function Dashboard() {
                    <div className="border rounded-xl p-6 border-primary bg-primary/5 relative overflow-hidden">
                       <div className="absolute top-0 right-0 bg-primary text-white text-xs px-3 py-1 rounded-bl-lg font-medium">Popular</div>
                       <h3 className="font-bold text-lg mb-2">Pro</h3>
-                      <p className="text-3xl font-bold mb-4">$29<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+                      <p className="text-3xl font-bold mb-4">CHF 29<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
                       <ul className="text-sm space-y-2 mb-6 text-slate-600">
                         <li>• 5 Active Listings</li>
                         <li>• Priority Support</li>
@@ -194,7 +311,7 @@ export default function Dashboard() {
                    </div>
                    <div className="border rounded-xl p-6 hover:border-primary transition-colors cursor-pointer">
                       <h3 className="font-bold text-lg mb-2">Enterprise</h3>
-                      <p className="text-3xl font-bold mb-4">$99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
+                      <p className="text-3xl font-bold mb-4">CHF 99<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
                       <ul className="text-sm space-y-2 mb-6 text-slate-600">
                         <li>• Unlimited Listings</li>
                         <li>• Dedicated Manager</li>

@@ -1,20 +1,17 @@
-import { Service, USERS } from "@/lib/mockData";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import type { ServiceWithDetails } from "@/lib/api";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, CheckCircle2, Clock } from "lucide-react";
+import { Star, MapPin, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 
 interface ServiceCardProps {
-  service: Service;
+  service: ServiceWithDetails;
   compact?: boolean;
 }
 
 export function ServiceCard({ service, compact = false }: ServiceCardProps) {
-  const owner = USERS.find(u => u.id === service.ownerId);
-  
-  // Calculate days remaining
   const daysRemaining = Math.ceil((new Date(service.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isExpired = daysRemaining <= 0;
 
@@ -31,7 +28,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
         />
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground font-medium shadow-sm">
-            {service.category.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')}
+            {service.category.name}
           </Badge>
           {isExpired && (
             <Badge variant="destructive" className="shadow-sm">Expired</Badge>
@@ -64,20 +61,20 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
 
         <div className="flex items-center gap-3 pt-3 border-t border-border/50">
           <img 
-            src={owner?.avatar} 
-            alt={owner?.name} 
+            src={service.owner.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.owner.id}`} 
+            alt={`${service.owner.firstName} ${service.owner.lastName}`} 
             className="w-8 h-8 rounded-full ring-2 ring-background"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
-              <p className="text-sm font-medium truncate">{owner?.name}</p>
-              {owner?.isVerified && (
+              <p className="text-sm font-medium truncate">{service.owner.firstName} {service.owner.lastName}</p>
+              {service.owner.isVerified && (
                 <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
               )}
             </div>
           </div>
           <div className="text-right">
-            <span className="text-lg font-bold text-primary">${service.price}</span>
+            <span className="text-lg font-bold text-primary">CHF {service.price}</span>
             <span className="text-xs text-muted-foreground">/{service.priceUnit}</span>
           </div>
         </div>

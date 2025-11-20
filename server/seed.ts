@@ -24,12 +24,15 @@ export async function seedDatabase() {
       if (existing.length === 0) {
         await db.insert(categories).values(category);
         console.log(`Created category: ${category.name}`);
+      } else {
+        console.log(`Category already exists: ${category.name}`);
       }
     }
 
     console.log("Database seeding completed!");
   } catch (error) {
     console.error("Error seeding database:", error);
-    throw error;
+    // Don't throw - just log and continue
+    console.log("Continuing despite seeding errors...");
   }
 }
