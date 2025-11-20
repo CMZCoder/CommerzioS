@@ -1,25 +1,37 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
-import { SERVICES, CATEGORIES, CURRENT_USER } from "@/lib/mockData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Sparkles, ArrowRight } from "lucide-react";
 import heroImg from "@assets/generated_images/abstract_community_connection_hero_background.png";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest, type ServiceWithDetails } from "@/lib/api";
+import type { Category } from "@shared/schema";
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
 
-  // Mock AI Sorting logic - just filtering for now
-  const filteredServices = SERVICES.filter(service => {
-    const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         service.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "all" || service.category === selectedCategory;
-    const isActive = service.status === "active"; // Only show active services to public
-    return matchesSearch && matchesCategory && isActive;
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiRequest("/api/categories"),
   });
+
+  const { data: services = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
+    queryKey: ["/api/services", { status: "active" }],
+    queryFn: () => apiRequest("/api/services?status=active"),
+  });
+
+  const filteredServices = useMemo(() => {
+    return services.filter(service => {
+      const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           service.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === "all" || service.category.slug === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [services, searchTerm, selectedCategory]);
 
   return (
     <Layout>
@@ -94,19 +106,22 @@ export default function Home() {
             <span className="font-medium">All Services</span>
           </button>
           
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.slug)}
-              className={`p-6 rounded-xl border transition-all duration-200 flex flex-col items-center gap-3 hover:shadow-md ${selectedCategory === cat.slug ? 'bg-primary text-white border-primary' : 'bg-white border-border hover:border-primary/50'}`}
-            >
-               {/* In a real app, we'd map icon strings to components. For now using generic icons */}
-              <div className="p-3 rounded-full bg-secondary text-secondary-foreground">
-                <span className="text-xl">🛠️</span> 
-              </div>
-              <span className="font-medium">{cat.name}</span>
-            </button>
-          ))}
+          {categoriesLoading ? (
+            <div className="col-span-4 text-center text-muted-foreground">Loading categories...</div>
+          ) : (
+            categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.slug)}
+                className={`p-6 rounded-xl border transition-all duration-200 flex flex-col items-center gap-3 hover:shadow-md ${selectedCategory === cat.slug ? 'bg-primary text-white border-primary' : 'bg-white border-border hover:border-primary/50'}`}
+              >
+                <div className="p-3 rounded-full bg-secondary text-secondary-foreground">
+                  <span className="text-xl">{cat.icon || '🛠️'}</span> 
+                </div>
+                <span className="font-medium">{cat.name}</span>
+              </button>
+            ))
+          )}
         </div>
       </section>
 
@@ -122,7 +137,14 @@ export default function Home() {
             </div>
           </div>
 
-          {filteredServices.length > 0 ? (
+          {servicesLoading ? (
+            <div className="text-center py-20">
+              <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-slate-400 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Loading services...</h3>
+            </div>
+          ) : filteredServices.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {filteredServices.map((service, index) => (
                 <motion.div

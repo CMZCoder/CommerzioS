@@ -1,18 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Menu, UserCircle, PlusCircle, LogOut } from "lucide-react";
-import { useState } from "react";
+import { Menu, PlusCircle, LogOut } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/api";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // Mock auth state
+  const [, setLocation] = useLocation();
+  const { user, isAuthenticated, isLoading } = useAuth();
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setLocation("/");
+  const handleLogout = async () => {
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+      setLocation("/");
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   return (
@@ -21,24 +26,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link href="/">
-            <a className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
+            <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight cursor-pointer">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
                 <span className="text-lg">S</span>
               </div>
               ServeMkt
-            </a>
+            </div>
           </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
             <nav className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
-              <Link href="/"><a className="hover:text-primary transition-colors">Explore</a></Link>
-              <Link href="/categories"><a className="hover:text-primary transition-colors">Categories</a></Link>
-              <Link href="/how-it-works"><a className="hover:text-primary transition-colors">How it Works</a></Link>
+              <Link href="/"><span className="hover:text-primary transition-colors cursor-pointer">Explore</span></Link>
+              <Link href="/categories"><span className="hover:text-primary transition-colors cursor-pointer">Categories</span></Link>
+              <Link href="/how-it-works"><span className="hover:text-primary transition-colors cursor-pointer">How it Works</span></Link>
             </nav>
 
             <div className="flex items-center gap-4">
-              {isLoggedIn ? (
+              {isLoading ? (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              ) : isAuthenticated && user ? (
                 <>
                   <Link href="/dashboard">
                     <Button variant="ghost" className="gap-2">
@@ -55,7 +62,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="rounded-full">
                         <img 
-                          src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alice" 
+                          src={user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`} 
                           alt="User" 
                           className="w-8 h-8 rounded-full border border-border"
                         />
@@ -94,9 +101,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </SheetTrigger>
               <SheetContent side="right">
                 <div className="flex flex-col gap-6 mt-8">
-                  <Link href="/"><a className="text-lg font-medium">Explore</a></Link>
-                  <Link href="/categories"><a className="text-lg font-medium">Categories</a></Link>
-                  <Link href="/dashboard"><a className="text-lg font-medium">Dashboard</a></Link>
+                  <Link href="/"><span className="text-lg font-medium cursor-pointer">Explore</span></Link>
+                  <Link href="/categories"><span className="text-lg font-medium cursor-pointer">Categories</span></Link>
+                  <Link href="/dashboard"><span className="text-lg font-medium cursor-pointer">Dashboard</span></Link>
                   <div className="h-px bg-border my-2" />
                   <Link href="/post-service">
                     <Button className="w-full">Post Service</Button>
