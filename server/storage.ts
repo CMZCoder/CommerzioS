@@ -135,7 +135,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (filters?.status) {
-      conditions.push(eq(services.status, filters.status));
+      conditions.push(eq(services.status, filters.status as any));
     }
     
     if (filters?.search) {
