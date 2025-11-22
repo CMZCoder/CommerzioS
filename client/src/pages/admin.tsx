@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff } from "lucide-react";
 import type { User, Service, Plan, SubmittedCategory } from "@shared/schema";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export function AdminPage() {
   const { toast } = useToast();
@@ -123,7 +131,7 @@ export function AdminPage() {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="w-4 h-4 mr-2" />
               Users
@@ -139,6 +147,14 @@ export function AdminPage() {
             <TabsTrigger value="plans" data-testid="tab-plans">
               <CreditCard className="w-4 h-4 mr-2" />
               Plans
+            </TabsTrigger>
+            <TabsTrigger value="ai-assistant" data-testid="tab-ai-assistant">
+              <Brain className="w-4 h-4 mr-2" />
+              AI Assistant
+            </TabsTrigger>
+            <TabsTrigger value="settings" data-testid="tab-settings">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
             </TabsTrigger>
           </TabsList>
 
@@ -156,6 +172,14 @@ export function AdminPage() {
 
           <TabsContent value="plans">
             <PlansManagement />
+          </TabsContent>
+
+          <TabsContent value="ai-assistant">
+            <AIAssistantManagement />
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <SettingsManagement />
           </TabsContent>
         </Tabs>
       </div>
@@ -497,5 +521,697 @@ function PlansManagement() {
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+function AIAssistantManagement() {
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/admin/users"],
+    queryFn: () => apiRequest("/api/admin/users"),
+  });
+
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ["/api/admin/services"],
+    queryFn: () => apiRequest("/api/admin/services"),
+  });
+
+  const { data: categories = [] } = useQuery<SubmittedCategory[]>({
+    queryKey: ["/api/admin/category-suggestions"],
+    queryFn: () => apiRequest("/api/admin/category-suggestions"),
+  });
+
+  const { data: plans = [] } = useQuery<Plan[]>({
+    queryKey: ["/api/plans"],
+    queryFn: () => apiRequest("/api/plans"),
+  });
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isTyping]);
+
+  const platformStats = {
+    totalUsers: users.length,
+    totalServices: services.length,
+    activeServices: services.filter((s: any) => s.status === "active").length,
+    pendingCategories: categories.filter((c: any) => c.status === "pending").length,
+    totalPlans: plans.length,
+  };
+
+  const handleSendMessage = async (queryText?: string) => {
+    const messageText = queryText || input.trim();
+    if (!messageText || isTyping) return;
+
+    if (!queryText) {
+      setInput("");
+    }
+
+    const newMessages: Message[] = [
+      ...messages,
+      { role: "user", content: messageText },
+    ];
+    setMessages(newMessages);
+    setIsTyping(true);
+
+    try {
+      const response = await apiRequest<{ response: string }>("/api/ai/admin-assist", {
+        method: "POST",
+        body: JSON.stringify({
+          query: messageText,
+          context: {
+            platformStats,
+            currentPage: "admin",
+          },
+          conversationHistory: messages,
+        }),
+      });
+
+      setMessages([
+        ...newMessages,
+        { role: "assistant", content: response.response },
+      ]);
+    } catch (err: any) {
+      console.error("AI Assistant error:", err);
+      toast({
+        title: "Error",
+        description: err.message || "Failed to get AI response",
+        variant: "destructive",
+      });
+
+      setMessages([
+        ...newMessages,
+        {
+          role: "assistant",
+          content: "I'm sorry, I'm having trouble responding right now. Please try again.",
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleAnalyzePlatform = () => {
+    const analysisQuery = `Please analyze the current platform data and provide insights. Here's what I can see: ${platformStats.totalUsers} total users, ${platformStats.activeServices} active services out of ${platformStats.totalServices} total, and ${platformStats.pendingCategories} pending category suggestions. What patterns, issues, or opportunities should I be aware of?`;
+    handleSendMessage(analysisQuery);
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Platform Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card data-testid="card-stat-users">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Users
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-users">
+              {platformStats.totalUsers}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-services">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Services
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-services">
+              {platformStats.totalServices}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-active-services">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Active Services
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-active-services">
+              {platformStats.activeServices}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-pending-categories">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Pending Categories
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-pending-categories">
+              {platformStats.pendingCategories}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-stat-plans">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Plans
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold" data-testid="text-total-plans">
+              {platformStats.totalPlans}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Chat Interface */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="w-5 h-5" />
+                AI Admin Assistant
+              </CardTitle>
+              <CardDescription>
+                Get AI-powered insights and assistance for platform management
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              onClick={handleAnalyzePlatform}
+              disabled={isTyping}
+              data-testid="button-analyze-platform"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Analyze Platform Data
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Messages Area */}
+          <ScrollArea className="h-[400px] border rounded-md p-4" data-testid="area-chat-messages">
+            <div className="space-y-4">
+              {messages.length === 0 && (
+                <div className="text-center text-muted-foreground py-12" data-testid="text-welcome-admin">
+                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-primary" />
+                  <p className="text-lg font-medium">Welcome to AI Admin Assistant</p>
+                  <p className="mt-2 text-sm">
+                    Ask questions about your platform, request insights, or click "Analyze Platform Data" for automated analysis.
+                  </p>
+                </div>
+              )}
+
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                  data-testid={`message-${message.role}-${index}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-lg px-4 py-3 ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    }`}
+                  >
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {isTyping && (
+                <div className="flex justify-start" data-testid="indicator-typing-admin">
+                  <div className="bg-muted rounded-lg px-4 py-3">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          {/* Input Area */}
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask a question about your platform..."
+                disabled={isTyping}
+                className="flex-1"
+                data-testid="input-admin-message"
+              />
+              <Button
+                onClick={() => handleSendMessage()}
+                disabled={!input.trim() || isTyping}
+                data-testid="button-send-admin-message"
+              >
+                {isTyping ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-1" data-testid="text-ai-powered-admin">
+                <Sparkles className="h-3 w-3" />
+                <span>Powered by AI</span>
+              </div>
+              {messages.length > 0 && (
+                <button
+                  onClick={handleClearChat}
+                  className="hover:text-foreground transition-colors"
+                  data-testid="button-clear-admin-chat"
+                >
+                  Clear conversation
+                </button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SettingsManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingApiKeys, setIsSavingApiKeys] = useState(false);
+  const [showApiKeys, setShowApiKeys] = useState({
+    twilioSid: false,
+    twilioToken: false,
+    emailKey: false,
+  });
+
+  const [apiKeys, setApiKeys] = useState({
+    twilioAccountSid: "",
+    twilioAuthToken: "",
+    twilioPhoneNumber: "",
+    emailServiceProvider: "",
+    emailServiceApiKey: "",
+  });
+
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["/api/settings"],
+    queryFn: () => apiRequest("/api/settings"),
+  });
+
+  const { data: envStatus } = useQuery({
+    queryKey: ["/api/admin/env-status"],
+    queryFn: () => apiRequest("/api/admin/env-status"),
+  });
+
+  const [localSettings, setLocalSettings] = useState({
+    requireEmailVerification: false,
+    requirePhoneVerification: false,
+    enableSwissAddressValidation: true,
+    enableAiCategoryValidation: true,
+  });
+
+  useEffect(() => {
+    if (settings) {
+      setLocalSettings({
+        requireEmailVerification: settings.requireEmailVerification ?? false,
+        requirePhoneVerification: settings.requirePhoneVerification ?? false,
+        enableSwissAddressValidation: settings.enableSwissAddressValidation ?? true,
+        enableAiCategoryValidation: settings.enableAiCategoryValidation ?? true,
+      });
+    }
+  }, [settings]);
+
+  const handleSaveVerificationSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      await apiRequest("/api/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify(localSettings),
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Success",
+        description: "Verification settings updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleSaveApiKeys = async () => {
+    setIsSavingApiKeys(true);
+    try {
+      const envVars: Record<string, string> = {};
+      
+      if (apiKeys.twilioAccountSid) envVars.TWILIO_ACCOUNT_SID = apiKeys.twilioAccountSid;
+      if (apiKeys.twilioAuthToken) envVars.TWILIO_AUTH_TOKEN = apiKeys.twilioAuthToken;
+      if (apiKeys.twilioPhoneNumber) envVars.TWILIO_PHONE_NUMBER = apiKeys.twilioPhoneNumber;
+      if (apiKeys.emailServiceProvider) envVars.EMAIL_SERVICE_PROVIDER = apiKeys.emailServiceProvider;
+      if (apiKeys.emailServiceApiKey) envVars.EMAIL_SERVICE_API_KEY = apiKeys.emailServiceApiKey;
+
+      if (Object.keys(envVars).length === 0) {
+        toast({
+          title: "Warning",
+          description: "No API keys to save. Please enter at least one value.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Info",
+        description: "Setting environment variables...",
+      });
+
+      setApiKeys({
+        twilioAccountSid: "",
+        twilioAuthToken: "",
+        twilioPhoneNumber: "",
+        emailServiceProvider: "",
+        emailServiceApiKey: "",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/env-status"] });
+      
+      toast({
+        title: "Success",
+        description: "API keys saved successfully. Please note: Environment variables must be set in your Replit environment for persistence.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save API keys",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingApiKeys(false);
+    }
+  };
+
+  const isConfigured = (service: string) => {
+    if (!envStatus) return false;
+    if (service === "twilio") return envStatus.twilioConfigured;
+    if (service === "email") return envStatus.emailConfigured;
+    return false;
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <Alert data-testid="alert-settings-info">
+        <AlertDescription>
+          These settings control verification requirements for the platform. For MVP/testing, you can disable verification even without configuring API keys.
+        </AlertDescription>
+      </Alert>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Verification Settings</CardTitle>
+          <CardDescription>
+            Configure verification requirements for users and services
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between" data-testid="setting-email-verification">
+              <div className="space-y-0.5">
+                <Label htmlFor="require-email">Require Email Verification</Label>
+                <p className="text-sm text-muted-foreground">
+                  Users must verify their email address before posting services
+                </p>
+              </div>
+              <Switch
+                id="require-email"
+                checked={localSettings.requireEmailVerification}
+                onCheckedChange={(checked) =>
+                  setLocalSettings({ ...localSettings, requireEmailVerification: checked })
+                }
+                data-testid="switch-email-verification"
+              />
+            </div>
+
+            <div className="flex items-center justify-between" data-testid="setting-phone-verification">
+              <div className="space-y-0.5">
+                <Label htmlFor="require-phone">Require Phone Verification</Label>
+                <p className="text-sm text-muted-foreground">
+                  Services must have verified phone numbers (requires Twilio configuration)
+                </p>
+              </div>
+              <Switch
+                id="require-phone"
+                checked={localSettings.requirePhoneVerification}
+                onCheckedChange={(checked) =>
+                  setLocalSettings({ ...localSettings, requirePhoneVerification: checked })
+                }
+                data-testid="switch-phone-verification"
+              />
+            </div>
+
+            <div className="flex items-center justify-between" data-testid="setting-swiss-validation">
+              <div className="space-y-0.5">
+                <Label htmlFor="swiss-address">Enable Swiss Address Validation</Label>
+                <p className="text-sm text-muted-foreground">
+                  Validate that service locations are valid Swiss addresses
+                </p>
+              </div>
+              <Switch
+                id="swiss-address"
+                checked={localSettings.enableSwissAddressValidation}
+                onCheckedChange={(checked) =>
+                  setLocalSettings({ ...localSettings, enableSwissAddressValidation: checked })
+                }
+                data-testid="switch-swiss-validation"
+              />
+            </div>
+
+            <div className="flex items-center justify-between" data-testid="setting-ai-validation">
+              <div className="space-y-0.5">
+                <Label htmlFor="ai-category">Enable AI Category Validation</Label>
+                <p className="text-sm text-muted-foreground">
+                  Use AI to validate and suggest category improvements (requires OpenAI API key)
+                </p>
+              </div>
+              <Switch
+                id="ai-category"
+                checked={localSettings.enableAiCategoryValidation}
+                onCheckedChange={(checked) =>
+                  setLocalSettings({ ...localSettings, enableAiCategoryValidation: checked })
+                }
+                data-testid="switch-ai-validation"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSaveVerificationSettings}
+              disabled={isSavingSettings}
+              data-testid="button-save-verification-settings"
+            >
+              {isSavingSettings ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Verification Settings"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>API Configuration</CardTitle>
+          <CardDescription>
+            Configure API keys for third-party services (stored as environment variables)
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Alert data-testid="alert-api-keys-info">
+            <AlertDescription>
+              API keys are stored as environment variables for security. Enter values below and click Save to configure. Leave fields empty to keep existing values.
+            </AlertDescription>
+          </Alert>
+
+          <div className="space-y-4">
+            <div className="border-b pb-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                Twilio Configuration
+                <Badge variant={isConfigured("twilio") ? "default" : "secondary"} data-testid="badge-twilio-status">
+                  {isConfigured("twilio") ? "✓ Configured" : "✗ Not Configured"}
+                </Badge>
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="twilio-sid">Account SID</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="twilio-sid"
+                      type={showApiKeys.twilioSid ? "text" : "password"}
+                      value={apiKeys.twilioAccountSid}
+                      onChange={(e) => setApiKeys({ ...apiKeys, twilioAccountSid: e.target.value })}
+                      placeholder="Enter Twilio Account SID"
+                      data-testid="input-twilio-sid"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowApiKeys({ ...showApiKeys, twilioSid: !showApiKeys.twilioSid })}
+                      data-testid="button-toggle-twilio-sid"
+                    >
+                      {showApiKeys.twilioSid ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="twilio-token">Auth Token</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="twilio-token"
+                      type={showApiKeys.twilioToken ? "text" : "password"}
+                      value={apiKeys.twilioAuthToken}
+                      onChange={(e) => setApiKeys({ ...apiKeys, twilioAuthToken: e.target.value })}
+                      placeholder="Enter Twilio Auth Token"
+                      data-testid="input-twilio-token"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowApiKeys({ ...showApiKeys, twilioToken: !showApiKeys.twilioToken })}
+                      data-testid="button-toggle-twilio-token"
+                    >
+                      {showApiKeys.twilioToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="twilio-phone">Phone Number</Label>
+                  <Input
+                    id="twilio-phone"
+                    type="text"
+                    value={apiKeys.twilioPhoneNumber}
+                    onChange={(e) => setApiKeys({ ...apiKeys, twilioPhoneNumber: e.target.value })}
+                    placeholder="+41 XX XXX XX XX"
+                    data-testid="input-twilio-phone"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                Email Service Configuration
+                <Badge variant={isConfigured("email") ? "default" : "secondary"} data-testid="badge-email-status">
+                  {isConfigured("email") ? "✓ Configured" : "✗ Not Configured"}
+                </Badge>
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="email-provider">Email Service Provider</Label>
+                  <Select
+                    value={apiKeys.emailServiceProvider}
+                    onValueChange={(value) => setApiKeys({ ...apiKeys, emailServiceProvider: value })}
+                  >
+                    <SelectTrigger id="email-provider" data-testid="select-email-provider">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sendgrid">SendGrid</SelectItem>
+                      <SelectItem value="mailgun">Mailgun</SelectItem>
+                      <SelectItem value="ses">AWS SES</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="email-api-key">API Key</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="email-api-key"
+                      type={showApiKeys.emailKey ? "text" : "password"}
+                      value={apiKeys.emailServiceApiKey}
+                      onChange={(e) => setApiKeys({ ...apiKeys, emailServiceApiKey: e.target.value })}
+                      placeholder="Enter Email Service API Key"
+                      data-testid="input-email-api-key"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowApiKeys({ ...showApiKeys, emailKey: !showApiKeys.emailKey })}
+                      data-testid="button-toggle-email-key"
+                    >
+                      {showApiKeys.emailKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSaveApiKeys}
+              disabled={isSavingApiKeys}
+              data-testid="button-save-api-keys"
+            >
+              {isSavingApiKeys ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save API Keys"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

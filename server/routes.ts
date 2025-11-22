@@ -5,10 +5,25 @@ import { db } from "./db";
 import { users } from "@shared/schema";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
-import { insertServiceSchema, insertReviewSchema, insertCategorySchema, insertSubmittedCategorySchema, insertPlanSchema } from "@shared/schema";
+import { 
+  insertServiceSchema, 
+  insertReviewSchema, 
+  insertCategorySchema, 
+  insertSubmittedCategorySchema, 
+  insertPlanSchema,
+  insertServiceContactSchema,
+  insertTemporaryCategorySchema,
+  insertAiConversationSchema,
+} from "@shared/schema";
 import { categorizeService } from "./aiService";
+import { getAdminAssistance } from "./aiAdminService";
+import { getUserSupport } from "./aiUserSupportService";
+import { validateCategoryName, suggestCategoryAlternative } from "./aiCategoryService";
+import { validateSwissAddress } from "./swissAddressService";
+import { sendVerificationCode } from "./contactVerificationService";
 import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -77,10 +92,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Category routes
-  app.get('/api/categories', async (_req, res) => {
+  app.get('/api/categories', async (req: any, res) => {
     try {
       const categories = await storage.getCategories();
-      res.json(categories);
+      
+      // Include temporary categories for authenticated users
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        const userId = req.user.claims.sub;
+        const tempCategories = await storage.getTemporaryCategories(userId);
+        
+        // Format temporary categories to match category structure
+        const formattedTempCategories = tempCategories.map(tc => ({
+          id: tc.id,
+          name: `${tc.name} (Temporary)`,
+          slug: tc.slug,
+          icon: tc.icon,
+          createdAt: tc.createdAt,
+          isTemporary: true,
+          expiresAt: tc.expiresAt,
+        }));
+        
+        // Combine permanent and temporary categories
+        const allCategories = [...categories, ...formattedTempCategories];
+        res.json(allCategories);
+      } else {
+        res.json(categories);
+      }
     } catch (error) {
       console.error("Error fetching categories:", error);
       res.status(500).json({ message: "Failed to fetch categories" });
@@ -532,6 +569,421 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting plan:", error);
       res.status(500).json({ message: "Failed to delete plan" });
+    }
+  });
+
+  // AI Routes
+  app.post('/api/ai/admin-assist', isAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        query: z.string().min(1, "Query is required"),
+        context: z.object({
+          currentPage: z.string().optional(),
+          recentActions: z.array(z.string()).optional(),
+          platformStats: z.any().optional(),
+        }).optional(),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant", "system"]),
+          content: z.string(),
+        })).optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const response = await getAdminAssistance(validated);
+      res.json({ response });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error getting admin assistance:", error);
+      res.status(500).json({ message: "Failed to get AI assistance" });
+    }
+  });
+
+  app.post('/api/ai/user-support', async (req: any, res) => {
+    try {
+      const schema = z.object({
+        query: z.string().min(1, "Query is required"),
+        userContext: z.object({
+          isAuthenticated: z.boolean(),
+          hasServices: z.boolean().optional(),
+          plan: z.string().optional(),
+        }).optional(),
+        conversationHistory: z.array(z.object({
+          role: z.enum(["user", "assistant", "system"]),
+          content: z.string(),
+        })).optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      
+      // Enhance user context if authenticated
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        const userId = req.user.claims.sub;
+        const user = await storage.getUser(userId);
+        const userServices = await storage.getServices({ ownerId: userId });
+        
+        validated.userContext = {
+          isAuthenticated: true,
+          hasServices: userServices.length > 0,
+          plan: user?.plan?.name,
+        };
+      } else {
+        validated.userContext = {
+          isAuthenticated: false,
+        };
+      }
+
+      const response = await getUserSupport(validated);
+      res.json({ response });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error getting user support:", error);
+      res.status(500).json({ message: "Failed to get AI support" });
+    }
+  });
+
+  app.post('/api/ai/validate-category', async (req, res) => {
+    try {
+      const schema = z.object({
+        categoryName: z.string().min(1, "Category name is required"),
+        description: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const result = await validateCategoryName(validated.categoryName, validated.description);
+      res.json(result);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error validating category:", error);
+      res.status(500).json({ message: "Failed to validate category" });
+    }
+  });
+
+  app.post('/api/ai/suggest-category-alternative', async (req, res) => {
+    try {
+      const schema = z.object({
+        categoryName: z.string().min(1, "Category name is required"),
+        userFeedback: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const suggestions = await suggestCategoryAlternative(validated.categoryName, validated.userFeedback);
+      res.json({ suggestions });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error suggesting category alternative:", error);
+      res.status(500).json({ message: "Failed to suggest alternatives" });
+    }
+  });
+
+  // Platform Settings Routes
+  app.get('/api/settings', async (_req, res) => {
+    try {
+      const settings = await storage.getPlatformSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.patch('/api/admin/settings', isAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        requireEmailVerification: z.boolean().optional(),
+        requirePhoneVerification: z.boolean().optional(),
+        enableSwissAddressValidation: z.boolean().optional(),
+        enableAiCategoryValidation: z.boolean().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const settings = await storage.updatePlatformSettings(validated);
+      res.json(settings);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating settings:", error);
+      res.status(500).json({ message: "Failed to update settings" });
+    }
+  });
+
+  app.get('/api/admin/env-status', isAdmin, async (_req, res) => {
+    try {
+      const status = {
+        twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
+        emailConfigured: !!(process.env.EMAIL_SERVICE_PROVIDER && process.env.EMAIL_SERVICE_API_KEY),
+      };
+      res.json(status);
+    } catch (error) {
+      console.error("Error checking env status:", error);
+      res.status(500).json({ message: "Failed to check env status" });
+    }
+  });
+
+  // Service Contacts Routes
+  app.get('/api/services/:serviceId/contacts', async (req, res) => {
+    try {
+      const contacts = await storage.getServiceContacts(req.params.serviceId);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Error fetching service contacts:", error);
+      res.status(500).json({ message: "Failed to fetch contacts" });
+    }
+  });
+
+  app.post('/api/services/:serviceId/contacts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check ownership
+      const service = await storage.getService(req.params.serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      if (service.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const validated = insertServiceContactSchema.parse({
+        ...req.body,
+        serviceId: req.params.serviceId,
+      });
+
+      const contact = await storage.createServiceContact(validated);
+      res.status(201).json(contact);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error creating service contact:", error);
+      res.status(500).json({ message: "Failed to create contact" });
+    }
+  });
+
+  app.patch('/api/contacts/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get contact and check ownership through service
+      const contacts = await storage.getServiceContacts('');
+      const contact = contacts.find(c => c.id === req.params.id);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      const service = await storage.getService(contact.serviceId);
+      if (!service || service.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const schema = z.object({
+        name: z.string().optional(),
+        role: z.string().optional(),
+        isPrimary: z.boolean().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const updatedContact = await storage.updateServiceContact(req.params.id, validated);
+      res.json(updatedContact);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating contact:", error);
+      res.status(500).json({ message: "Failed to update contact" });
+    }
+  });
+
+  app.delete('/api/contacts/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Get contact and check ownership through service
+      const contacts = await storage.getServiceContacts('');
+      const contact = contacts.find(c => c.id === req.params.id);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      const service = await storage.getService(contact.serviceId);
+      if (!service || service.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      await storage.deleteServiceContact(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting contact:", error);
+      res.status(500).json({ message: "Failed to delete contact" });
+    }
+  });
+
+  app.post('/api/contacts/:id/send-verification', async (req, res) => {
+    try {
+      // Get contact details
+      const contacts = await storage.getServiceContacts('');
+      const contact = contacts.find(c => c.id === req.params.id);
+      
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+
+      // Send verification code
+      const { code, expiresAt } = await sendVerificationCode(contact.contactType, contact.value);
+      
+      // Store code in database
+      await storage.updateServiceContact(req.params.id, {
+        verificationCode: code,
+        verificationExpiresAt: expiresAt,
+      });
+
+      res.json({ success: true, message: "Verification code sent" });
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      res.status(500).json({ message: "Failed to send verification code" });
+    }
+  });
+
+  app.post('/api/contacts/:id/verify', async (req, res) => {
+    try {
+      const schema = z.object({
+        code: z.string().min(6, "Verification code is required"),
+      });
+
+      const validated = schema.parse(req.body);
+      const success = await storage.verifyServiceContact(req.params.id, validated.code);
+      
+      if (success) {
+        res.json({ success: true, message: "Contact verified successfully" });
+      } else {
+        res.status(400).json({ success: false, message: "Invalid or expired verification code" });
+      }
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error verifying contact:", error);
+      res.status(500).json({ message: "Failed to verify contact" });
+    }
+  });
+
+  // Temporary Categories Routes
+  app.get('/api/temporary-categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const tempCategories = await storage.getTemporaryCategories(userId);
+      res.json(tempCategories);
+    } catch (error) {
+      console.error("Error fetching temporary categories:", error);
+      res.status(500).json({ message: "Failed to fetch temporary categories" });
+    }
+  });
+
+  app.post('/api/temporary-categories', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Set expiry to 24 hours from now
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24);
+
+      const validated = insertTemporaryCategorySchema.parse({
+        ...req.body,
+        userId,
+        expiresAt,
+      });
+
+      const tempCategory = await storage.createTemporaryCategory(validated);
+      res.status(201).json(tempCategory);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error creating temporary category:", error);
+      res.status(500).json({ message: "Failed to create temporary category" });
+    }
+  });
+
+  app.delete('/api/temporary-categories/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Check ownership
+      const tempCategories = await storage.getTemporaryCategories(userId);
+      const tempCategory = tempCategories.find(c => c.id === req.params.id);
+      
+      if (!tempCategory) {
+        return res.status(404).json({ message: "Temporary category not found" });
+      }
+
+      await storage.deleteTemporaryCategory(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting temporary category:", error);
+      res.status(500).json({ message: "Failed to delete temporary category" });
+    }
+  });
+
+  // AI Conversations Routes
+  app.get('/api/ai/conversations', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { type } = req.query;
+      const conversations = await storage.getAiConversations(userId, type as string | undefined);
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching AI conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  app.get('/api/ai/conversations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const conversation = await storage.getAiConversation(req.params.id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+
+      // Check ownership
+      if (conversation.userId && conversation.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error fetching AI conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  // Address Validation Route
+  app.post('/api/validate-address', async (req, res) => {
+    try {
+      const schema = z.object({
+        address: z.string().min(1, "Address is required"),
+      });
+
+      const validated = schema.parse(req.body);
+      const result = await validateSwissAddress(validated.address);
+      res.json(result);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error validating address:", error);
+      res.status(500).json({ message: "Failed to validate address" });
     }
   });
 

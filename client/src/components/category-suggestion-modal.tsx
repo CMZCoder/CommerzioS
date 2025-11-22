@@ -8,17 +8,90 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Lightbulb } from "lucide-react";
+import { CategoryValidationDialog } from "./category-validation-dialog";
 
 interface CategorySuggestionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCategoryCreated?: (categoryId: string) => void;
 }
 
-export function CategorySuggestionModal({ open, onOpenChange }: CategorySuggestionModalProps) {
+interface ValidationResult {
+  isValid: boolean;
+  suggestedName?: string;
+  reasoning: string;
+  confidence: number;
+}
+
+export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated }: CategorySuggestionModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [categoryName, setCategoryName] = useState("");
   const [categoryDescription, setCategoryDescription] = useState("");
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  const [showValidationDialog, setShowValidationDialog] = useState(false);
+
+  // Helper function to generate unique slug with timestamp
+  const generateUniqueSlug = (name: string) => {
+    const baseSlug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits for uniqueness
+    return `${baseSlug}-${timestamp}`;
+  };
+
+  const validateCategoryMutation = useMutation({
+    mutationFn: (data: { categoryName: string; description?: string }) =>
+      apiRequest<ValidationResult>("/api/ai/validate-category", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (result) => {
+      if (result.isValid && result.confidence > 0.7) {
+        // AI says it's valid - create temporary category directly
+        createTemporaryCategoryMutation.mutate({
+          name: categoryName.trim(),
+          slug: generateUniqueSlug(categoryName.trim()),
+        });
+      } else {
+        // AI says it's invalid - show validation dialog
+        setValidationResult(result);
+        setShowValidationDialog(true);
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Validation Error",
+        description: error.message || "Failed to validate category. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createTemporaryCategoryMutation = useMutation({
+    mutationFn: (data: { name: string; slug: string }) =>
+      apiRequest("/api/temporary-categories", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      toast({
+        title: "Temporary Category Created!",
+        description: "Your category has been created and will be available for 24 hours while we review it.",
+      });
+      if (onCategoryCreated) {
+        onCategoryCreated(data.id);
+      }
+      resetForm();
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create temporary category",
+        variant: "destructive",
+      });
+    },
+  });
 
   const submitCategoryMutation = useMutation({
     mutationFn: (data: { name: string; description: string }) =>
@@ -29,11 +102,11 @@ export function CategorySuggestionModal({ open, onOpenChange }: CategorySuggesti
     onSuccess: () => {
       toast({
         title: "Category Suggested!",
-        description: "Your category suggestion has been submitted for review.",
+        description: "Your category suggestion has been submitted for admin review.",
       });
-      setCategoryName("");
-      setCategoryDescription("");
+      resetForm();
       onOpenChange(false);
+      setShowValidationDialog(false);
     },
     onError: (error: Error) => {
       toast({
@@ -44,83 +117,129 @@ export function CategorySuggestionModal({ open, onOpenChange }: CategorySuggesti
     },
   });
 
+  const resetForm = () => {
+    setCategoryName("");
+    setCategoryDescription("");
+    setValidationResult(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (categoryName.trim() && categoryDescription.trim()) {
-      submitCategoryMutation.mutate({ 
-        name: categoryName.trim(),
+      // First validate with AI
+      validateCategoryMutation.mutate({ 
+        categoryName: categoryName.trim(),
         description: categoryDescription.trim()
       });
     }
   };
 
+  const handleUseSuggestedName = () => {
+    if (!validationResult?.suggestedName) return;
+    
+    createTemporaryCategoryMutation.mutate({
+      name: validationResult.suggestedName,
+      slug: generateUniqueSlug(validationResult.suggestedName),
+    });
+    setShowValidationDialog(false);
+  };
+
+  const handleSubmitForReview = () => {
+    submitCategoryMutation.mutate({
+      name: categoryName.trim(),
+      description: categoryDescription.trim(),
+    });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-yellow-500" />
-            Suggest a New Category
-          </DialogTitle>
-          <DialogDescription>
-            Can't find the right category for your service? Suggest a new one and we'll review it.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-yellow-500" />
+              Suggest a New Category
+            </DialogTitle>
+            <DialogDescription>
+              Can't find the right category for your service? Suggest a new one and our AI will help validate it.
+            </DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="category-name">Category Name *</Label>
-            <Input
-              id="category-name"
-              type="text"
-              placeholder="e.g., Pet Grooming, Home Renovation"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              required
-              maxLength={100}
-              data-testid="input-suggest-category-name"
-            />
-            <p className="text-sm text-muted-foreground">
-              Provide a clear, descriptive name for the category
-            </p>
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="category-name">Category Name *</Label>
+              <Input
+                id="category-name"
+                type="text"
+                placeholder="e.g., Pet Grooming, Home Renovation"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                required
+                maxLength={100}
+                data-testid="input-suggest-category-name"
+              />
+              <p className="text-sm text-muted-foreground">
+                Provide a clear, descriptive name for the category
+              </p>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="category-description">Description *</Label>
-            <Textarea
-              id="category-description"
-              placeholder="Explain what types of services would fit in this category..."
-              value={categoryDescription}
-              onChange={(e) => setCategoryDescription(e.target.value)}
-              required
-              maxLength={500}
-              rows={4}
-              data-testid="input-suggest-category-description"
-            />
-            <p className="text-sm text-muted-foreground">
-              Help us understand the purpose and scope of this category (10-500 characters)
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="category-description">Description *</Label>
+              <Textarea
+                id="category-description"
+                placeholder="Explain what types of services would fit in this category..."
+                value={categoryDescription}
+                onChange={(e) => setCategoryDescription(e.target.value)}
+                required
+                maxLength={500}
+                rows={4}
+                data-testid="input-suggest-category-description"
+              />
+              <p className="text-sm text-muted-foreground">
+                Help us understand the purpose and scope of this category (10-500 characters)
+              </p>
+            </div>
 
-          <div className="flex gap-2 justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-cancel-category-suggestion"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!categoryName.trim() || !categoryDescription.trim() || submitCategoryMutation.isPending}
-              data-testid="button-submit-category-suggestion"
-            >
-              {submitCategoryMutation.isPending ? "Submitting..." : "Submit Suggestion"}
-            </Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-category-suggestion"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !categoryName.trim() || 
+                  !categoryDescription.trim() || 
+                  validateCategoryMutation.isPending ||
+                  createTemporaryCategoryMutation.isPending
+                }
+                data-testid="button-submit-category-suggestion"
+              >
+                {validateCategoryMutation.isPending || createTemporaryCategoryMutation.isPending 
+                  ? "Validating..." 
+                  : "Submit Suggestion"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {validationResult && (
+        <CategoryValidationDialog
+          open={showValidationDialog}
+          onOpenChange={setShowValidationDialog}
+          originalName={categoryName}
+          aiSuggestedName={validationResult.suggestedName}
+          aiReasoning={validationResult.reasoning}
+          onUseSuggested={handleUseSuggestedName}
+          onSubmitForReview={handleSubmitForReview}
+          isProcessing={createTemporaryCategoryMutation.isPending || submitCategoryMutation.isPending}
+        />
+      )}
+    </>
   );
 }

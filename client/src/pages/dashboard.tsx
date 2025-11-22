@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import type { Service } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
+import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
 
 export default function Dashboard() {
   const { toast } = useToast();
@@ -20,6 +21,8 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingService, setEditingService] = useState<ServiceWithDetails | null>(null);
+  const [showCategorySuggestionModal, setShowCategorySuggestionModal] = useState(false);
+  const [pendingCategoryCallback, setPendingCategoryCallback] = useState<((categoryId: string) => void) | null>(null);
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -353,12 +356,22 @@ export default function Dashboard() {
       <CreateServiceModal 
         open={showCreateModal} 
         onOpenChange={setShowCreateModal}
-        onSuggestCategory={() => {}}
+        onSuggestCategory={() => setShowCategorySuggestionModal(true)}
       />
       <EditServiceModal 
         open={!!editingService} 
         onOpenChange={(open) => !open && setEditingService(null)} 
         service={editingService}
+      />
+      <CategorySuggestionModal
+        open={showCategorySuggestionModal}
+        onOpenChange={setShowCategorySuggestionModal}
+        onCategoryCreated={(categoryId) => {
+          if (pendingCategoryCallback) {
+            pendingCategoryCallback(categoryId);
+            setPendingCategoryCallback(null);
+          }
+        }}
       />
     </Layout>
   );

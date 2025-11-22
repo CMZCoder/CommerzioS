@@ -6,6 +6,10 @@ import {
   favorites,
   submittedCategories,
   plans,
+  platformSettings,
+  serviceContacts,
+  aiConversations,
+  temporaryCategories,
   type User,
   type UpsertUser,
   type Category,
@@ -20,6 +24,14 @@ import {
   type InsertSubmittedCategory,
   type Plan,
   type InsertPlan,
+  type PlatformSettings,
+  type InsertPlatformSettings,
+  type ServiceContact,
+  type InsertServiceContact,
+  type AiConversation,
+  type InsertAiConversation,
+  type TemporaryCategory,
+  type InsertTemporaryCategory,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
@@ -74,6 +86,30 @@ export interface IStorage {
   submitCategory(category: InsertSubmittedCategory): Promise<SubmittedCategory>;
   getCategorySuggestions(status?: string): Promise<Array<SubmittedCategory & { user: User }>>;
   updateCategorySuggestionStatus(id: string, status: string): Promise<SubmittedCategory | undefined>;
+
+  // Platform settings operations
+  getPlatformSettings(): Promise<PlatformSettings | undefined>;
+  updatePlatformSettings(settings: Partial<InsertPlatformSettings>): Promise<PlatformSettings>;
+
+  // Service contacts operations
+  getServiceContacts(serviceId: string): Promise<ServiceContact[]>;
+  createServiceContact(contact: InsertServiceContact): Promise<ServiceContact>;
+  updateServiceContact(id: string, contact: Partial<InsertServiceContact>): Promise<ServiceContact | undefined>;
+  deleteServiceContact(id: string): Promise<void>;
+  verifyServiceContact(id: string, code: string): Promise<boolean>;
+
+  // AI conversation operations
+  getAiConversation(id: string): Promise<AiConversation | undefined>;
+  getAiConversations(userId?: string, type?: string): Promise<AiConversation[]>;
+  createAiConversation(conversation: InsertAiConversation): Promise<AiConversation>;
+  updateAiConversation(id: string, conversation: Partial<InsertAiConversation>): Promise<AiConversation | undefined>;
+  
+  // Temporary category operations
+  getTemporaryCategories(userId?: string): Promise<TemporaryCategory[]>;
+  createTemporaryCategory(category: InsertTemporaryCategory): Promise<TemporaryCategory>;
+  deleteTemporaryCategory(id: string): Promise<void>;
+  cleanupExpiredTemporaryCategories(): Promise<void>;
+  getAllUsers(): Promise<User[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -448,6 +484,138 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(desc(users.createdAt));
+  }
+
+  // Platform settings operations
+  async getPlatformSettings(): Promise<PlatformSettings | undefined> {
+    const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'default'));
+    if (!settings) {
+      const [newSettings] = await db.insert(platformSettings).values({ id: 'default' }).returning();
+      return newSettings;
+    }
+    return settings;
+  }
+
+  async updatePlatformSettings(settingsData: Partial<InsertPlatformSettings>): Promise<PlatformSettings> {
+    const [settings] = await db
+      .insert(platformSettings)
+      .values({ id: 'default', ...settingsData, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: platformSettings.id,
+        set: { ...settingsData, updatedAt: new Date() },
+      })
+      .returning();
+    return settings;
+  }
+
+  // Service contacts operations
+  async getServiceContacts(serviceId: string): Promise<ServiceContact[]> {
+    return await db
+      .select()
+      .from(serviceContacts)
+      .where(eq(serviceContacts.serviceId, serviceId))
+      .orderBy(desc(serviceContacts.isPrimary), serviceContacts.createdAt);
+  }
+
+  async createServiceContact(contact: InsertServiceContact): Promise<ServiceContact> {
+    const [newContact] = await db.insert(serviceContacts).values(contact).returning();
+    return newContact;
+  }
+
+  async updateServiceContact(id: string, contactData: Partial<InsertServiceContact>): Promise<ServiceContact | undefined> {
+    const [contact] = await db
+      .update(serviceContacts)
+      .set(contactData)
+      .where(eq(serviceContacts.id, id))
+      .returning();
+    return contact;
+  }
+
+  async deleteServiceContact(id: string): Promise<void> {
+    await db.delete(serviceContacts).where(eq(serviceContacts.id, id));
+  }
+
+  async verifyServiceContact(id: string, code: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [contact] = await tx
+        .select()
+        .from(serviceContacts)
+        .where(and(
+          eq(serviceContacts.id, id),
+          eq(serviceContacts.verificationCode, code)
+        ));
+      
+      if (!contact || !contact.verificationExpiresAt) return false;
+      if (new Date() > contact.verificationExpiresAt) return false;
+
+      await tx
+        .update(serviceContacts)
+        .set({ isVerified: true, verificationCode: null, verificationExpiresAt: null })
+        .where(eq(serviceContacts.id, id));
+
+      return true;
+    });
+  }
+
+  // AI conversation operations
+  async getAiConversation(id: string): Promise<AiConversation | undefined> {
+    const [conversation] = await db.select().from(aiConversations).where(eq(aiConversations.id, id));
+    return conversation;
+  }
+
+  async getAiConversations(userId?: string, type?: string): Promise<AiConversation[]> {
+    let query = db.select().from(aiConversations).$dynamic();
+    
+    if (userId) {
+      query = query.where(eq(aiConversations.userId, userId));
+    }
+    if (type) {
+      query = query.where(eq(aiConversations.conversationType, type as any));
+    }
+    
+    return await query.orderBy(desc(aiConversations.updatedAt));
+  }
+
+  async createAiConversation(conversation: InsertAiConversation): Promise<AiConversation> {
+    const [newConversation] = await db.insert(aiConversations).values(conversation).returning();
+    return newConversation;
+  }
+
+  async updateAiConversation(id: string, conversationData: Partial<InsertAiConversation>): Promise<AiConversation | undefined> {
+    const [conversation] = await db
+      .update(aiConversations)
+      .set({ ...conversationData, updatedAt: new Date() })
+      .where(eq(aiConversations.id, id))
+      .returning();
+    return conversation;
+  }
+
+  // Temporary category operations
+  async getTemporaryCategories(userId?: string): Promise<TemporaryCategory[]> {
+    let query = db.select().from(temporaryCategories).$dynamic();
+    
+    if (userId) {
+      query = query.where(eq(temporaryCategories.userId, userId));
+    }
+    
+    return await query.where(sql`${temporaryCategories.expiresAt} > now()`).orderBy(temporaryCategories.createdAt);
+  }
+
+  async createTemporaryCategory(category: InsertTemporaryCategory): Promise<TemporaryCategory> {
+    const [newCategory] = await db.insert(temporaryCategories).values(category).returning();
+    return newCategory;
+  }
+
+  async deleteTemporaryCategory(id: string): Promise<void> {
+    await db.delete(temporaryCategories).where(eq(temporaryCategories.id, id));
+  }
+
+  async cleanupExpiredTemporaryCategories(): Promise<void> {
+    await db.delete(temporaryCategories).where(sql`${temporaryCategories.expiresAt} <= NOW()`);
   }
 }
 

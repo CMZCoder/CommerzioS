@@ -50,3 +50,12 @@ waitForPort = 5000
 [agent]
 mockupState = "FULLSTACK"
 integrations = ["javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0", "javascript_openai:1.0.0", "javascript_object_storage:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+TWILIO_ACCOUNT_SID = "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+TWILIO_AUTH_TOKEN = "your_auth_token_here"
+TWILIO_PHONE_NUMBER = "+41123456789"
+EMAIL_SERVICE_PROVIDER = "sendgrid"
+EMAIL_SERVICE_API_KEY = "SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

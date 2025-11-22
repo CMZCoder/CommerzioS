@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, type ServiceWithDetails } from "@/lib/api";
+import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -9,9 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus } from "lucide-react";
-import type { Category } from "@shared/schema";
+import { X, Plus, AlertCircle } from "lucide-react";
+import type { PlatformSettings } from "@shared/schema";
 import { ImageManager } from "@/components/image-manager";
+import { ContactInput, type Contact } from "@/components/contact-input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface CreateServiceModalProps {
   open: boolean;
@@ -35,34 +37,105 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
     priceList: [] as Array<{ description: string; price: string; unit: string }>,
     priceUnit: "hour",
     locations: [""],
-    contactPhone: "",
-    contactEmail: "",
+    contacts: [] as Contact[],
     images: [] as string[],
     imageMetadata: [] as Array<any>,
     mainImageIndex: 0,
   });
   const [draftSaved, setDraftSaved] = useState(false);
+  const [validatingAddresses, setValidatingAddresses] = useState(false);
+  const [addressErrors, setAddressErrors] = useState<string[]>([]);
 
-  // Calculate max images based on user's plan (default to basic plan limits if no plan)
   const maxImages = user?.plan?.maxImages || 4;
 
-  const { data: categories = [] } = useQuery<Category[]>({
+  const { data: categories = [] } = useQuery<CategoryWithTemporary[]>({
     queryKey: ["/api/categories"],
     queryFn: () => apiRequest("/api/categories"),
   });
 
+  const { data: settings } = useQuery<PlatformSettings>({
+    queryKey: ["/api/settings"],
+    queryFn: () => apiRequest("/api/settings"),
+  });
+
+  // Initialize contacts with user's profile data
+  useEffect(() => {
+    if (user && formData.contacts.length === 0) {
+      const initialContacts: Contact[] = [];
+      
+      if (user.phone) {
+        initialContacts.push({
+          contactType: "phone",
+          value: user.phone,
+          isPrimary: true,
+          isVerified: user.phoneVerified,
+        });
+      }
+      
+      if (user.email) {
+        initialContacts.push({
+          contactType: "email",
+          value: user.email,
+          isPrimary: initialContacts.length === 0,
+          isVerified: user.emailVerified,
+        });
+      }
+      
+      if (initialContacts.length === 0) {
+        initialContacts.push({
+          contactType: "email",
+          value: "",
+          isPrimary: true,
+        });
+      }
+      
+      setFormData(prev => ({ ...prev, contacts: initialContacts }));
+    }
+  }, [user]);
+
   const createServiceMutation = useMutation({
-    mutationFn: (data: typeof formData) =>
-      apiRequest("/api/services", {
+    mutationFn: async (data: typeof formData) => {
+      // First create the service
+      const service = await apiRequest("/api/services", {
         method: "POST",
         body: JSON.stringify({
-          ...data,
+          title: data.title,
+          description: data.description,
+          categoryId: data.categoryId,
+          priceType: data.priceType,
+          price: data.priceType === "fixed" ? data.price : undefined,
+          priceText: data.priceType === "text" ? data.priceText : undefined,
+          priceList: data.priceType === "list" ? data.priceList : undefined,
+          priceUnit: data.priceUnit,
+          locations: data.locations.filter(l => l.trim()),
+          images: data.images,
+          imageMetadata: data.imageMetadata,
+          mainImageIndex: data.mainImageIndex,
           status: "active",
-          priceList: formData.priceType === "list" ? formData.priceList : undefined,
-          price: formData.priceType === "fixed" ? formData.price : undefined,
-          priceText: formData.priceType === "text" ? formData.priceText : undefined,
+          // Keep old fields for backward compatibility
+          contactPhone: data.contacts.find(c => c.contactType === "phone")?.value || "",
+          contactEmail: data.contacts.find(c => c.contactType === "email")?.value || "",
         }),
-      }),
+      });
+
+      // Then create contacts
+      for (const contact of data.contacts) {
+        if (contact.value.trim()) {
+          await apiRequest(`/api/services/${service.id}/contacts`, {
+            method: "POST",
+            body: JSON.stringify({
+              contactType: contact.contactType,
+              value: contact.value,
+              name: contact.name || undefined,
+              role: contact.role || undefined,
+              isPrimary: contact.isPrimary || false,
+            }),
+          });
+        }
+      }
+
+      return service;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
@@ -92,15 +165,14 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
       priceList: [],
       priceUnit: "hour",
       locations: [""],
-      contactPhone: "",
-      contactEmail: "",
+      contacts: [],
       images: [],
       imageMetadata: [],
       mainImageIndex: 0,
     });
     setDraftSaved(false);
+    setAddressErrors([]);
   };
-
 
   const addLocation = () => {
     setFormData((prev) => ({
@@ -146,24 +218,95 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const addContact = () => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: [...prev.contacts, { contactType: "email", value: "", isPrimary: false }],
+    }));
+  };
+
+  const updateContact = (index: number, field: keyof Contact, value: any) => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: prev.contacts.map((contact, i) =>
+        i === index ? { ...contact, [field]: value } : contact
+      ),
+    }));
+  };
+
+  const removeContact = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: prev.contacts.filter((_, i) => i !== index),
+    }));
+  };
+
+  const validateAddresses = async (): Promise<boolean> => {
+    const validLocations = formData.locations.filter(l => l.trim());
+    if (validLocations.length === 0) return false;
+
+    setValidatingAddresses(true);
+    setAddressErrors([]);
+    const errors: string[] = [];
+
+    try {
+      for (const location of validLocations) {
+        try {
+          const result = await apiRequest("/api/validate-address", {
+            method: "POST",
+            body: JSON.stringify({ address: location }),
+          });
+
+          if (!result.isSwiss) {
+            errors.push(`"${location}" is not a valid Swiss address. ${result.suggestion || ""}`);
+          }
+        } catch (error) {
+          errors.push(`Failed to validate "${location}"`);
+        }
+      }
+
+      setAddressErrors(errors);
+      return errors.length === 0;
+    } finally {
+      setValidatingAddresses(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     const validLocations = formData.locations.filter((l) => l.trim());
+    const validContacts = formData.contacts.filter((c) => c.value.trim());
+
+    // Validate addresses FIRST if enabled (before any other checks)
+    if (settings?.enableSwissAddressValidation) {
+      const addressesValid = await validateAddresses();
+      if (!addressesValid) {
+        toast({
+          title: "Address Validation Failed",
+          description: "Please correct the address errors below",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Then validate other required fields
     if (
       !formData.title ||
       !formData.description ||
       !formData.categoryId ||
-      !formData.contactPhone ||
-      !formData.contactEmail ||
-      validLocations.length === 0
+      validLocations.length === 0 ||
+      validContacts.length === 0
     ) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including at least one contact",
         variant: "destructive",
       });
       return;
     }
+
     createServiceMutation.mutate({ ...formData, locations: validLocations });
   };
 
@@ -176,6 +319,8 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
     });
     setTimeout(() => setDraftSaved(false), 3000);
   };
+
+  const verificationEnabled = settings?.requireEmailVerification || settings?.requirePhoneVerification;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,7 +335,7 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
               <TabsTrigger value="pricing">Pricing & Location</TabsTrigger>
-              <TabsTrigger value="media">Images & Contact</TabsTrigger>
+              <TabsTrigger value="media">Images & Contacts</TabsTrigger>
             </TabsList>
 
             {/* Basic Info Tab */}
@@ -373,10 +518,22 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
                     <Plus className="w-4 h-4 mr-1" /> Add Location
                   </Button>
                 </div>
+                {addressErrors.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <ul className="list-disc pl-4">
+                        {addressErrors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {formData.locations.map((location, idx) => (
                   <div key={idx} className="flex gap-2">
                     <Input
-                      placeholder="City or Region"
+                      placeholder="City or Region (e.g., Zurich, Bern)"
                       value={location}
                       onChange={(e) => updateLocation(idx, e.target.value)}
                       data-testid={`input-location-${idx}`}
@@ -394,6 +551,11 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
                     )}
                   </div>
                 ))}
+                {settings?.enableSwissAddressValidation && (
+                  <p className="text-sm text-muted-foreground">
+                    Addresses will be validated to ensure they are in Switzerland
+                  </p>
+                )}
               </div>
             </TabsContent>
 
@@ -410,29 +572,39 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
                 onMainImageChange={(index) => setFormData(prev => ({ ...prev, mainImageIndex: index }))}
               />
 
-              {/* Contact */}
-              <div className="space-y-2">
-                <Label htmlFor="phone">Contact Phone *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+41 44 123 4567"
-                  value={formData.contactPhone}
-                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
-                  data-testid="input-service-phone"
-                />
-              </div>
+              {/* Contacts */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label>Contact Information *</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addContact}
+                    data-testid="button-add-contact"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Another Contact
+                  </Button>
+                </div>
+                
+                {formData.contacts.map((contact, idx) => (
+                  <ContactInput
+                    key={idx}
+                    contact={contact}
+                    index={idx}
+                    canRemove={formData.contacts.length > 1}
+                    verificationEnabled={!!verificationEnabled}
+                    showVerification={false}
+                    onUpdate={updateContact}
+                    onRemove={removeContact}
+                  />
+                ))}
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Contact Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="contact@example.com"
-                  value={formData.contactEmail}
-                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                  data-testid="input-service-email"
-                />
+                {formData.contacts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Please add at least one contact method
+                  </p>
+                )}
               </div>
             </TabsContent>
           </Tabs>
@@ -458,10 +630,10 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
             </Button>
             <Button
               type="submit"
-              disabled={createServiceMutation.isPending}
+              disabled={createServiceMutation.isPending || validatingAddresses}
               data-testid="button-submit-service"
             >
-              {createServiceMutation.isPending ? "Posting..." : "Post Service"}
+              {validatingAddresses ? "Validating..." : createServiceMutation.isPending ? "Posting..." : "Post Service"}
             </Button>
           </div>
         </form>

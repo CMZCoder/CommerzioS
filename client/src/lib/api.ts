@@ -1,5 +1,11 @@
 import type { Service, Review, Category, User, Favorite } from "@shared/schema";
 
+// Extended Category type to handle temporary categories with additional fields
+export interface CategoryWithTemporary extends Category {
+  isTemporary?: boolean;
+  expiresAt?: Date;
+}
+
 export interface ServiceWithDetails extends Service {
   owner: User;
   category: Category;

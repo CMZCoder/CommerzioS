@@ -7,8 +7,7 @@ import heroImg from "@assets/generated_images/abstract_community_connection_hero
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest, type ServiceWithDetails } from "@/lib/api";
-import type { Category } from "@shared/schema";
+import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -18,7 +17,7 @@ export default function Home() {
   const [heroSearchLoading, setHeroSearchLoading] = useState(false);
   const heroSearchRef = useRef<HTMLDivElement>(null);
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<CategoryWithTemporary[]>({
     queryKey: ["/api/categories"],
     queryFn: () => apiRequest("/api/categories"),
   });

@@ -24,6 +24,16 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
+// Platform settings table (non-sensitive settings only - API keys stored as env vars)
+export const platformSettings = pgTable("platform_settings", {
+  id: varchar("id").primaryKey().default('default'),
+  requireEmailVerification: boolean("require_email_verification").default(false).notNull(),
+  requirePhoneVerification: boolean("require_phone_verification").default(false).notNull(),
+  enableSwissAddressValidation: boolean("enable_swiss_address_validation").default(true).notNull(),
+  enableAiCategoryValidation: boolean("enable_ai_category_validation").default(true).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Plans table
 export const plans = pgTable("plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -56,7 +66,10 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone", { length: 50 }),
   isVerified: boolean("is_verified").default(false).notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  phoneVerified: boolean("phone_verified").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
   planId: varchar("plan_id").references(() => plans.id),
   marketingPackage: varchar("marketing_package", { enum: ["basic", "pro", "premium", "enterprise"] }).default("basic"),
@@ -73,6 +86,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   reviews: many(reviews),
   favorites: many(favorites),
   submittedCategories: many(submittedCategories),
+  aiConversations: many(aiConversations),
 }));
 
 // Categories table
@@ -86,6 +100,25 @@ export const categories = pgTable("categories", {
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
   services: many(services),
+}));
+
+// Temporary categories (AI-suggested, auto-expire after 24 hours)
+export const temporaryCategories = pgTable("temporary_categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  slug: varchar("slug", { length: 100 }).unique().notNull(),
+  icon: varchar("icon", { length: 50 }),
+  aiSuggested: boolean("ai_suggested").default(true).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const temporaryCategoriesRelations = relations(temporaryCategories, ({ one }) => ({
+  user: one(users, {
+    fields: [temporaryCategories.userId],
+    references: [users.id],
+  }),
 }));
 
 // User-submitted categories (pending approval)
@@ -168,6 +201,53 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   }),
   reviews: many(reviews),
   favorites: many(favorites),
+  serviceContacts: many(serviceContacts),
+}));
+
+// Service contacts table (support multiple phone/email with verification)
+export const serviceContacts = pgTable("service_contacts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  contactType: varchar("contact_type", { enum: ["phone", "email"] }).notNull(),
+  value: varchar("value", { length: 200 }).notNull(),
+  name: varchar("name", { length: 100 }),
+  role: varchar("role", { length: 100 }),
+  isPrimary: boolean("is_primary").default(false).notNull(),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  verificationCode: varchar("verification_code", { length: 10 }),
+  verificationExpiresAt: timestamp("verification_expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_service_contacts_service").on(table.serviceId),
+]);
+
+export const serviceContactsRelations = relations(serviceContacts, ({ one }) => ({
+  service: one(services, {
+    fields: [serviceContacts.serviceId],
+    references: [services.id],
+  }),
+}));
+
+// AI conversations table (track AI interactions)
+export const aiConversations = pgTable("ai_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  conversationType: varchar("conversation_type", { enum: ["admin_assist", "user_support", "category_validation"] }).notNull(),
+  messages: jsonb("messages").default(sql`'[]'::jsonb`).notNull(),
+  metadata: jsonb("metadata").default(sql`'{}'::jsonb`).notNull(),
+  status: varchar("status", { enum: ["active", "completed", "archived"] }).default("active").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ai_conversations_user").on(table.userId),
+  index("idx_ai_conversations_type").on(table.conversationType),
+]);
+
+export const aiConversationsRelations = relations(aiConversations, ({ one }) => ({
+  user: one(users, {
+    fields: [aiConversations.userId],
+    references: [users.id],
+  }),
 }));
 
 // Reviews table
@@ -220,6 +300,9 @@ export const favoritesRelations = relations(favorites, ({ one }) => ({
 export type Plan = typeof plans.$inferSelect;
 export type InsertPlan = typeof plans.$inferInsert;
 
+export type PlatformSettings = typeof platformSettings.$inferSelect;
+export type InsertPlatformSettings = typeof platformSettings.$inferInsert;
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type UserWithPlan = User & { plan?: Plan };
@@ -227,8 +310,17 @@ export type UserWithPlan = User & { plan?: Plan };
 export type Category = typeof categories.$inferSelect;
 export type InsertCategory = typeof categories.$inferInsert;
 
+export type TemporaryCategory = typeof temporaryCategories.$inferSelect;
+export type InsertTemporaryCategory = typeof temporaryCategories.$inferInsert;
+
 export type Service = typeof services.$inferSelect;
 export type InsertService = typeof services.$inferInsert;
+
+export type ServiceContact = typeof serviceContacts.$inferSelect;
+export type InsertServiceContact = typeof serviceContacts.$inferInsert;
+
+export type AiConversation = typeof aiConversations.$inferSelect;
+export type InsertAiConversation = typeof aiConversations.$inferInsert;
 
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = typeof reviews.$inferInsert;
@@ -302,6 +394,35 @@ export const insertPlanSchema = createInsertSchema(plans, {
   slug: z.string().min(3, "Slug must be at least 3 characters").max(100),
   maxImages: z.number().min(1).max(100),
   listingDurationDays: z.number().min(1).max(365),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceContactSchema = createInsertSchema(serviceContacts, {
+  value: z.string().min(1, "Contact value is required"),
+  contactType: z.enum(["phone", "email"]),
+  name: z.string().optional(),
+  role: z.string().optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+  isVerified: true,
+  verificationCode: true,
+  verificationExpiresAt: true,
+});
+
+export const insertTemporaryCategorySchema = createInsertSchema(temporaryCategories, {
+  name: z.string().min(3, "Category name must be at least 3 characters").max(100),
+  slug: z.string().min(3, "Slug must be at least 3 characters").max(100),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAiConversationSchema = createInsertSchema(aiConversations, {
+  conversationType: z.enum(["admin_assist", "user_support", "category_validation"]),
 }).omit({
   id: true,
   createdAt: true,
