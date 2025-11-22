@@ -293,9 +293,9 @@ export function EditServiceModal({ open, onOpenChange, service }: EditServiceMod
                 imageMetadata={formData.imageMetadata}
                 mainImageIndex={formData.mainImageIndex}
                 maxImages={maxImages}
-                onImagesChange={(images) => setFormData({ ...formData, images })}
-                onMetadataChange={(metadata) => setFormData({ ...formData, imageMetadata: metadata })}
-                onMainImageChange={(index) => setFormData({ ...formData, mainImageIndex: index })}
+                onImagesChange={(images) => setFormData((prev: any) => ({ ...prev, images }))}
+                onMetadataChange={(metadata) => setFormData((prev: any) => ({ ...prev, imageMetadata: metadata }))}
+                onMainImageChange={(index) => setFormData((prev: any) => ({ ...prev, mainImageIndex: index }))}
               />
 
               <div className="space-y-2">

@@ -405,9 +405,9 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
                 imageMetadata={formData.imageMetadata}
                 mainImageIndex={formData.mainImageIndex}
                 maxImages={maxImages}
-                onImagesChange={(images) => setFormData({ ...formData, images })}
-                onMetadataChange={(metadata) => setFormData({ ...formData, imageMetadata: metadata })}
-                onMainImageChange={(index) => setFormData({ ...formData, mainImageIndex: index })}
+                onImagesChange={(images) => setFormData(prev => ({ ...prev, images }))}
+                onMetadataChange={(metadata) => setFormData(prev => ({ ...prev, imageMetadata: metadata }))}
+                onMainImageChange={(index) => setFormData(prev => ({ ...prev, mainImageIndex: index }))}
               />
 
               {/* Contact */}
