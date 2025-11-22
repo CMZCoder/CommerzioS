@@ -11,6 +11,7 @@ import {
   aiConversations,
   temporaryCategories,
   type User,
+  type UserWithPlan,
   type UpsertUser,
   type Category,
   type InsertCategory,
@@ -46,7 +47,7 @@ export interface IStorage {
   deletePlan(id: string): Promise<void>;
   
   // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
+  getUser(id: string): Promise<UserWithPlan | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserVerification(id: string, isVerified: boolean): Promise<User | undefined>;
   updateUserPlan(userId: string, planId: string): Promise<User | undefined>;
@@ -110,11 +111,23 @@ export interface IStorage {
   deleteTemporaryCategory(id: string): Promise<void>;
   cleanupExpiredTemporaryCategories(): Promise<void>;
   getAllUsers(): Promise<User[]>;
+  
+  // New user profile operations
+  getUserById(userId: string): Promise<UserWithPlan | undefined>;
+  getUserServices(userId: string, includeExpired: boolean): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number }>>;
+  getUserReviews(userId: string): Promise<Array<Review & { user: User; service: Service & { owner: User; category: Category } }>>;
+  
+  // Hashtag operations
+  getServicesByHashtag(hashtag: string): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number }>>;
+  
+  // Location-based operations
+  getNearbyServices(lat: number, lng: number, radiusKm: number, categoryId?: string, limit?: number): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number; distance: number }>>;
+  updateUserLocation(userId: string, data: { locationLat?: string; locationLng?: string; preferredLocationName?: string; preferredSearchRadiusKm?: number }): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
   // User operations
-  async getUser(id: string): Promise<User | undefined> {
+  async getUser(id: string): Promise<UserWithPlan | undefined> {
     const results = await db
       .select({
         user: users,
@@ -130,7 +143,7 @@ export class DatabaseStorage implements IStorage {
     return {
       ...row.user,
       plan: row.plan || undefined,
-    } as any;
+    };
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
@@ -616,6 +629,168 @@ export class DatabaseStorage implements IStorage {
 
   async cleanupExpiredTemporaryCategories(): Promise<void> {
     await db.delete(temporaryCategories).where(sql`${temporaryCategories.expiresAt} <= NOW()`);
+  }
+
+  // New user profile operations
+  async getUserById(userId: string): Promise<User | undefined> {
+    return this.getUser(userId);
+  }
+
+  async getUserServices(userId: string, includeExpired: boolean): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number }>> {
+    const filters: any = { ownerId: userId };
+    
+    if (!includeExpired) {
+      filters.status = 'active';
+    }
+    
+    return this.getServices(filters);
+  }
+
+  async getUserReviews(userId: string): Promise<Array<Review & { user: User; service: Service & { owner: User; category: Category } }>> {
+    const results = await db
+      .select({
+        review: reviews,
+        user: users,
+        service: services,
+        serviceOwner: { id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName, profileImageUrl: users.profileImageUrl },
+        category: categories,
+      })
+      .from(reviews)
+      .leftJoin(users, eq(reviews.userId, users.id))
+      .leftJoin(services, eq(reviews.serviceId, services.id))
+      .leftJoin(categories, eq(services.categoryId, categories.id))
+      .where(eq(reviews.userId, userId))
+      .orderBy(desc(reviews.createdAt));
+
+    return results.map((row) => ({
+      ...row.review,
+      user: row.user!,
+      service: {
+        ...row.service!,
+        owner: row.serviceOwner as User,
+        category: row.category!,
+      },
+    }));
+  }
+
+  // Hashtag operations
+  async getServicesByHashtag(hashtag: string): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number }>> {
+    const results = await db
+      .select({
+        service: services,
+        owner: users,
+        category: categories,
+        rating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
+        reviewCount: sql<number>`COUNT(${reviews.id})`,
+      })
+      .from(services)
+      .leftJoin(users, eq(services.ownerId, users.id))
+      .leftJoin(categories, eq(services.categoryId, categories.id))
+      .leftJoin(reviews, eq(services.id, reviews.serviceId))
+      .where(
+        and(
+          sql`${hashtag} = ANY(${services.hashtags})`,
+          eq(services.status, 'active')
+        )
+      )
+      .groupBy(services.id, users.id, categories.id)
+      .orderBy(desc(services.createdAt));
+
+    return results.map((row) => ({
+      ...row.service,
+      owner: row.owner!,
+      category: row.category!,
+      rating: Number(row.rating) || 0,
+      reviewCount: Number(row.reviewCount) || 0,
+    }));
+  }
+
+  // Location-based operations
+  async getNearbyServices(
+    lat: number,
+    lng: number,
+    radiusKm: number,
+    categoryId?: string,
+    limit: number = 20
+  ): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number; distance: number }>> {
+    const conditions = [eq(services.status, 'active')];
+    
+    if (categoryId) {
+      conditions.push(eq(services.categoryId, categoryId));
+    }
+
+    const results = await db
+      .select({
+        service: services,
+        owner: users,
+        category: categories,
+        rating: sql<number>`COALESCE(AVG(${reviews.rating}), 0)`,
+        reviewCount: sql<number>`COUNT(${reviews.id})`,
+      })
+      .from(services)
+      .leftJoin(users, eq(services.ownerId, users.id))
+      .leftJoin(categories, eq(services.categoryId, categories.id))
+      .leftJoin(reviews, eq(services.id, reviews.serviceId))
+      .where(and(...conditions))
+      .groupBy(services.id, users.id, categories.id);
+
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    };
+
+    const servicesWithDistance = results
+      .map((row) => {
+        const ownerLat = row.owner?.locationLat ? parseFloat(row.owner.locationLat as string) : null;
+        const ownerLng = row.owner?.locationLng ? parseFloat(row.owner.locationLng as string) : null;
+
+        if (ownerLat === null || ownerLng === null || isNaN(ownerLat) || isNaN(ownerLng)) {
+          return null;
+        }
+
+        const distance = calculateDistance(lat, lng, ownerLat, ownerLng);
+
+        if (distance > radiusKm) {
+          return null;
+        }
+
+        return {
+          ...row.service,
+          owner: row.owner!,
+          category: row.category!,
+          rating: Number(row.rating) || 0,
+          reviewCount: Number(row.reviewCount) || 0,
+          distance: Math.round(distance * 10) / 10,
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, limit);
+
+    return servicesWithDistance;
+  }
+
+  async updateUserLocation(
+    userId: string,
+    data: {
+      locationLat?: string;
+      locationLng?: string;
+      preferredLocationName?: string;
+      preferredSearchRadiusKm?: number;
+    }
+  ): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
   }
 }
 

@@ -19,6 +19,12 @@ import { categorizeService } from "./aiService";
 import { getAdminAssistance } from "./aiAdminService";
 import { getUserSupport } from "./aiUserSupportService";
 import { validateCategoryName, suggestCategoryAlternative } from "./aiCategoryService";
+import { 
+  analyzeImagesForHashtags, 
+  generateServiceTitle, 
+  generateServiceDescription, 
+  generatePricingSuggestion 
+} from "./aiContentService";
 import { validateSwissAddress } from "./swissAddressService";
 import { sendVerificationCode } from "./contactVerificationService";
 import { fromZodError } from "zod-validation-error";
@@ -984,6 +990,212 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error validating address:", error);
       res.status(500).json({ message: "Failed to validate address" });
+    }
+  });
+
+  // AI Content Generation Routes
+  app.post('/api/ai/suggest-hashtags', isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        imageUrls: z.array(z.string().url()).min(1, "At least one image URL is required"),
+      });
+
+      const validated = schema.parse(req.body);
+      const hashtags = await analyzeImagesForHashtags(validated.imageUrls);
+      res.json({ hashtags });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error analyzing images for hashtags:", error);
+      res.status(500).json({ message: "Failed to suggest hashtags" });
+    }
+  });
+
+  app.post('/api/ai/generate-title', isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        imageUrls: z.array(z.string().url()).min(1, "At least one image URL is required"),
+        currentTitle: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const title = await generateServiceTitle(validated.imageUrls, validated.currentTitle);
+      res.json({ title });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error generating service title:", error);
+      res.status(500).json({ message: "Failed to generate title" });
+    }
+  });
+
+  app.post('/api/ai/generate-description', isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        imageUrls: z.array(z.string().url()).min(1, "At least one image URL is required"),
+        title: z.string().min(1, "Title is required"),
+        category: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const description = await generateServiceDescription(
+        validated.imageUrls,
+        validated.title,
+        validated.category
+      );
+      res.json({ description });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error generating service description:", error);
+      res.status(500).json({ message: "Failed to generate description" });
+    }
+  });
+
+  app.post('/api/ai/suggest-pricing', isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        imageUrls: z.array(z.string().url()).min(1, "At least one image URL is required"),
+        title: z.string().min(1, "Title is required"),
+        description: z.string().min(1, "Description is required"),
+        category: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const pricingSuggestion = await generatePricingSuggestion(
+        validated.imageUrls,
+        validated.title,
+        validated.description,
+        validated.category
+      );
+      res.json(pricingSuggestion);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error suggesting pricing:", error);
+      res.status(500).json({ message: "Failed to suggest pricing" });
+    }
+  });
+
+  // Hashtag Search Route
+  app.get('/api/services/hashtag/:hashtag', async (req, res) => {
+    try {
+      const { hashtag } = req.params;
+      
+      if (!hashtag || hashtag.trim().length === 0) {
+        return res.status(400).json({ message: "Hashtag is required" });
+      }
+
+      const services = await storage.getServicesByHashtag(hashtag.toLowerCase().trim());
+      res.json(services);
+    } catch (error) {
+      console.error("Error searching services by hashtag:", error);
+      res.status(500).json({ message: "Failed to search services by hashtag" });
+    }
+  });
+
+  // User Profile Routes
+  app.get('/api/users/:userId', async (req, res) => {
+    try {
+      const user = await storage.getUserById(req.params.userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const { isAdmin, emailVerified, phoneVerified, ...publicProfile } = user;
+      res.json(publicProfile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch user profile" });
+    }
+  });
+
+  app.get('/api/users/:userId/services', async (req, res) => {
+    try {
+      const { includeExpired } = req.query;
+      const services = await storage.getUserServices(
+        req.params.userId,
+        includeExpired === 'true'
+      );
+      res.json(services);
+    } catch (error) {
+      console.error("Error fetching user services:", error);
+      res.status(500).json({ message: "Failed to fetch user services" });
+    }
+  });
+
+  app.get('/api/users/:userId/reviews', async (req, res) => {
+    try {
+      const reviews = await storage.getUserReviews(req.params.userId);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching user reviews:", error);
+      res.status(500).json({ message: "Failed to fetch user reviews" });
+    }
+  });
+
+  // Location-Based Services Routes
+  app.post('/api/services/nearby', async (req, res) => {
+    try {
+      const schema = z.object({
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+        radiusKm: z.number().positive().default(10),
+        categoryId: z.string().optional(),
+        limit: z.number().positive().max(100).default(20),
+      });
+
+      const validated = schema.parse(req.body);
+      const services = await storage.getNearbyServices(
+        validated.lat,
+        validated.lng,
+        validated.radiusKm,
+        validated.categoryId,
+        validated.limit
+      );
+      res.json(services);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error fetching nearby services:", error);
+      res.status(500).json({ message: "Failed to fetch nearby services" });
+    }
+  });
+
+  app.patch('/api/users/location', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      const schema = z.object({
+        locationLat: z.string().optional(),
+        locationLng: z.string().optional(),
+        preferredLocationName: z.string().max(200).optional(),
+        preferredSearchRadiusKm: z.number().positive().max(100).optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      
+      if ((validated.locationLat && !validated.locationLng) || 
+          (!validated.locationLat && validated.locationLng)) {
+        return res.status(400).json({ 
+          message: "Both locationLat and locationLng must be provided together" 
+        });
+      }
+
+      const user = await storage.updateUserLocation(userId, validated);
+      res.json(user);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating user location:", error);
+      res.status(500).json({ message: "Failed to update user location" });
     }
   });
 
