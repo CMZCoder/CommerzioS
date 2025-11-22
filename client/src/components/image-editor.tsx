@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Cropper from "react-easy-crop";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,10 @@ interface Area {
 }
 
 interface ImageMetadata {
-  crop?: Area;
+  crop?: Area;  // Percentages
+  cropPixels?: Area;  // Pixel coordinates
   rotation: number;
-  position?: Point;
+  zoom?: number;
 }
 
 interface ImageEditorProps {
@@ -39,24 +40,96 @@ export function ImageEditor({
   onSave,
   initialMetadata 
 }: ImageEditorProps) {
-  const [crop, setCrop] = useState<Point>(initialMetadata?.crop ? { x: initialMetadata.crop.x, y: initialMetadata.crop.y } : { x: 0, y: 0 });
+  // Keep crop position centered at origin (react-easy-crop uses 0-centered coords)
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(initialMetadata?.rotation || 0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [rotation, setRotation] = useState(0);
+  const [croppedArea, setCroppedArea] = useState<Area>({ x: 0, y: 0, width: 100, height: 100 });
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area>({ x: 0, y: 0, width: 0, height: 0 });
+
+  // Sync all state with initialMetadata when dialog opens
+  useEffect(() => {
+    if (open) {
+      if (initialMetadata) {
+        // Restore all saved metadata
+        setZoom(initialMetadata.zoom || 1);
+        setRotation(initialMetadata.rotation || 0);
+        setCrop({ x: 0, y: 0 }); // Keep at origin - initialCroppedAreaPixels handles framing
+        
+        // Hydrate cropped area state from saved metadata
+        if (initialMetadata.crop) {
+          setCroppedArea(initialMetadata.crop);
+        } else {
+          // Default to full frame if no crop data
+          setCroppedArea({ x: 0, y: 0, width: 100, height: 100 });
+        }
+        
+        if (initialMetadata.cropPixels) {
+          setCroppedAreaPixels(initialMetadata.cropPixels);
+        } else {
+          // Set to zero dimensions - will be updated by onCropComplete
+          setCroppedAreaPixels({ x: 0, y: 0, width: 0, height: 0 });
+        }
+      } else {
+        // Reset to defaults for new images
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setRotation(0);
+        setCroppedArea({ x: 0, y: 0, width: 100, height: 100 });
+        setCroppedAreaPixels({ x: 0, y: 0, width: 0, height: 0 });
+      }
+    }
+  }, [open, initialMetadata]);
 
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedArea(croppedArea);
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
 
-  const handleSave = () => {
-    if (croppedAreaPixels) {
-      onSave({
-        crop: croppedAreaPixels,
-        rotation,
-        position: { x: 50, y: 50 },
-      });
-      onOpenChange(false);
+  const onMediaLoaded = useCallback((mediaSize: { width: number; height: number }) => {
+    // If we don't have valid cropPixels yet (new image), compute full-frame crop
+    if (croppedAreaPixels.width === 0 || croppedAreaPixels.height === 0) {
+      // Calculate full-frame crop for 4:3 aspect ratio
+      const aspectRatio = 4 / 3;
+      let cropWidth = mediaSize.width;
+      let cropHeight = mediaSize.width / aspectRatio;
+      
+      if (cropHeight > mediaSize.height) {
+        cropHeight = mediaSize.height;
+        cropWidth = mediaSize.height * aspectRatio;
+      }
+      
+      const cropX = (mediaSize.width - cropWidth) / 2;
+      const cropY = (mediaSize.height - cropHeight) / 2;
+      
+      // Set valid full-frame crop
+      const fullFrameCropPixels: Area = {
+        x: cropX,
+        y: cropY,
+        width: cropWidth,
+        height: cropHeight,
+      };
+      
+      const fullFrameCrop: Area = {
+        x: (cropX / mediaSize.width) * 100,
+        y: (cropY / mediaSize.height) * 100,
+        width: (cropWidth / mediaSize.width) * 100,
+        height: (cropHeight / mediaSize.height) * 100,
+      };
+      
+      setCroppedAreaPixels(fullFrameCropPixels);
+      setCroppedArea(fullFrameCrop);
     }
+  }, [croppedAreaPixels]);
+
+  const handleSave = () => {
+    onSave({
+      crop: croppedArea,
+      cropPixels: croppedAreaPixels,
+      rotation,
+      zoom,
+    });
+    onOpenChange(false);
   };
 
   const handleRotateLeft = () => {
@@ -86,6 +159,8 @@ export function ImageEditor({
               onCropChange={setCrop}
               onCropComplete={onCropComplete}
               onZoomChange={setZoom}
+              onMediaLoaded={onMediaLoaded}
+              initialCroppedAreaPixels={initialMetadata?.cropPixels}
             />
           </div>
 

@@ -82,18 +82,18 @@ export const priceListSchema = z.object({
 });
 
 // Image metadata type
+const cropAreaSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number(),
+});
+
 export const imageMetadataSchema = z.object({
-  crop: z.object({
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-  }).optional(),
+  crop: cropAreaSchema.optional(), // Percentages (0-100)
+  cropPixels: cropAreaSchema.optional(), // Pixel coordinates
   rotation: z.number().default(0),
-  position: z.object({
-    x: z.number().default(50),
-    y: z.number().default(50),
-  }).optional(),
+  zoom: z.number().default(1).optional(),
 });
 
 // Services table

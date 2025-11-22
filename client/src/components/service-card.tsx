@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Star, MapPin, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { useCroppedImage } from "@/hooks/useCroppedImage";
 
 interface ServiceCardProps {
   service: ServiceWithDetails;
@@ -15,17 +16,30 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
   const daysRemaining = Math.ceil((new Date(service.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isExpired = daysRemaining <= 0;
 
+  // Get the main image based on mainImageIndex
+  const mainImageIndex = service.mainImageIndex || 0;
+  const mainImage = service.images[mainImageIndex] || service.images[0];
+  const imageMetadata = service.imageMetadata as any[] || [];
+  const mainImageMetadata = imageMetadata[mainImageIndex];
+
+  // Generate cropped thumbnail using canvas rendering
+  const displayImage = useCroppedImage(mainImage, mainImageMetadata);
+
   return (
     <Card className={cn(
       "group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50",
       isExpired && "opacity-60 grayscale-[0.5]"
     )}>
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        <img 
-          src={service.images[0]} 
-          alt={service.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {displayImage ? (
+          <img 
+            src={displayImage} 
+            alt={service.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full bg-muted animate-pulse" />
+        )}
         <div className="absolute top-3 left-3 flex gap-2">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground font-medium shadow-sm">
             {service.category.name}
@@ -37,7 +51,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
           <div className="flex items-center gap-2 text-white/90 text-xs font-medium">
             <MapPin className="w-3.5 h-3.5" />
-            {service.location}
+            {service.locations?.[0] || (service as any).location || "Location not specified"}
           </div>
         </div>
       </div>

@@ -13,11 +13,14 @@ interface ImageMetadata {
     width: number;
     height: number;
   };
-  rotation: number;
-  position?: {
+  cropPixels?: {
     x: number;
     y: number;
+    width: number;
+    height: number;
   };
+  rotation: number;
+  zoom?: number;
 }
 
 interface ImageManagerProps {
@@ -61,7 +64,12 @@ export function ImageManager({
     try {
       const objectPath = await uploadImage(file);
       onImagesChange([...images, objectPath]);
-      onMetadataChange([...imageMetadata, { rotation: 0, position: { x: 50, y: 50 } }]);
+      onMetadataChange([...imageMetadata, { 
+        rotation: 0, 
+        zoom: 1, 
+        crop: { x: 0, y: 0, width: 100, height: 100 },
+        cropPixels: undefined  // Will be set when user edits the image
+      }]);
       toast({
         title: "Image uploaded",
         description: "Image uploaded successfully",
