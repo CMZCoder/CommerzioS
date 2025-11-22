@@ -73,6 +73,10 @@ export const users = pgTable("users", {
   isAdmin: boolean("is_admin").default(false).notNull(),
   planId: varchar("plan_id").references(() => plans.id),
   marketingPackage: varchar("marketing_package", { enum: ["basic", "pro", "premium", "enterprise"] }).default("basic"),
+  locationLat: decimal("location_lat", { precision: 10, scale: 7 }),
+  locationLng: decimal("location_lng", { precision: 10, scale: 7 }),
+  preferredLocationName: varchar("preferred_location_name", { length: 200 }),
+  preferredSearchRadiusKm: integer("preferred_search_radius_km").default(10),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -178,6 +182,7 @@ export const services = pgTable("services", {
   mainImageIndex: integer("main_image_index").default(0).notNull(),
   status: varchar("status", { enum: ["draft", "active", "paused", "expired"] }).default("draft").notNull(),
   tags: text("tags").array().default(sql`ARRAY[]::text[]`).notNull(),
+  hashtags: text("hashtags").array().default(sql`ARRAY[]::text[]`).notNull(),
   contactPhone: varchar("contact_phone", { length: 50 }).notNull(),
   contactEmail: varchar("contact_email", { length: 200 }).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
@@ -342,6 +347,7 @@ export const insertServiceSchema = createInsertSchema(services, {
   price: z.string().optional(),
   priceText: z.string().optional(),
   priceList: z.any().optional(),
+  hashtags: z.array(z.string().min(1, "Hashtag must have at least 1 character")).max(3, "Maximum 3 hashtags allowed").optional(),
 }).omit({
   id: true,
   ownerId: true,
