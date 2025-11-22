@@ -5,13 +5,13 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { SearchAutocomplete } from "@/components/search-autocomplete";
-import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
+import { CreateServiceModal } from "@/components/create-service-modal";
 import { useState } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const { user, isAuthenticated, isLoading } = useAuth();
-  const [showCategorySuggestion, setShowCategorySuggestion] = useState(false);
+  const [showCreateService, setShowCreateService] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
@@ -50,12 +50,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       Dashboard
                     </Button>
                   </Link>
-                  <Link href="/post-service">
-                    <Button className="gap-2 shadow-md shadow-primary/20">
-                      <PlusCircle className="w-4 h-4" />
-                      Post Service
-                    </Button>
-                  </Link>
+                  <Button 
+                    className="gap-2 shadow-md shadow-primary/20"
+                    onClick={() => setShowCreateService(true)}
+                    data-testid="button-post-service-header"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Post Service
+                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="rounded-full">
@@ -103,9 +105,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <Link href="/categories"><span className="text-lg font-medium cursor-pointer">Categories</span></Link>
                   <Link href="/dashboard"><span className="text-lg font-medium cursor-pointer">Dashboard</span></Link>
                   <div className="h-px bg-border my-2" />
-                  <Link href="/post-service">
-                    <Button className="w-full">Post Service</Button>
-                  </Link>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => setShowCreateService(true)}
+                    data-testid="button-post-service-mobile"
+                  >
+                    Post Service
+                  </Button>
                 </div>
               </SheetContent>
             </Sheet>
@@ -143,15 +149,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <li><Link href="/help-center"><span className="hover:text-primary cursor-pointer">Help Center</span></Link></li>
                 <li><Link href="/trust-safety"><span className="hover:text-primary cursor-pointer">Trust & Safety</span></Link></li>
                 <li><Link href="/contact"><span className="hover:text-primary cursor-pointer">Contact Us</span></Link></li>
-                <li>
-                  <button 
-                    onClick={() => setShowCategorySuggestion(true)} 
-                    className="hover:text-primary cursor-pointer"
-                    data-testid="button-suggest-category-footer"
-                  >
-                    Suggest Category
-                  </button>
-                </li>
               </ul>
             </div>
             <div>
@@ -167,7 +164,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </footer>
-      <CategorySuggestionModal open={showCategorySuggestion} onOpenChange={setShowCategorySuggestion} />
+      <CreateServiceModal open={showCreateService} onOpenChange={setShowCreateService} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { X, Plus, Upload } from "lucide-react";
 import type { Category } from "@shared/schema";
 import { uploadImage } from "@/lib/imageUpload";
+import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
 
 interface CreateServiceModalProps {
   open: boolean;
@@ -39,6 +40,7 @@ export function CreateServiceModal({ open, onOpenChange }: CreateServiceModalPro
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [showCategorySuggestion, setShowCategorySuggestion] = useState(false);
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -267,6 +269,17 @@ export function CreateServiceModal({ open, onOpenChange }: CreateServiceModalPro
                     </option>
                   ))}
                 </select>
+                <p className="text-sm text-muted-foreground">
+                  Can't find the right category?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowCategorySuggestion(true)}
+                    className="text-primary hover:underline font-medium"
+                    data-testid="button-suggest-category-inline"
+                  >
+                    Suggest a new one
+                  </button>
+                </p>
               </div>
             </TabsContent>
 
@@ -515,6 +528,10 @@ export function CreateServiceModal({ open, onOpenChange }: CreateServiceModalPro
           </div>
         </form>
       </DialogContent>
+      <CategorySuggestionModal 
+        open={showCategorySuggestion} 
+        onOpenChange={setShowCategorySuggestion} 
+      />
     </Dialog>
   );
 }
