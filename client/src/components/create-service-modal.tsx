@@ -44,7 +44,7 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
   const [draftSaved, setDraftSaved] = useState(false);
 
   // Calculate max images based on marketing package
-  const maxImages = user?.marketingPackage === "basic" ? 3 : 10;
+  const maxImages = user?.marketingPackage === "basic" ? 4 : 10;
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],

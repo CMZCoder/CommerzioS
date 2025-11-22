@@ -49,13 +49,16 @@ export function ImageManager({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (images.length >= maxImages) {
+    // Check if adding these files would exceed the limit
+    const totalAfterUpload = images.length + files.length;
+    if (totalAfterUpload > maxImages) {
+      const remainingSlots = maxImages - images.length;
       toast({
         title: "Image limit reached",
-        description: `You can only upload ${maxImages} images with your current plan.`,
+        description: `You can only upload ${remainingSlots} more image(s) with your current plan (${maxImages} total).`,
         variant: "destructive",
       });
       return;
@@ -63,23 +66,30 @@ export function ImageManager({
 
     setUploadingImage(true);
     try {
-      const objectPath = await uploadImage(file);
-      onImagesChange([...images, objectPath]);
-      onMetadataChange([...imageMetadata, { 
-        rotation: 0, 
-        zoom: 1, 
+      // Upload all files in parallel
+      const uploadPromises = files.map(file => uploadImage(file));
+      const objectPaths = await Promise.all(uploadPromises);
+      
+      // Create metadata for all new images
+      const newMetadata = objectPaths.map(() => ({
+        rotation: 0,
+        zoom: 1,
         crop: { x: 0, y: 0, width: 100, height: 100 },
         cropPixels: undefined  // Will be set when user edits the image
-      }]);
+      }));
+      
+      onImagesChange([...images, ...objectPaths]);
+      onMetadataChange([...imageMetadata, ...newMetadata]);
+      
       toast({
-        title: "Image uploaded",
-        description: "Image uploaded successfully",
+        title: "Images uploaded",
+        description: `${files.length} image(s) uploaded successfully`,
       });
     } catch (error) {
-      console.error("Failed to upload image:", error);
+      console.error("Failed to upload images:", error);
       toast({
         title: "Upload failed",
-        description: "Failed to upload image. Please try again.",
+        description: "Failed to upload one or more images. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -182,7 +192,7 @@ export function ImageManager({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label>Service Images ({images.length}/{maxImages})</Label>
-        {maxImages === 3 && (
+        {maxImages === 4 && (
           <p className="text-xs text-muted-foreground">
             Upgrade your plan for more images
           </p>
@@ -195,6 +205,7 @@ export function ImageManager({
           <input
             type="file"
             accept="image/*"
+            multiple
             onChange={handleImageUpload}
             className="hidden"
             id="image-upload"
