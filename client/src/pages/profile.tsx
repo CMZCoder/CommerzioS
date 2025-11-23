@@ -5,9 +5,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin } from "lucide-react";
-import { useMemo, useState } from "react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails } from "@/lib/api";
@@ -24,7 +24,7 @@ export default function Profile() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("services");
+  const [activeTab, setActiveTab] = useState("profile");
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingService, setEditingService] = useState<ServiceWithDetails | null>(null);
@@ -350,10 +350,98 @@ export default function Profile() {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6 bg-white p-1 border border-border">
+              <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="services" data-testid="tab-my-services">My Services</TabsTrigger>
               <TabsTrigger value="settings" data-testid="tab-settings">Settings</TabsTrigger>
               <TabsTrigger value="account" data-testid="tab-account">Account</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="profile" data-testid="panel-profile" className="space-y-6">
+              <div className="bg-white rounded-xl border border-border shadow-sm p-8">
+                <h2 className="text-2xl font-bold mb-6">Your Profile</h2>
+                
+                {/* Profile Header */}
+                <div className="flex flex-col items-center text-center mb-8 pb-8 border-b">
+                  <img
+                    src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                    alt={`${user?.firstName} ${user?.lastName}`}
+                    className="w-24 h-24 rounded-full ring-4 ring-slate-100 mb-4"
+                    data-testid="img-profile-avatar"
+                  />
+                  <div className="flex items-center gap-2 mb-2">
+                    <h3 className="text-2xl font-bold">{user?.firstName} {user?.lastName}</h3>
+                    {user?.isVerified && (
+                      <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mb-4">{user?.email}</p>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    {user?.isVerified && (
+                      <Badge variant="secondary" className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Verified
+                      </Badge>
+                    )}
+                    {user?.marketingPackage && (
+                      <Badge variant="outline" className="capitalize">
+                        {user.marketingPackage} Plan
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Profile Edit Form */}
+                <form onSubmit={handleProfileSubmit} className="space-y-6 max-w-md mx-auto">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      data-testid="input-profile-firstName"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      data-testid="input-profile-lastName"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="phoneNumber">Phone Number</Label>
+                    <Input
+                      id="phoneNumber"
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      data-testid="input-profile-phoneNumber"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email (managed by Replit)</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={user?.email || ""}
+                      disabled
+                      className="bg-muted"
+                      data-testid="input-profile-email-readonly"
+                    />
+                  </div>
+                  <Button 
+                    type="submit"
+                    disabled={updateProfileMutation.isPending}
+                    className="w-full"
+                    data-testid="button-save-profile"
+                  >
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                </form>
+              </div>
+            </TabsContent>
             
             <TabsContent value="services" data-testid="panel-my-services" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
