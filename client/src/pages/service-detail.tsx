@@ -265,7 +265,13 @@ export default function ServiceDetail() {
                               className="w-10 h-10 rounded-full"
                             />
                             <div>
-                              <div className="font-semibold">{review.user.firstName} {review.user.lastName}</div>
+                              <Link
+                                href={`/users/${review.user.id}`}
+                                className="font-semibold hover:text-primary transition-colors"
+                                data-testid={`link-user-${review.user.id}`}
+                              >
+                                {review.user.firstName} {review.user.lastName}
+                              </Link>
                               <div className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString()}</div>
                             </div>
                           </div>
@@ -332,7 +338,13 @@ export default function ServiceDetail() {
                     />
                     <div>
                       <div className="flex items-center gap-1">
-                        <span className="font-bold text-lg">{service.owner.firstName} {service.owner.lastName}</span>
+                        <Link
+                          href={`/users/${service.owner.id}`}
+                          className="font-bold text-lg hover:text-primary transition-colors"
+                          data-testid={`link-user-${service.owner.id}`}
+                        >
+                          {service.owner.firstName} {service.owner.lastName}
+                        </Link>
                         {service.owner.isVerified && <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />}
                       </div>
                       <p className="text-sm text-muted-foreground">Member since {new Date(service.owner.createdAt).getFullYear()}</p>

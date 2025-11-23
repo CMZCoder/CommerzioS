@@ -81,7 +81,13 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1">
-              <p className="text-sm font-medium truncate">{service.owner.firstName} {service.owner.lastName}</p>
+              <Link
+                href={`/users/${service.owner.id}`}
+                className="text-sm font-medium truncate hover:text-primary transition-colors"
+                data-testid={`link-user-${service.owner.id}`}
+              >
+                {service.owner.firstName} {service.owner.lastName}
+              </Link>
               {service.owner.isVerified && (
                 <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/10" />
               )}

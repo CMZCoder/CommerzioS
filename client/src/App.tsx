@@ -19,6 +19,7 @@ import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import { AdminPage } from "@/pages/admin";
 import HashtagResults from "@/pages/hashtag-results";
+import UserProfile from "@/pages/user-profile";
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -37,6 +38,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/service/:id" component={ServiceDetail} />
+      <Route path="/users/:userId" component={UserProfile} />
       <Route path="/hashtags/:hashtag" component={HashtagResults} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/categories" component={Home} /> {/* Reusing Home for now */}
