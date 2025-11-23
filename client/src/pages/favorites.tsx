@@ -76,7 +76,7 @@ export default function Saved() {
                   <Heart className="w-6 h-6 text-red-500 fill-red-500" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-slate-900">My Saved Services</h1>
+                  <h1 className="text-3xl font-bold text-slate-900">Your Saved Listings</h1>
                   {saved.length > 0 && (
                     <div className="text-slate-600 mt-1">
                       You have <Badge variant="secondary" className="mx-1">{saved.length}</Badge> saved service{saved.length !== 1 ? 's' : ''}
