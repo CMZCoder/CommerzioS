@@ -1373,6 +1373,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/geocode/search', async (req, res) => {
+    try {
+      const schema = z.object({
+        query: z.string().min(1, "Query is required"),
+        limit: z.number().positive().max(20).default(5),
+      });
+
+      const validated = schema.parse(req.body);
+      const query = validated.query.trim();
+      const limit = validated.limit;
+
+      if (query.length < 2) {
+        return res.json([]);
+      }
+
+      const encodedQuery = encodeURIComponent(query);
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodedQuery}&format=json&countrycodes=ch&addressdetails=1&limit=${limit}`;
+
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'ServiceMarketplace/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Geocoding service unavailable');
+      }
+
+      const results = await response.json();
+
+      if (!results || results.length === 0) {
+        return res.json([]);
+      }
+
+      const formattedResults = results
+        .filter((result: any) => result.address?.country_code === 'ch')
+        .map((result: any) => {
+          const address = result.address || {};
+          const street = address.road || address.pedestrian || '';
+          const houseNumber = address.house_number || '';
+          const city = address.city || address.town || address.village || address.municipality || result.name;
+          const postcode = address.postcode || '';
+          
+          const streetWithNumber = houseNumber ? `${street} ${houseNumber}` : street;
+          
+          const displayParts = [streetWithNumber, postcode, city].filter(p => p.trim());
+          const displayName = displayParts.join(', ');
+          
+          return {
+            display_name: displayName || result.display_name,
+            lat: parseFloat(result.lat),
+            lon: parseFloat(result.lon),
+            city: city || '',
+            postcode: postcode || '',
+            street: streetWithNumber || '',
+          };
+        });
+
+      res.json(formattedResults);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error searching geocode:", error);
+      res.status(500).json({ message: "Failed to search locations" });
+    }
+  });
+
   app.post('/api/geocode', async (req, res) => {
     try {
       const schema = z.object({

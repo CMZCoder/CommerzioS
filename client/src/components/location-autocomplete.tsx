@@ -6,17 +6,18 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 interface LocationSuggestion {
-  id: string;
-  displayName: string;
+  display_name: string;
+  lat: number;
+  lon: number;
   city: string;
   postcode: string;
-  canton: string;
-  fullAddress: string;
+  street: string;
 }
 
 interface LocationAutocompleteProps {
   locations: string[];
   onLocationsChange: (locations: string[]) => void;
+  onLocationSelect?: (data: { address: string; lat: number; lon: number }) => void;
   maxLocations?: number;
   label?: string;
   required?: boolean;
@@ -26,6 +27,7 @@ interface LocationAutocompleteProps {
 export function LocationAutocomplete({
   locations,
   onLocationsChange,
+  onLocationSelect,
   maxLocations = 10,
   label = "Service Locations",
   required = false,
@@ -66,10 +68,17 @@ export function LocationAutocomplete({
     const abortController = new AbortController();
     const timeoutId = setTimeout(async () => {
       try {
-        const response = await fetch(
-          `/api/location/search?q=${encodeURIComponent(query)}&limit=10`,
-          { signal: abortController.signal }
-        );
+        const response = await fetch('/api/geocode/search', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: query,
+            limit: 10,
+          }),
+          signal: abortController.signal,
+        });
 
         if (!response.ok) {
           throw new Error(`Location search failed: ${response.status}`);
@@ -100,9 +109,9 @@ export function LocationAutocomplete({
       abortController.abort();
       setIsLoading(false);
     };
-  }, [query]);
+  }, [query, toast]);
 
-  const addLocation = (location: string) => {
+  const addLocation = (location: string, suggestion?: LocationSuggestion) => {
     const trimmedLocation = location.trim();
     
     if (!trimmedLocation) return;
@@ -116,6 +125,15 @@ export function LocationAutocomplete({
     }
 
     onLocationsChange([...locations, trimmedLocation]);
+    
+    if (suggestion && onLocationSelect) {
+      onLocationSelect({
+        address: trimmedLocation,
+        lat: suggestion.lat,
+        lon: suggestion.lon,
+      });
+    }
+    
     setQuery("");
     setSuggestions([]);
     setIsOpen(false);
@@ -133,7 +151,8 @@ export function LocationAutocomplete({
       e.preventDefault();
       if (isOpen && selectedIndex >= 0 && suggestions[selectedIndex]) {
         // Add selected suggestion from autocomplete
-        addLocation(suggestions[selectedIndex].displayName);
+        const suggestion = suggestions[selectedIndex];
+        addLocation(suggestion.display_name, suggestion);
       } else {
         // Fallback: Add manually typed query
         addLocation(query.trim());
@@ -241,9 +260,9 @@ export function LocationAutocomplete({
             >
               {suggestions.map((suggestion, index) => (
                 <button
-                  key={suggestion.id}
+                  key={`${suggestion.lat}-${suggestion.lon}-${index}`}
                   type="button"
-                  onClick={() => addLocation(suggestion.displayName)}
+                  onClick={() => addLocation(suggestion.display_name, suggestion)}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`w-full text-left px-4 py-3 border-b last:border-b-0 transition-colors ${
                     selectedIndex === index
@@ -258,11 +277,14 @@ export function LocationAutocomplete({
                     <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm truncate">
-                        {suggestion.displayName}
+                        {suggestion.display_name}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {suggestion.fullAddress}
-                      </div>
+                      {(suggestion.street || suggestion.city || suggestion.postcode) && (
+                        <div className="text-xs text-muted-foreground mt-0.5 flex gap-2">
+                          {suggestion.postcode && <span>{suggestion.postcode}</span>}
+                          {suggestion.city && <span>{suggestion.city}</span>}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </button>
