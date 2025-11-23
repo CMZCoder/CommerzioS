@@ -615,6 +615,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hasServices: z.boolean().optional(),
           plan: z.string().optional(),
         }).optional(),
+        pageContext: z.object({
+          currentPage: z.string(),
+          currentAction: z.string(),
+          formData: z.object({
+            hasTitle: z.boolean().optional(),
+            hasDescription: z.boolean().optional(),
+            hasCategory: z.boolean().optional(),
+            hasImages: z.boolean().optional(),
+            hasLocation: z.boolean().optional(),
+            hasContact: z.boolean().optional(),
+            hasPrice: z.boolean().optional(),
+            imageCount: z.number().optional(),
+          }).optional(),
+        }).optional(),
         conversationHistory: z.array(z.object({
           role: z.enum(["user", "assistant", "system"]),
           content: z.string(),

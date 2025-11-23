@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePageContextActions } from "@/App";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const contextActions = usePageContextActions();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -57,6 +59,35 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
     queryKey: ["/api/settings"],
     queryFn: () => apiRequest("/api/settings"),
   });
+
+  // Track modal open/close state
+  useEffect(() => {
+    if (open) {
+      contextActions.setModalOpen("create_service");
+    } else {
+      contextActions.setModalOpen(null);
+    }
+  }, [open]);
+
+  // Track form progress
+  useEffect(() => {
+    if (!open) return; // Only track when modal is open
+    
+    contextActions.updateFormProgress("hasTitle", !!formData.title.trim());
+    contextActions.updateFormProgress("hasDescription", !!formData.description.trim());
+    contextActions.updateFormProgress("hasCategory", !!formData.categoryId);
+    contextActions.updateFormProgress("hasImages", formData.images.length > 0);
+    contextActions.updateFormProgress("imageCount", formData.images.length);
+    contextActions.updateFormProgress("hasLocation", formData.locations.some(l => l.trim()));
+    contextActions.updateFormProgress("hasContact", formData.contacts.some(c => c.value.trim()));
+    
+    const hasPrice = formData.priceType === "fixed" 
+      ? !!formData.price 
+      : formData.priceType === "text" 
+      ? !!formData.priceText.trim() 
+      : formData.priceList.length > 0;
+    contextActions.updateFormProgress("hasPrice", hasPrice);
+  }, [formData.title, formData.description, formData.categoryId, formData.images.length, formData.locations, formData.contacts, formData.price, formData.priceText, formData.priceList, formData.priceType, open]);
 
   // Initialize contacts with user's profile data
   useEffect(() => {

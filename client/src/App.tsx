@@ -4,6 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { FloatingChatWidget } from "@/components/floating-chat-widget";
+import { usePageContext } from "@/hooks/use-page-context";
+import { createContext, useContext } from "react";
+import type { PageContextActions } from "@/hooks/use-page-context";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import ServiceDetail from "@/pages/service-detail";
@@ -15,6 +18,18 @@ import Contact from "@/pages/contact";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import { AdminPage } from "@/pages/admin";
+
+// Create a context for the page context actions
+export const PageContextActionsContext = createContext<PageContextActions | null>(null);
+
+// Hook to access context actions from any component
+export function usePageContextActions() {
+  const context = useContext(PageContextActionsContext);
+  if (!context) {
+    throw new Error("usePageContextActions must be used within PageContextActionsProvider");
+  }
+  return context;
+}
 
 function Router() {
   return (
@@ -37,12 +52,16 @@ function Router() {
 }
 
 function App() {
+  const [pageContext, contextActions] = usePageContext();
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
-        <FloatingChatWidget />
+        <PageContextActionsContext.Provider value={contextActions}>
+          <Toaster />
+          <Router />
+          <FloatingChatWidget pageContext={pageContext} />
+        </PageContextActionsContext.Provider>
       </TooltipProvider>
     </QueryClientProvider>
   );

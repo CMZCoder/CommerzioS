@@ -1,28 +1,40 @@
 import { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Send, Loader2, Sparkles } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, Sparkles, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
+import { type PageContext } from "@/hooks/use-page-context";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-const STORAGE_KEY = "servemkt-chat-history";
+interface FloatingChatWidgetProps {
+  pageContext?: PageContext;
+}
 
-export function FloatingChatWidget() {
+const STORAGE_KEY = "servemkt-chat-history";
+const PROACTIVE_DELAY = 2000; // Show help after 2 seconds
+const STUCK_DELAY = 30000; // Offer help after 30 seconds of inactivity
+
+export function FloatingChatWidget({ pageContext }: FloatingChatWidgetProps) {
   const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showProactiveBadge, setShowProactiveBadge] = useState(false);
+  const [showPulse, setShowPulse] = useState(false);
+  const [contextualGreeting, setContextualGreeting] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const proactiveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stuckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load conversation from sessionStorage on mount
   useEffect(() => {
@@ -51,6 +63,102 @@ export function FloatingChatWidget() {
     }
   }, [messages, isTyping]);
 
+  // Generate contextual greeting based on page context
+  const generateContextualGreeting = (context: PageContext): string => {
+    if (context.currentAction === "creating_service") {
+      const { formData } = context;
+      if (!formData.hasTitle && !formData.hasDescription) {
+        return "I see you're creating a service! Need help getting started with a title or description?";
+      } else if (formData.hasTitle && !formData.hasDescription) {
+        return "Great title! Need help writing a compelling description for your service?";
+      } else if (formData.hasImages && formData.imageCount && formData.imageCount > 0 && !formData.hasTitle) {
+        return `I see you've uploaded ${formData.imageCount} image${formData.imageCount > 1 ? 's' : ''}! Need help creating a title based on your images?`;
+      } else if (!formData.hasPrice) {
+        return "Need help determining the right pricing for your service?";
+      } else if (!formData.hasLocation) {
+        return "Don't forget to add service locations! Need suggestions for Swiss cities?";
+      }
+      return "I'm here to help you create an amazing service listing! What do you need assistance with?";
+    } else if (context.currentAction === "editing_service") {
+      return "Need help improving your service listing? I can assist with descriptions, pricing, and more!";
+    } else if (context.currentAction === "viewing_service") {
+      return "Looking at a service? I can help you understand how to contact the provider or leave a review!";
+    } else if (context.currentAction === "browsing") {
+      return "Browsing services? I can help you find the perfect match or filter by category!";
+    }
+    return "Hi! How can I help you today?";
+  };
+
+  // Proactive assistance when modal opens
+  // Extract specific values to avoid unnecessary re-renders when pageContext changes
+  const currentAction = pageContext?.currentAction;
+  const lastInteraction = pageContext?.metadata.lastInteraction;
+  
+  useEffect(() => {
+    if (!pageContext) return;
+
+    // Clear existing timeouts
+    if (proactiveTimeoutRef.current) {
+      clearTimeout(proactiveTimeoutRef.current);
+    }
+    if (stuckTimeoutRef.current) {
+      clearTimeout(stuckTimeoutRef.current);
+    }
+
+    // Show proactive badge when creating/editing service
+    if (currentAction === "creating_service" || currentAction === "editing_service") {
+      // Show badge after a short delay
+      proactiveTimeoutRef.current = setTimeout(() => {
+        setShowProactiveBadge(true);
+        setShowPulse(true);
+        setContextualGreeting(generateContextualGreeting(pageContext));
+      }, PROACTIVE_DELAY);
+
+      // Check if user is stuck (no interaction for 30 seconds)
+      const timeSinceLastInteraction = lastInteraction 
+        ? Date.now() - lastInteraction 
+        : 0;
+
+      if (timeSinceLastInteraction < STUCK_DELAY) {
+        stuckTimeoutRef.current = setTimeout(() => {
+          if (!isOpen) {
+            setShowPulse(true);
+            setShowProactiveBadge(true);
+          }
+        }, STUCK_DELAY - timeSinceLastInteraction);
+      }
+    } else {
+      setShowProactiveBadge(false);
+      setShowPulse(false);
+      setContextualGreeting(null);
+    }
+
+    return () => {
+      if (proactiveTimeoutRef.current) {
+        clearTimeout(proactiveTimeoutRef.current);
+      }
+      if (stuckTimeoutRef.current) {
+        clearTimeout(stuckTimeoutRef.current);
+      }
+    };
+  }, [currentAction, isOpen, lastInteraction, pageContext]);
+
+  // Auto-expand chat with contextual greeting when clicking while badge is shown
+  const handleOpenChat = () => {
+    setIsOpen(true);
+    setShowPulse(false);
+
+    // Add contextual greeting as first message if available and no messages exist
+    if (contextualGreeting && messages.length === 0) {
+      setMessages([{ role: "assistant", content: contextualGreeting }]);
+    }
+
+    // Auto-hide badge after opening
+    setTimeout(() => {
+      setShowProactiveBadge(false);
+    }, 1000);
+  };
+
   const handleSendMessage = async () => {
     if (!input.trim() || isTyping) return;
 
@@ -74,12 +182,17 @@ export function FloatingChatWidget() {
         plan: user?.plan?.name,
       };
 
-      // Call AI support API
+      // Call AI support API with page context
       const response = await apiRequest<{ response: string }>("/api/ai/user-support", {
         method: "POST",
         body: JSON.stringify({
           query: userMessage,
           userContext,
+          pageContext: pageContext ? {
+            currentPage: pageContext.currentPage,
+            currentAction: pageContext.currentAction,
+            formData: pageContext.formData,
+          } : undefined,
           conversationHistory: messages.map(m => ({
             role: m.role,
             content: m.content,
@@ -124,17 +237,68 @@ export function FloatingChatWidget() {
 
   return (
     <>
+      {/* Pulse animation CSS */}
+      <style>{`
+        @keyframes pulse-ring {
+          0% {
+            transform: scale(0.9);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 0.5;
+          }
+          100% {
+            transform: scale(0.9);
+            opacity: 1;
+          }
+        }
+        
+        .pulse-animation {
+          animation: pulse-ring 2s ease-in-out infinite;
+        }
+
+        .badge-bounce {
+          animation: bounce 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-5px);
+          }
+        }
+      `}</style>
+
       {/* Floating chat button */}
       <div className="fixed bottom-6 right-6 z-50">
         {!isOpen && (
-          <Button
-            onClick={() => setIsOpen(true)}
-            className="h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-300 hover:scale-110"
-            data-testid="button-open-chat"
-            aria-label="Open chat support"
-          >
-            <MessageCircle className="h-6 w-6 text-white" />
-          </Button>
+          <div className="relative">
+            {/* Proactive badge */}
+            {showProactiveBadge && (
+              <div className="absolute -top-2 -right-2 z-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg badge-bounce flex items-center gap-1" data-testid="badge-proactive-help">
+                <Lightbulb className="w-3 h-3" />
+                <span>Tip</span>
+              </div>
+            )}
+            
+            {/* Pulse effect */}
+            {showPulse && (
+              <div className="absolute inset-0 rounded-full bg-blue-600 opacity-75 pulse-animation" />
+            )}
+            
+            {/* Chat button */}
+            <Button
+              onClick={handleOpenChat}
+              className={`h-14 w-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-300 hover:scale-110 relative ${showPulse ? 'animate-pulse' : ''}`}
+              data-testid="button-open-chat"
+              aria-label="Open chat support"
+            >
+              <MessageCircle className="h-6 w-6 text-white" />
+            </Button>
+          </div>
         )}
 
         {/* Chat panel */}
@@ -164,7 +328,7 @@ export function FloatingChatWidget() {
             <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
               <ScrollArea className="flex-1 p-4" ref={scrollRef}>
                 <div className="space-y-4">
-                  {messages.length === 0 && (
+                  {messages.length === 0 && !contextualGreeting && (
                     <div className="text-center text-muted-foreground text-sm py-8" data-testid="text-welcome">
                       <Sparkles className="h-8 w-8 mx-auto mb-2 text-blue-500" />
                       <p>Hi! How can I help you today?</p>
