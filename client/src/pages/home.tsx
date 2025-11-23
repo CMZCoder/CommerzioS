@@ -24,15 +24,12 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(10);
   
-  const [customLocation, setCustomLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
+  const [searchLocation, setSearchLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isNearbyExpanded, setIsNearbyExpanded] = useState(true);
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
-  const [hasSearchedLocation, setHasSearchedLocation] = useState(false);
   
   // Use shared geocoding hook for location search
   const { 
@@ -55,15 +52,14 @@ export default function Home() {
 
   // Auto-load user's saved location on mount
   useEffect(() => {
-    if (isAuthenticated && user && user.locationLat && user.locationLng && !customLocation) {
-      setCustomLocation({
+    if (isAuthenticated && user && user.locationLat && user.locationLng && !searchLocation) {
+      setSearchLocation({
         lat: parseFloat(user.locationLat as any),
         lng: parseFloat(user.locationLng as any),
         name: user.preferredLocationName || "Your Location"
       });
-      setHasSearchedLocation(true);
     }
-  }, [isAuthenticated, user, customLocation]);
+  }, [isAuthenticated, user, searchLocation]);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<CategoryWithTemporary[]>({
     queryKey: ["/api/categories"],
@@ -95,24 +91,6 @@ export default function Home() {
     return map;
   }, [newServiceCounts]);
 
-  // Only auto-detect location if user has searched or explicitly enabled it
-  useEffect(() => {
-    if (isAuthenticated && navigator.geolocation && !customLocation && hasSearchedLocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setLocationError(null);
-        },
-        (error) => {
-          console.log("Location access denied:", error);
-          setLocationError("Location access denied");
-        }
-      );
-    }
-  }, [isAuthenticated, customLocation, hasSearchedLocation]);
 
   const handleLocationSearch = async (suggestion?: GeocodingSuggestion) => {
     const selectedLocation = suggestion || (addressSuggestions.length > 0 ? addressSuggestions[0] : null);
@@ -126,7 +104,6 @@ export default function Home() {
       return;
     }
 
-    setHasSearchedLocation(true);
     setIsGeocoding(true);
     try {
       let result: {lat: number; lng: number; displayName: string; name: string};
@@ -139,7 +116,7 @@ export default function Home() {
         result = await geocodeLocation(locationSearchQuery);
       }
 
-      setCustomLocation({
+      setSearchLocation({
         lat: result.lat,
         lng: result.lng,
         name: result.name || result.displayName
@@ -165,21 +142,18 @@ export default function Home() {
   };
 
   const handleClearLocation = () => {
-    setCustomLocation(null);
+    setSearchLocation(null);
     setLocationSearchQuery("");
     clearSuggestions();
-    setHasSearchedLocation(false);
   };
 
-  const activeLocation = customLocation || userLocation;
-
   const { data: nearbyServices = [], isLoading: nearbyLoading } = useQuery<Array<ServiceWithDetails & { distance: number }>>({
-    queryKey: ["/api/services/nearby", activeLocation, radiusKm],
+    queryKey: ["/api/services/nearby", searchLocation, radiusKm],
     queryFn: () => apiRequest("/api/services/nearby", {
       method: "POST",
       body: JSON.stringify({
-        lat: activeLocation!.lat,
-        lng: activeLocation!.lng,
+        lat: searchLocation!.lat,
+        lng: searchLocation!.lng,
         radiusKm,
         limit: 10
       }),
@@ -187,7 +161,7 @@ export default function Home() {
         "Content-Type": "application/json"
       }
     }),
-    enabled: !!activeLocation && isAuthenticated,
+    enabled: !!searchLocation && isAuthenticated,
   });
 
   const filteredServices = useMemo(() => {
@@ -277,7 +251,7 @@ export default function Home() {
         newCounts={newCountsMap}
       />
 
-      {isAuthenticated && hasSearchedLocation && (
+      {isAuthenticated && searchLocation && (
         <section className="py-12 container mx-auto px-4">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -390,7 +364,7 @@ export default function Home() {
                 <Select 
                   value={radiusKm.toString()} 
                   onValueChange={(value) => setRadiusKm(parseInt(value, 10))}
-                  disabled={!customLocation}
+                  disabled={!searchLocation}
                 >
                   <SelectTrigger id="radius-select" data-testid="select-radius">
                     <SelectValue />
@@ -406,11 +380,11 @@ export default function Home() {
               </div>
             </div>
 
-            {customLocation && (
+            {searchLocation && (
               <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="px-3 py-1" data-testid="badge-active-location">
                   <MapPin className="w-3 h-3 mr-1" />
-                  {customLocation.name}
+                  {searchLocation.name}
                 </Badge>
                 <Button
                   variant="outline"
@@ -425,11 +399,11 @@ export default function Home() {
             )}
           </div>
 
-          {!customLocation ? (
+          {!searchLocation ? (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
               <Loader2 className="w-12 h-12 text-slate-400 mx-auto mb-4 animate-spin" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                Detecting your location...
+                Loading your location...
               </h3>
               <p className="text-slate-500 text-sm">
                 Or search for a location manually above
@@ -478,7 +452,7 @@ export default function Home() {
         </section>
       )}
 
-      {isAuthenticated && !hasSearchedLocation && (
+      {isAuthenticated && !searchLocation && (
         <section className="py-12 container mx-auto px-4 bg-slate-50">
           <div className="max-w-2xl mx-auto">
             <h2 className="text-2xl font-bold text-center mb-2">Find Services Near You</h2>
