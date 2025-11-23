@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +48,12 @@ export default function Profile() {
   const [pendingCategoryCallback, setPendingCategoryCallback] = useState<((categoryId: string) => void) | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [serviceToPause, setServiceToPause] = useState<string | null>(null);
+  const [serviceToActivate, setServiceToActivate] = useState<string | null>(null);
+
+  // Section refs for navigation
+  const personalInfoRef = useRef<HTMLDivElement | null>(null);
+  const accountInfoRef = useRef<HTMLDivElement | null>(null);
+  const addressesRef = useRef<HTMLDivElement | null>(null);
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
@@ -276,7 +282,17 @@ export default function Profile() {
   });
 
   const handleStatusChange = (id: string, newStatus: Service['status']) => {
-    updateServiceMutation.mutate({ id, data: { status: newStatus } });
+    if (newStatus === 'active') {
+      setServiceToActivate(id);
+    } else {
+      updateServiceMutation.mutate({ id, data: { status: newStatus } });
+    }
+  };
+
+  const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   const handleRenew = (id: string) => {
@@ -523,6 +539,39 @@ export default function Profile() {
               <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews ({receivedReviews.length})</TabsTrigger>
             </TabsList>
 
+            {/* Sub-toggles for Profile Section Navigation */}
+            {activeTab === "profile" && (
+              <div className="mb-6 bg-white p-1 border border-border rounded-lg flex gap-1 flex-wrap">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => scrollToSection(personalInfoRef)}
+                  className="text-xs md:text-sm"
+                  data-testid="button-nav-personal-info"
+                >
+                  Personal Information
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => scrollToSection(accountInfoRef)}
+                  className="text-xs md:text-sm"
+                  data-testid="button-nav-account-info"
+                >
+                  Account Information
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => scrollToSection(addressesRef)}
+                  className="text-xs md:text-sm"
+                  data-testid="button-nav-addresses"
+                >
+                  Addresses
+                </Button>
+              </div>
+            )}
+
             <TabsContent value="profile" data-testid="panel-profile" className="space-y-6">
               {/* Profile Header Card */}
               <Card>
@@ -531,20 +580,48 @@ export default function Profile() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col items-center text-center mb-8 pb-8 border-b">
-                    <img
-                      src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                      alt={`${user?.firstName} ${user?.lastName}`}
-                      className="w-24 h-24 rounded-full ring-4 ring-slate-100 mb-4"
-                      data-testid="img-profile-avatar"
-                    />
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="relative group mb-4">
+                      <img
+                        src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                        alt={`${user?.firstName} ${user?.lastName}`}
+                        className="w-24 h-24 rounded-full ring-4 ring-slate-100"
+                        data-testid="img-profile-avatar"
+                      />
+                      <button
+                        onClick={() => scrollToSection(personalInfoRef)}
+                        className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 flex items-center justify-center transition-opacity cursor-pointer"
+                        data-testid="button-edit-profile-picture"
+                        aria-label="Edit profile picture"
+                      >
+                        <Pencil className="w-5 h-5 text-white" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mb-2 group">
                       <h3 className="text-2xl font-bold">{user?.firstName} {user?.lastName}</h3>
                       {user?.isVerified && (
                         <CheckCircle2 className="w-5 h-5 text-primary fill-primary/10" />
                       )}
+                      <button
+                        onClick={() => scrollToSection(personalInfoRef)}
+                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-slate-100 rounded"
+                        data-testid="button-edit-name"
+                        aria-label="Edit name"
+                      >
+                        <Pencil className="w-4 h-4 text-slate-500" />
+                      </button>
                     </div>
-                    <p className="text-muted-foreground mb-4">{user?.email}</p>
-                    <div className="flex gap-2 flex-wrap justify-center">
+                    <div className="flex items-center gap-2 group">
+                      <p className="text-muted-foreground">{user?.email}</p>
+                      <button
+                        onClick={() => scrollToSection(accountInfoRef)}
+                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-slate-100 rounded"
+                        data-testid="button-edit-email"
+                        aria-label="Edit email"
+                      >
+                        <Pencil className="w-4 h-4 text-slate-500" />
+                      </button>
+                    </div>
+                    <div className="flex gap-2 flex-wrap justify-center mt-4">
                       {user?.isVerified && (
                         <Badge variant="secondary" className="flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" />
@@ -561,57 +638,53 @@ export default function Profile() {
                 </CardContent>
               </Card>
 
-              {/* Profile Picture Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Profile Picture</CardTitle>
-                  <CardDescription>Upload and customize your profile picture</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col items-center gap-6">
-                    <Avatar className="w-32 h-32 ring-4 ring-slate-100">
-                      <AvatarImage 
-                        src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                        alt={`${user?.firstName} ${user?.lastName}`}
-                      />
-                      <AvatarFallback>
-                        <UserIcon className="w-16 h-16 text-muted-foreground" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex gap-3">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        data-testid="input-profile-picture"
-                      />
-                      <Button
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={updateProfileMutation.isPending}
-                        data-testid="button-change-photo"
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Change Photo
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center max-w-md">
-                      Recommended: Square image, at least 400x400 pixels. JPG, PNG, or GIF.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-
               {/* Personal Information Card */}
-              <Card>
+              <Card ref={personalInfoRef}>
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
                   <CardDescription>Update your personal details</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleProfileSubmit} className="space-y-4">
+                  <form onSubmit={handleProfileSubmit} className="space-y-6">
+                    {/* Profile Picture Upload Section */}
+                    <div>
+                      <Label>Profile Picture</Label>
+                      <div className="flex flex-col items-center gap-4 mt-3">
+                        <Avatar className="w-20 h-20 ring-4 ring-slate-100">
+                          <AvatarImage 
+                            src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                            alt={`${user?.firstName} ${user?.lastName}`}
+                          />
+                          <AvatarFallback>
+                            <UserIcon className="w-10 h-10 text-muted-foreground" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex gap-3">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                            data-testid="input-profile-picture"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={updateProfileMutation.isPending}
+                            data-testid="button-change-photo"
+                          >
+                            <Camera className="w-4 h-4 mr-2" />
+                            Change Photo
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Square image, at least 400x400 pixels
+                        </p>
+                      </div>
+                    </div>
+
                     <div>
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
@@ -660,95 +733,61 @@ export default function Profile() {
                 </CardContent>
               </Card>
 
-              {/* Location of Interest Card */}
-              <Card>
+              {/* Account Information Card */}
+              <Card ref={accountInfoRef}>
                 <CardHeader>
-                  <CardTitle>Location of Interest</CardTitle>
-                  <CardDescription>Set your main location to auto-load services on the home page</CardDescription>
+                  <CardTitle>Account Information</CardTitle>
+                  <CardDescription>Your account details managed by Replit</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Label htmlFor="main-location-search">Search Location</Label>
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          id="main-location-search"
-                          type="text"
-                          placeholder="Enter postcode, city, or address..."
-                          value={mainLocationName}
-                          onChange={(e) => setMainLocationName(e.target.value)}
-                          data-testid="input-main-location"
-                        />
-                        <Button
-                          onClick={async () => {
-                            if (!mainLocationName.trim()) return;
-                            try {
-                              const result = await geocodeLocation(mainLocationName);
-                              setMainLocationLat(result.lat);
-                              setMainLocationLng(result.lng);
-                              setMainLocationName(result.name || result.displayName);
-                            } catch (error) {
-                              toast({
-                                title: "Location not found",
-                                description: "Please try a different search term",
-                                variant: "destructive",
-                              });
-                            }
-                          }}
-                          data-testid="button-search-main-location"
-                        >
-                          Search
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {mainLocationLat && mainLocationLng && (
-                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="font-medium text-slate-900">{mainLocationName}</p>
-                            <p className="text-sm text-slate-500 mt-1">
-                              {mainLocationLat.toFixed(4)}, {mainLocationLng.toFixed(4)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => updateProfileMutation.mutate({
-                          locationLat: mainLocationLat,
-                          locationLng: mainLocationLng,
-                          preferredLocationName: mainLocationName
-                        })}
-                        disabled={!mainLocationName || !mainLocationLat || !mainLocationLng || updateProfileMutation.isPending}
-                        data-testid="button-save-location"
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Email</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input 
+                        value={user.email || ""} 
+                        disabled 
+                        className="bg-muted"
+                        data-testid="input-email-readonly"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={() => window.open('https://replit.com/account', '_blank')}
+                        data-testid="button-manage-email"
                       >
-                        {updateProfileMutation.isPending ? "Saving..." : "Save Location"}
+                        Manage on Replit
                       </Button>
-                      
-                      {mainLocationLat && mainLocationLng && (
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setMainLocationName("");
-                            setMainLocationLat(null);
-                            setMainLocationLng(null);
-                          }}
-                          data-testid="button-clear-location"
-                        >
-                          Clear
-                        </Button>
-                      )}
                     </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Email is managed through your Replit account
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Password</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input 
+                        type="password" 
+                        value="••••••••" 
+                        disabled 
+                        className="bg-muted"
+                        data-testid="input-password-readonly"
+                      />
+                      <Button 
+                        variant="outline" 
+                        onClick={() => window.open('https://replit.com/account', '_blank')}
+                        data-testid="button-manage-password"
+                      >
+                        Manage on Replit
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Password is managed through your Replit account
+                    </p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Addresses Card */}
-              <Card>
+              <Card ref={addressesRef}>
                 <CardHeader>
                   <CardTitle>Addresses</CardTitle>
                   <CardDescription>Manage your saved addresses</CardDescription>
@@ -903,59 +942,6 @@ export default function Profile() {
                         Add New Address
                       </Button>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Account Information Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Information</CardTitle>
-                  <CardDescription>Your account details managed by Replit</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label>Email</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Input 
-                        value={user.email || ""} 
-                        disabled 
-                        className="bg-muted"
-                        data-testid="input-email-readonly"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-email"
-                      >
-                        Manage on Replit
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Email is managed through your Replit account
-                    </p>
-                  </div>
-                  <div>
-                    <Label>Password</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Input 
-                        type="password" 
-                        value="••••••••" 
-                        disabled 
-                        className="bg-muted"
-                        data-testid="input-password-readonly"
-                      />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-password"
-                      >
-                        Manage on Replit
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Password is managed through your Replit account
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -1246,6 +1232,26 @@ export default function Profile() {
               data-testid="button-confirm-pause-service"
             >
               Pause Service
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!serviceToActivate} onOpenChange={() => setServiceToActivate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Activate Service?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your service will be visible in search results and available for customers to book. Make sure all details are correct before activating.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-activate-service">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => serviceToActivate && updateServiceMutation.mutate({ id: serviceToActivate, data: { status: 'active' } })}
+              data-testid="button-confirm-activate-service"
+            >
+              Activate Service
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
