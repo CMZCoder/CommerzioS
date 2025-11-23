@@ -77,6 +77,7 @@ export const users = pgTable("users", {
   locationLng: decimal("location_lng", { precision: 10, scale: 7 }),
   preferredLocationName: varchar("preferred_location_name", { length: 200 }),
   preferredSearchRadiusKm: integer("preferred_search_radius_km").default(10),
+  lastHomeVisitAt: timestamp("last_home_visit_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -123,6 +123,10 @@ export interface IStorage {
   // Location-based operations
   getNearbyServices(lat: number, lng: number, radiusKm: number, categoryId?: string, limit?: number): Promise<Array<Service & { owner: User; category: Category; rating: number; reviewCount: number; distance: number }>>;
   updateUserLocation(userId: string, data: { locationLat?: string; locationLng?: string; preferredLocationName?: string; preferredSearchRadiusKm?: number }): Promise<User | undefined>;
+  
+  // New services indicator operations
+  getNewServiceCountsSince(userId: string, since: Date | null): Promise<Array<{ categoryId: string; newCount: number }>>;
+  updateUserLastHomeVisit(userId: string, visitTime?: Date): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -791,6 +795,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async getNewServiceCountsSince(userId: string, since: Date | null): Promise<Array<{ categoryId: string; newCount: number }>> {
+    if (!since) {
+      return [];
+    }
+
+    const results = await db
+      .select({
+        categoryId: services.categoryId,
+        newCount: sql<number>`COUNT(*)::int`,
+      })
+      .from(services)
+      .where(
+        and(
+          eq(services.status, 'active'),
+          sql`${services.createdAt} > ${since}`,
+          sql`${services.ownerId} != ${userId}`
+        )
+      )
+      .groupBy(services.categoryId);
+
+    return results.map((row) => ({
+      categoryId: row.categoryId,
+      newCount: Number(row.newCount) || 0,
+    }));
+  }
+
+  async updateUserLastHomeVisit(userId: string, visitTime?: Date): Promise<void> {
+    const timestamp = visitTime || new Date();
+    
+    await db
+      .update(users)
+      .set({ 
+        lastHomeVisitAt: sql`GREATEST(COALESCE(${users.lastHomeVisitAt}, '1970-01-01'::timestamp), ${timestamp}::timestamp)` 
+      })
+      .where(eq(users.id, userId));
   }
 }
 

@@ -162,6 +162,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/categories/new-service-counts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      // Capture timestamp BEFORE querying to avoid race conditions
+      const currentVisitTime = new Date();
+      
+      // Get counts using the OLD timestamp (user.lastHomeVisitAt)
+      const counts = await storage.getNewServiceCountsSince(
+        userId, 
+        user?.lastHomeVisitAt || null
+      );
+      
+      // Update to the CAPTURED timestamp (not new Date()!)
+      await storage.updateUserLastHomeVisit(userId, currentVisitTime);
+      
+      res.json(counts);
+    } catch (error) {
+      console.error("Error fetching new service counts:", error);
+      res.status(500).json({ message: "Failed to fetch new service counts" });
+    }
+  });
+
   // Plan routes
   app.get('/api/plans', async (_req, res) => {
     try {
@@ -453,6 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to verify user" });
     }
   });
+
 
   // Cron job endpoint to expire old services (would be called by scheduler)
   app.post('/api/cron/expire-services', async (_req, res) => {

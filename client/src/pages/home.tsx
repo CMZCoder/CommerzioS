@@ -38,6 +38,20 @@ export default function Home() {
     enabled: isAuthenticated,
   });
 
+  const { data: newServiceCounts = [] } = useQuery<Array<{ categoryId: string; newCount: number }>>({
+    queryKey: ["/api/categories/new-service-counts"],
+    queryFn: () => apiRequest("/api/categories/new-service-counts"),
+    enabled: isAuthenticated,
+  });
+
+  const newCountsMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    newServiceCounts.forEach(item => {
+      map[item.categoryId] = item.newCount;
+    });
+    return map;
+  }, [newServiceCounts]);
+
   useEffect(() => {
     if (isAuthenticated && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -298,13 +312,18 @@ export default function Home() {
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 className={cn(
-                  "p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 hover:shadow-md",
+                  "relative p-6 rounded-lg border-2 transition-all flex flex-col items-center gap-3 hover:shadow-md",
                   selectedCategory === cat.id
                     ? "border-primary bg-primary/10"
                     : "border-gray-200 hover:border-primary/50"
                 )}
                 data-testid={`category-card-${cat.slug}`}
               >
+                {newCountsMap[cat.id] > 0 && (
+                  <Badge variant="secondary" className="absolute top-2 right-2" data-testid={`badge-new-count-${cat.slug}`}>
+                    {newCountsMap[cat.id]} new
+                  </Badge>
+                )}
                 {cat.icon && (
                   <div className="p-3 rounded-full bg-secondary w-16 h-16 flex items-center justify-center">
                     <span className="text-2xl md:text-3xl">{cat.icon}</span>
