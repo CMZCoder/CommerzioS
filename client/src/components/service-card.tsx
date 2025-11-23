@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 
 interface ServiceCardProps {
-  service: ServiceWithDetails;
+  service: ServiceWithDetails & { distance?: number };
   compact?: boolean;
 }
 
@@ -100,10 +100,15 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
         ) : (
           <div className="w-full h-full bg-muted animate-pulse" />
         )}
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground font-medium shadow-sm">
             {service.category.name}
           </Badge>
+          {service.distance !== undefined && (
+            <Badge variant="secondary" className="bg-blue-500/90 text-white backdrop-blur-sm font-medium shadow-sm">
+              {service.distance.toFixed(1)} km away
+            </Badge>
+          )}
           {isExpired && (
             <Badge variant="destructive" className="shadow-sm">Expired</Badge>
           )}
