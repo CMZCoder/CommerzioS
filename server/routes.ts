@@ -1289,6 +1289,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Location-Based Services Routes
+  app.post('/api/geocode', async (req, res) => {
+    try {
+      const schema = z.object({
+        location: z.string().min(1, "Location is required"),
+      });
+
+      const validated = schema.parse(req.body);
+      const location = validated.location.trim();
+
+      // Use Nominatim API (OpenStreetMap) for geocoding
+      const encodedLocation = encodeURIComponent(`${location}, Switzerland`);
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodedLocation}&format=json&limit=1&countrycodes=ch`;
+
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'ServiceMarketplace/1.0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Geocoding service unavailable');
+      }
+
+      const results = await response.json();
+
+      if (!results || results.length === 0) {
+        return res.status(404).json({
+          message: "Location not found. Please try a valid Swiss postcode or city name.",
+        });
+      }
+
+      const result = results[0];
+      res.json({
+        lat: parseFloat(result.lat),
+        lng: parseFloat(result.lon),
+        displayName: result.display_name,
+        name: result.name,
+      });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error geocoding location:", error);
+      res.status(500).json({ message: "Failed to geocode location" });
+    }
+  });
+
   app.post('/api/services/nearby', async (req, res) => {
     try {
       const schema = z.object({
