@@ -29,7 +29,7 @@ export default function Home() {
   const [searchLocation, setSearchLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isNearbyExpanded, setIsNearbyExpanded] = useState(true);
-  const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
+  const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(false);
   
   // Use shared geocoding hook for location search
   const { 
@@ -550,12 +550,12 @@ export default function Home() {
                 {isFavoritesExpanded ? (
                   <>
                     <ChevronUp className="w-4 h-4 mr-1" />
-                    <span className="text-xs">Hide</span>
+                    <span className="text-xs">Collapse</span>
                   </>
                 ) : (
                   <>
                     <ChevronDown className="w-4 h-4 mr-1" />
-                    <span className="text-xs">Show</span>
+                    <span className="text-xs">Expand</span>
                   </>
                 )}
               </Button>
@@ -563,7 +563,7 @@ export default function Home() {
           </div>
 
           <AnimatePresence>
-            {isFavoritesExpanded && (
+            {!isFavoritesExpanded ? (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -571,22 +571,68 @@ export default function Home() {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-          <ScrollArea className="w-full">
-            <div className="flex gap-6 pb-4">
-              {favorites.map((fav) => (
-                <motion.div
-                  key={fav.id}
-                  className="w-80 flex-shrink-0"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  data-testid={`favorite-card-${fav.id}`}
-                >
-                  <ServiceCard service={fav.service} />
-                </motion.div>
-              ))}
-            </div>
-          </ScrollArea>
+                <div className="space-y-3">
+                  {favorites.slice(0, 5).map((fav) => (
+                    <motion.div
+                      key={fav.id}
+                      className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2 }}
+                      data-testid={`favorite-card-compact-${fav.id}`}
+                    >
+                      <Link href={`/service/${fav.service.id}`}>
+                        <a className="flex justify-between items-start gap-4 hover:opacity-75 transition-opacity">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-slate-900 truncate text-sm">
+                              {fav.service.title}
+                            </h3>
+                            <p className="text-xs text-slate-500 truncate">
+                              by {fav.service.owner?.firstName || "Service provider"}
+                            </p>
+                          </div>
+                          <div className="flex-shrink-0 text-right">
+                            <p className="font-semibold text-primary text-sm">
+                              CHF {fav.service.price}
+                            </p>
+                          </div>
+                        </a>
+                      </Link>
+                    </motion.div>
+                  ))}
+                  {favorites.length > 5 && (
+                    <div className="text-center pt-2">
+                      <p className="text-xs text-slate-500">
+                        Click "Expand" to see all {favorites.length} saved listings
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <ScrollArea className="w-full">
+                  <div className="flex gap-6 pb-4">
+                    {favorites.map((fav) => (
+                      <motion.div
+                        key={fav.id}
+                        className="w-80 flex-shrink-0"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.3 }}
+                        data-testid={`favorite-card-${fav.id}`}
+                      >
+                        <ServiceCard service={fav.service} />
+                      </motion.div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </motion.div>
             )}
           </AnimatePresence>
