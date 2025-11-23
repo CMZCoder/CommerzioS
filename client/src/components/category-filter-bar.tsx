@@ -34,7 +34,7 @@ export function CategoryFilterBar({
   }, [categories, showAllCategories]);
 
   return (
-    <div className="w-full bg-white border-b sticky top-16 z-40 shadow-sm">
+    <div className="w-full bg-white border-b sticky top-16 z-40 shadow-sm hidden sm:block">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-slate-700">Categories</h3>
