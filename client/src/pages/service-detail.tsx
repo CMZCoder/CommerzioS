@@ -19,6 +19,7 @@ export default function ServiceDetail() {
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState(5);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
@@ -34,6 +35,19 @@ export default function ServiceDetail() {
     queryFn: () => apiRequest(`/api/services/${params.id}/reviews`),
     enabled: !!service,
   });
+
+  const { data: savedStatus } = useQuery({
+    queryKey: [`/api/favorites/${params.id}/status`],
+    queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${params.id}/status`),
+    enabled: isAuthenticated && !!params.id,
+  });
+
+  // Update saved state when status is fetched
+  useEffect(() => {
+    if (savedStatus?.isFavorite !== undefined) {
+      setIsSaved(savedStatus.isFavorite);
+    }
+  }, [savedStatus]);
 
   const createReviewMutation = useMutation({
     mutationFn: (data: { rating: number; comment: string }) =>
@@ -55,6 +69,53 @@ export default function ServiceDetail() {
       toast({
         title: "Error",
         description: error.message || "Failed to submit review.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleSaved = useMutation({
+    mutationFn: async ({ action }: { action: 'add' | 'remove' }) => {
+      if (action === 'remove') {
+        await apiRequest(`/api/favorites/${params.id}`, { method: "DELETE" });
+      } else {
+        await apiRequest(`/api/favorites/${params.id}`, { method: "POST" });
+      }
+    },
+    onMutate: async ({ action }) => {
+      // Snapshot the previous value
+      const previousState = isSaved;
+      
+      // Optimistically update the UI
+      const newState = action === 'add';
+      setIsSaved(newState);
+      
+      // Return context with previous state for rollback
+      return { previousState };
+    },
+    onSuccess: (_data, variables) => {
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/favorites/${params.id}/status`] });
+      
+      // Show feedback toast
+      const wasAdded = variables.action === 'add';
+      toast({
+        title: wasAdded ? "Service saved" : "Removed from saved",
+        description: wasAdded 
+          ? "Service added to your saved services" 
+          : "Service removed from your saved services",
+      });
+    },
+    onError: (error: any, _variables, context) => {
+      // Revert to previous state on error
+      if (context?.previousState !== undefined) {
+        setIsSaved(context.previousState);
+      }
+      
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update saved services",
         variant: "destructive",
       });
     },
@@ -346,8 +407,21 @@ export default function ServiceDetail() {
                     )}
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 gap-2">
-                        <Heart className="w-4 h-4" /> Save
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 gap-2"
+                        onClick={() => {
+                          if (!isAuthenticated) {
+                            setLocation("/auth");
+                            return;
+                          }
+                          toggleSaved.mutate({ action: isSaved ? 'remove' : 'add' });
+                        }}
+                        disabled={toggleSaved.isPending}
+                        data-testid="button-save-service"
+                      >
+                        <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} /> 
+                        {isSaved ? 'Saved' : 'Save'}
                       </Button>
                       <Button variant="outline" className="flex-1 gap-2">
                         <Share2 className="w-4 h-4" /> Share

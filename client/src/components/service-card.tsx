@@ -17,14 +17,14 @@ import { useState, useEffect, useRef } from "react";
 interface ServiceCardProps {
   service: ServiceWithDetails & { distance?: number };
   compact?: boolean;
-  isFavorited?: boolean;
+  isSaved?: boolean;
 }
 
-export function ServiceCard({ service, compact = false, isFavorited: initialIsFavorited }: ServiceCardProps) {
+export function ServiceCard({ service, compact = false, isSaved: initialIsSaved }: ServiceCardProps) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isFavorited, setIsFavorited] = useState(initialIsFavorited ?? false);
+  const [isSaved, setIsSaved] = useState(initialIsSaved ?? false);
   const [showUnfavoriteDialog, setShowUnfavoriteDialog] = useState(false);
   const daysRemaining = Math.ceil((new Date(service.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isExpired = daysRemaining <= 0;
@@ -42,27 +42,27 @@ export function ServiceCard({ service, compact = false, isFavorited: initialIsFa
   const { data: favoriteStatus } = useQuery({
     queryKey: ["/api/favorites", service.id, "status"],
     queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${service.id}/status`),
-    enabled: isAuthenticated && initialIsFavorited === undefined,
+    enabled: isAuthenticated && initialIsSaved === undefined,
   });
 
-  // Update local state when favorite status is fetched or prop changes
+  // Update local state when saved status is fetched or prop changes
   useEffect(() => {
     let newValue: boolean | undefined;
     
-    if (initialIsFavorited !== undefined) {
-      newValue = initialIsFavorited;
+    if (initialIsSaved !== undefined) {
+      newValue = initialIsSaved;
     } else if (favoriteStatus?.isFavorite !== undefined) {
       newValue = favoriteStatus.isFavorite;
     }
     
     // Only update if value actually changed
-    if (newValue !== undefined && newValue !== isFavorited) {
-      setIsFavorited(newValue);
+    if (newValue !== undefined && newValue !== isSaved) {
+      setIsSaved(newValue);
     }
-  }, [favoriteStatus, initialIsFavorited]);
+  }, [favoriteStatus, initialIsSaved]);
 
-  // Toggle favorite mutation with optimistic updates
-  const toggleFavorite = useMutation({
+  // Toggle saved mutation with optimistic updates
+  const toggleSaved = useMutation({
     mutationFn: async ({ action }: { action: 'add' | 'remove' }) => {
       if (action === 'remove') {
         await apiRequest(`/api/favorites/${service.id}`, { method: "DELETE" });
@@ -75,11 +75,11 @@ export function ServiceCard({ service, compact = false, isFavorited: initialIsFa
       await queryClient.cancelQueries({ queryKey: ["/api/favorites", service.id, "status"] });
       
       // Snapshot the previous value
-      const previousState = isFavorited;
+      const previousState = isSaved;
       
       // Optimistically update the UI immediately
       const newState = action === 'add';
-      setIsFavorited(newState);
+      setIsSaved(newState);
       
       // Return context with previous state for rollback
       return { previousState };
@@ -94,34 +94,34 @@ export function ServiceCard({ service, compact = false, isFavorited: initialIsFa
       // Show feedback toast
       const wasAdded = variables.action === 'add';
       toast({
-        title: wasAdded ? "Added to favorites" : "Removed from favorites",
+        title: wasAdded ? "Service saved" : "Removed from saved",
         description: wasAdded 
-          ? "Service saved to your favorites" 
-          : "Service removed from your favorites",
+          ? "Service added to your saved services" 
+          : "Service removed from your saved services",
       });
     },
     onError: (error: any, _variables, context) => {
       // Revert to previous state on error
       if (context?.previousState !== undefined) {
-        setIsFavorited(context.previousState);
+        setIsSaved(context.previousState);
       }
       setShowUnfavoriteDialog(false);
       
       toast({
         title: "Error",
-        description: error.message || "Failed to update favorites",
+        description: error.message || "Failed to update saved services",
         variant: "destructive",
       });
     },
   });
 
-  const handleFavoriteClick = () => {
-    if (isFavorited) {
-      // Show confirmation dialog when removing favorite
+  const handleSaveClick = () => {
+    if (isSaved) {
+      // Show confirmation dialog when removing saved
       setShowUnfavoriteDialog(true);
     } else {
-      // Immediately add to favorites without confirmation
-      toggleFavorite.mutate({ action: 'add' });
+      // Immediately add to saved without confirmation
+      toggleSaved.mutate({ action: 'add' });
     }
   };
 
@@ -167,23 +167,23 @@ export function ServiceCard({ service, compact = false, isFavorited: initialIsFa
                   e.preventDefault();
                   e.stopPropagation();
                   if (isAuthenticated) {
-                    handleFavoriteClick();
+                    handleSaveClick();
                   }
                 }}
-                disabled={isAuthenticated && toggleFavorite.isPending}
+                disabled={isAuthenticated && toggleSaved.isPending}
                 data-testid={`button-favorite-${service.id}`}
               >
                 <Heart 
                   className={cn(
                     "w-5 h-5 transition-all duration-100",
-                    isFavorited ? "fill-red-500 text-red-500" : "text-gray-400"
+                    isSaved ? "fill-red-500 text-red-500" : "text-gray-400"
                   )}
                 />
               </button>
             </TooltipTrigger>
             {!isAuthenticated && (
               <TooltipContent>
-                <p>Login to save favorites</p>
+                <p>Login to save services</p>
               </TooltipContent>
             )}
           </Tooltip>
@@ -286,19 +286,19 @@ export function ServiceCard({ service, compact = false, isFavorited: initialIsFa
       <AlertDialog open={showUnfavoriteDialog} onOpenChange={setShowUnfavoriteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Favorite?</AlertDialogTitle>
+            <AlertDialogTitle>Remove from Saved?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove this service from your favorites? You can always add it back later.
+              Are you sure you want to remove this service from your saved services? You can always add it back later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-unfavorite">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-unsave">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => toggleFavorite.mutate({ action: 'remove' })}
+              onClick={() => toggleSaved.mutate({ action: 'remove' })}
               className="bg-destructive hover:bg-destructive/90"
-              data-testid="button-confirm-unfavorite"
+              data-testid="button-confirm-unsave"
             >
-              Remove Favorite
+              Remove from Saved
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

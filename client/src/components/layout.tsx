@@ -39,7 +39,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <nav className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
               <Link href="/"><span className="hover:text-primary transition-colors cursor-pointer">Explore</span></Link>
               {isAuthenticated && user && (
-                <Link href="/favorites"><span className="hover:text-primary transition-colors cursor-pointer">Favorites</span></Link>
+                <Link href="/favorites"><span className="hover:text-primary transition-colors cursor-pointer">Saved</span></Link>
               )}
               <Link href="/how-it-works"><span className="hover:text-primary transition-colors cursor-pointer">How it Works</span></Link>
             </nav>
@@ -73,9 +73,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setLocation("/favorites")} data-testid="menu-item-favorites">
+                      <DropdownMenuItem onClick={() => setLocation("/favorites")} data-testid="menu-item-saved">
                         <Heart className="w-4 h-4 mr-2" />
-                        Favorites
+                        Saved
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setLocation(`/users/${user.id}`)} data-testid="menu-item-public-profile">My Public Profile</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = "/api/logout"} className="text-destructive" data-testid="menu-item-logout">
@@ -110,7 +110,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="flex flex-col gap-6 mt-8">
                   <Link href="/"><span className="text-lg font-medium cursor-pointer">Explore</span></Link>
                   <Link href="/profile"><span className="text-lg font-medium cursor-pointer">Profile</span></Link>
-                  <Link href="/favorites"><span className="text-lg font-medium cursor-pointer">Favorites</span></Link>
+                  <Link href="/favorites"><span className="text-lg font-medium cursor-pointer">Saved</span></Link>
                   <Link href="/how-it-works"><span className="text-lg font-medium cursor-pointer">How it Works</span></Link>
                   <div className="h-px bg-border my-2" />
                   <Button 
