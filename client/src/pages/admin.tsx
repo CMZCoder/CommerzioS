@@ -2140,6 +2140,7 @@ function SettingsManagement() {
     twilioSid: false,
     twilioToken: false,
     emailKey: false,
+    googleMapsKey: false,
   });
 
   const [apiKeys, setApiKeys] = useState({
@@ -2148,6 +2149,7 @@ function SettingsManagement() {
     twilioPhoneNumber: "",
     emailServiceProvider: "",
     emailServiceApiKey: "",
+    googleMapsApiKey: "",
   });
 
   const { data: settings, isLoading } = useQuery({
@@ -2211,6 +2213,7 @@ function SettingsManagement() {
       if (apiKeys.twilioPhoneNumber) envVars.TWILIO_PHONE_NUMBER = apiKeys.twilioPhoneNumber;
       if (apiKeys.emailServiceProvider) envVars.EMAIL_SERVICE_PROVIDER = apiKeys.emailServiceProvider;
       if (apiKeys.emailServiceApiKey) envVars.EMAIL_SERVICE_API_KEY = apiKeys.emailServiceApiKey;
+      if (apiKeys.googleMapsApiKey) envVars.GOOGLE_MAPS_API_KEY = apiKeys.googleMapsApiKey;
 
       if (Object.keys(envVars).length === 0) {
         toast({
@@ -2232,6 +2235,7 @@ function SettingsManagement() {
         twilioPhoneNumber: "",
         emailServiceProvider: "",
         emailServiceApiKey: "",
+        googleMapsApiKey: "",
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/env-status"] });
@@ -2255,6 +2259,7 @@ function SettingsManagement() {
     if (!envStatus) return false;
     if (service === "twilio") return envStatus.twilioConfigured;
     if (service === "email") return envStatus.emailConfigured;
+    if (service === "googlemaps") return envStatus.googleMapsConfigured;
     return false;
   };
 
@@ -2490,6 +2495,41 @@ function SettingsManagement() {
                       data-testid="button-toggle-email-key"
                     >
                       {showApiKeys.emailKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                Google Maps Configuration
+                <Badge variant={isConfigured("googlemaps") ? "default" : "secondary"} data-testid="badge-googlemaps-status">
+                  {isConfigured("googlemaps") ? "✓ Configured" : "✗ Not Configured"}
+                </Badge>
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="google-maps-key">Google Maps API Key</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Get your API key from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Google Cloud Console</a>
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      id="google-maps-key"
+                      type={showApiKeys.googleMapsKey ? "text" : "password"}
+                      value={apiKeys.googleMapsApiKey}
+                      onChange={(e) => setApiKeys({ ...apiKeys, googleMapsApiKey: e.target.value })}
+                      placeholder="Enter Google Maps API Key"
+                      data-testid="input-google-maps-key"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShowApiKeys({ ...showApiKeys, googleMapsKey: !showApiKeys.googleMapsKey })}
+                      data-testid="button-toggle-google-maps-key"
+                    >
+                      {showApiKeys.googleMapsKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
                   </div>
                 </div>

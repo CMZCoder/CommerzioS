@@ -1020,11 +1020,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const status = {
         twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
         emailConfigured: !!(process.env.EMAIL_SERVICE_PROVIDER && process.env.EMAIL_SERVICE_API_KEY),
+        googleMapsConfigured: !!process.env.GOOGLE_MAPS_API_KEY,
       };
       res.json(status);
     } catch (error) {
       console.error("Error checking env status:", error);
       res.status(500).json({ message: "Failed to check env status" });
+    }
+  });
+
+  app.get('/api/maps/config', async (_req, res) => {
+    try {
+      const config = {
+        apiKey: process.env.GOOGLE_MAPS_API_KEY || "",
+        isConfigured: !!process.env.GOOGLE_MAPS_API_KEY,
+      };
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching map config:", error);
+      res.status(500).json({ message: "Failed to fetch map config" });
     }
   });
 

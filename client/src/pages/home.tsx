@@ -1,7 +1,7 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
 import { ServiceResultsRail } from "@/components/service-results-rail";
-import { ServiceMapToggle } from "@/components/service-map-toggle";
+import { GoogleMaps } from "@/components/google-maps";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -115,6 +115,11 @@ export default function Home() {
     queryKey: ["/api/users/me/addresses"],
     queryFn: () => apiRequest("/api/users/me/addresses"),
     enabled: isAuthenticated,
+  });
+
+  const { data: mapsConfig = { apiKey: "", isConfigured: false } } = useQuery<{ apiKey: string; isConfigured: boolean }>({
+    queryKey: ["/api/maps/config"],
+    queryFn: () => apiRequest("/api/maps/config").catch(() => ({ apiKey: "", isConfigured: false })),
   });
 
   const newCountsMap = useMemo(() => {
@@ -650,12 +655,15 @@ export default function Home() {
       {searchLocation && (
         <section className="py-12 container mx-auto px-4">
           <div className="space-y-6">
-            <ServiceMapToggle 
-              services={nearbyServices}
-              userLocation={searchLocation}
-              maxServices={5}
-              defaultExpanded={false}
-            />
+            {mapsConfig.isConfigured && mapsConfig.apiKey && (
+              <GoogleMaps 
+                services={nearbyServices}
+                userLocation={searchLocation}
+                maxServices={5}
+                defaultExpanded={false}
+                apiKey={mapsConfig.apiKey}
+              />
+            )}
             
             <ServiceResultsRail
               services={nearbyServices}
