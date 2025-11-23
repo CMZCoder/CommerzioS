@@ -647,6 +647,29 @@ export default function Home() {
         </div>
       </section>
 
+      {searchLocation && (
+        <section className="py-12 container mx-auto px-4">
+          <div className="space-y-6">
+            <ServiceMapToggle 
+              services={nearbyServices}
+              userLocation={searchLocation}
+              maxServices={5}
+              defaultExpanded={false}
+            />
+            
+            <ServiceResultsRail
+              services={nearbyServices}
+              isLoading={nearbyLoading}
+              emptyMessage={`No services found within ${radiusKm} km`}
+              emptyDescription="Try increasing the search radius to discover more services"
+              isExpanded={isNearbyExpanded}
+              onExpandChange={setIsNearbyExpanded}
+              dataTestIdPrefix="nearby"
+            />
+          </div>
+        </section>
+      )}
+
       {isAuthenticated && favorites && favorites.length > 0 && (
         <section className="py-12 container mx-auto px-4 bg-slate-50">
           <div className="flex justify-between items-center mb-6">
