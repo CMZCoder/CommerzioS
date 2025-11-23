@@ -1,11 +1,10 @@
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import type { CategoryWithTemporary } from "@/lib/api";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 interface CategoryFilterBarProps {
   categories: CategoryWithTemporary[];
@@ -25,6 +24,14 @@ export function CategoryFilterBar({
   newCounts = {},
 }: CategoryFilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+
+  // Show first 5 categories in the first row, including "All Services"
+  const firstRowCount = 5;
+  const displayedCategories = useMemo(() => {
+    if (showAllCategories) return categories;
+    return categories.slice(0, firstRowCount - 1);
+  }, [categories, showAllCategories]);
 
   return (
     <div className="w-full bg-white border-b sticky top-16 z-40 shadow-sm">
@@ -81,7 +88,7 @@ export function CategoryFilterBar({
                   </Badge>
                 </motion.button>
 
-                {categories.map((category) => (
+                {displayedCategories.map((category) => (
                   <motion.button
                     key={category.id}
                     whileHover={{ scale: 1.02 }}
@@ -111,6 +118,35 @@ export function CategoryFilterBar({
                     </Badge>
                   </motion.button>
                 ))}
+
+                {!showAllCategories && categories.length > firstRowCount - 1 && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowAllCategories(true)}
+                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center"
+                    data-testid="button-show-more-categories"
+                  >
+                    <ChevronDown className="w-5 h-5 text-slate-500" />
+                    <span className="text-xs font-semibold">Show More</span>
+                    <span className="text-xs text-slate-500">
+                      {categories.length - (firstRowCount - 1)} more
+                    </span>
+                  </motion.button>
+                )}
+
+                {showAllCategories && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowAllCategories(false)}
+                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center"
+                    data-testid="button-show-less-categories"
+                  >
+                    <ChevronUp className="w-5 h-5 text-slate-500" />
+                    <span className="text-xs font-semibold">Show Less</span>
+                  </motion.button>
+                )}
               </div>
             </motion.div>
           )}
