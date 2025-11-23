@@ -2,6 +2,7 @@ import type { ServiceWithDetails } from "@/lib/api";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Star, MapPin, CheckCircle2, Heart } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isFavorited, setIsFavorited] = useState(false);
+  const [showUnfavoriteDialog, setShowUnfavoriteDialog] = useState(false);
   const daysRemaining = Math.ceil((new Date(service.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isExpired = daysRemaining <= 0;
 
@@ -71,6 +73,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
       // Invalidate favorites queries
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/favorites", service.id, "status"] });
+      setShowUnfavoriteDialog(false);
       
       toast({
         title: wasAdded ? "Added to favorites" : "Removed from favorites",
@@ -84,6 +87,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
       if (context?.previousState !== undefined) {
         setIsFavorited(context.previousState);
       }
+      setShowUnfavoriteDialog(false);
       
       toast({
         title: "Error",
@@ -92,6 +96,16 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
       });
     },
   });
+
+  const handleFavoriteClick = () => {
+    if (isFavorited) {
+      // Show confirmation dialog when removing favorite
+      setShowUnfavoriteDialog(true);
+    } else {
+      // Immediately add to favorites without confirmation
+      toggleFavorite.mutate();
+    }
+  };
 
   return (
     <Card className={cn(
@@ -129,7 +143,7 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              toggleFavorite.mutate();
+              handleFavoriteClick();
             }}
             disabled={toggleFavorite.isPending}
             data-testid={`button-favorite-${service.id}`}
@@ -218,6 +232,27 @@ export function ServiceCard({ service, compact = false }: ServiceCardProps) {
           </Link>
         </CardFooter>
       )}
+
+      <AlertDialog open={showUnfavoriteDialog} onOpenChange={setShowUnfavoriteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Favorite?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this service from your favorites? You can always add it back later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-unfavorite">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => toggleFavorite.mutate()}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-confirm-unfavorite"
+            >
+              Remove Favorite
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

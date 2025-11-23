@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const [editingService, setEditingService] = useState<ServiceWithDetails | null>(null);
   const [showCategorySuggestionModal, setShowCategorySuggestionModal] = useState(false);
   const [pendingCategoryCallback, setPendingCategoryCallback] = useState<((categoryId: string) => void) | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -80,6 +82,7 @@ export default function Dashboard() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      setServiceToDelete(null);
       toast({
         title: "Service Deleted",
         description: "Your service has been deleted.",
@@ -103,9 +106,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this service? This action cannot be undone.")) {
-      deleteServiceMutation.mutate(id);
-    }
+    setServiceToDelete(id);
   };
 
   const isExpired = (date: string | Date) => {
@@ -283,6 +284,7 @@ export default function Dashboard() {
                                 size="sm" 
                                 onClick={() => handleDelete(service.id)}
                                 disabled={deleteServiceMutation.isPending}
+                                data-testid={`button-delete-service-${service.id}`}
                               >
                                 Delete
                               </Button>
@@ -373,6 +375,27 @@ export default function Dashboard() {
           }
         }}
       />
+
+      <AlertDialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this service? This action cannot be undone and will permanently remove the service from your listings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-service">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => serviceToDelete && deleteServiceMutation.mutate(serviceToDelete)}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-confirm-delete-service"
+            >
+              Delete Service
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff } from "lucide-react";
 import type { User, Service, Plan, SubmittedCategory } from "@shared/schema";
@@ -299,6 +300,7 @@ function UsersManagement() {
 function ServicesManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
 
   const { data: services = [], isLoading } = useQuery<Service[]>({
     queryKey: ["/api/admin/services"],
@@ -312,6 +314,7 @@ function ServicesManagement() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/services"] });
+      setServiceToDelete(null);
       toast({
         title: "Success",
         description: "Service deleted successfully",
@@ -357,7 +360,7 @@ function ServicesManagement() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => deleteServiceMutation.mutate(service.id)}
+                    onClick={() => setServiceToDelete(service.id)}
                     data-testid={`button-delete-service-${service.id}`}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -368,6 +371,27 @@ function ServicesManagement() {
           </TableBody>
         </Table>
       </CardContent>
+
+      <AlertDialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this service? This action cannot be undone and will permanently remove the service from the platform.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-admin-service">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => serviceToDelete && deleteServiceMutation.mutate(serviceToDelete)}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-confirm-delete-admin-service"
+            >
+              Delete Service
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
