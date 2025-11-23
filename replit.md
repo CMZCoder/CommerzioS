@@ -38,6 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **Styling Approach**: Tailwind CSS with CSS variables enables theme customization while maintaining type safety. Custom design tokens define a "Trustworthy Blue" color scheme to establish credibility.
 - **State Management Strategy**: TanStack Query handles all server state, eliminating need for global state management. Custom query functions with 401 handling provide seamless authentication state.
 - **Type Safety**: Full TypeScript implementation with shared types between client and server via the `@shared` namespace ensures API contract consistency.
+- **Geocoding Centralization**: All location fields use shared geocoding infrastructure (`lib/geocoding.ts` service and `hooks/useGeocoding.ts` hook) for consistent address autocomplete, debouncing (300ms), and AbortController-based race condition prevention. This eliminates duplicate geocoding logic across components.
 
 ### Backend Architecture
 
