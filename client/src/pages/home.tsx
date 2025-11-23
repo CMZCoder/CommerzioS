@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
+import { CategoryFilterBar } from "@/components/category-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -164,6 +165,14 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <CategoryFilterBar
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        serviceCount={services.length}
+        categoryCounts={categoryServiceCounts}
+      />
 
       {isAuthenticated && (
         <section className="py-12 container mx-auto px-4">

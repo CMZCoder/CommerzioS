@@ -38,7 +38,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="hidden md:flex items-center gap-8 flex-shrink-0">
             <nav className="flex items-center gap-6 text-sm font-medium text-muted-foreground">
               <Link href="/"><span className="hover:text-primary transition-colors cursor-pointer">Explore</span></Link>
-              <Link href="/categories"><span className="hover:text-primary transition-colors cursor-pointer">Categories</span></Link>
               {isAuthenticated && user && (
                 <Link href="/favorites"><span className="hover:text-primary transition-colors cursor-pointer">Favorites</span></Link>
               )}
@@ -110,9 +109,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <SheetContent side="right">
                 <div className="flex flex-col gap-6 mt-8">
                   <Link href="/"><span className="text-lg font-medium cursor-pointer">Explore</span></Link>
-                  <Link href="/categories"><span className="text-lg font-medium cursor-pointer">Categories</span></Link>
                   <Link href="/profile"><span className="text-lg font-medium cursor-pointer">Profile</span></Link>
                   <Link href="/favorites"><span className="text-lg font-medium cursor-pointer">Favorites</span></Link>
+                  <Link href="/how-it-works"><span className="text-lg font-medium cursor-pointer">How it Works</span></Link>
                   <div className="h-px bg-border my-2" />
                   <Button 
                     className="w-full" 
