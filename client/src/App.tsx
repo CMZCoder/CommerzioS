@@ -12,6 +12,7 @@ import Home from "@/pages/home";
 import ServiceDetail from "@/pages/service-detail";
 import Profile from "@/pages/profile";
 import Favorites from "@/pages/favorites";
+import BrowseServices from "@/pages/browse-services";
 import HowItWorks from "@/pages/how-it-works";
 import HelpCenter from "@/pages/help-center";
 import TrustSafety from "@/pages/trust-safety";
@@ -38,6 +39,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/services" component={BrowseServices} />
       <Route path="/service/:id" component={ServiceDetail} />
       <Route path="/users/:userId" component={UserProfile} />
       <Route path="/hashtags/:hashtag" component={HashtagResults} />

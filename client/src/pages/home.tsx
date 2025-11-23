@@ -357,16 +357,28 @@ export default function Home() {
                 : 'All Services'
               }
             </h2>
-            {selectedCategory && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setSelectedCategory(null)}
-                data-testid="button-clear-category-filter"
-              >
-                Clear Filter
-              </Button>
-            )}
+            <div className="flex items-center gap-3">
+              {selectedCategory && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedCategory(null)}
+                  data-testid="button-clear-category-filter"
+                >
+                  Clear Filter
+                </Button>
+              )}
+              <Link href="/services">
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  className="gap-1"
+                  data-testid="button-see-more-services"
+                >
+                  See More <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {servicesLoading ? (
