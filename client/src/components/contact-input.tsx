@@ -108,7 +108,10 @@ export function ContactInput({
     if (type === "email") {
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
-    return value.length >= 10;
+    // Swiss phone number validation: must start with +41 and have 9-13 digits after
+    // Formats: +41 44 123 4567, +41441234567, +41 79 123 45 67
+    const swissPhoneRegex = /^\+41\s?(\d{2}\s?\d{3}\s?\d{2}\s?\d{2}|\d{9,11})$/;
+    return swissPhoneRegex.test(value.replace(/\s/g, ''));
   };
 
   const isValueValid = validateValue(contact.contactType, contact.value);

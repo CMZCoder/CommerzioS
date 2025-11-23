@@ -291,8 +291,27 @@ export default function Profile() {
     return myServices.reduce((sum, service) => sum + service.viewCount, 0);
   }, [myServices]);
 
+  const validateSwissPhoneNumber = (phone: string): boolean => {
+    if (!phone) return true; // Empty is valid (optional field)
+    // Swiss phone number validation: must start with +41 and have 9-13 digits after
+    // Formats: +41 44 123 4567, +41441234567, +41 79 123 45 67
+    const swissPhoneRegex = /^\+41\s?(\d{2}\s?\d{3}\s?\d{2}\s?\d{2}|\d{9,11})$/;
+    return swissPhoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate phone number if provided
+    if (phoneNumber && !validateSwissPhoneNumber(phoneNumber)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid Swiss phone number starting with +41",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     updateProfileMutation.mutate({ firstName, lastName, phoneNumber });
   };
 
@@ -541,8 +560,15 @@ export default function Profile() {
                       type="tel"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="+41 44 123 4567"
+                      className={phoneNumber && !validateSwissPhoneNumber(phoneNumber) ? "border-red-500" : ""}
                       data-testid="input-profile-phoneNumber"
                     />
+                    {phoneNumber && !validateSwissPhoneNumber(phoneNumber) && (
+                      <p className="text-sm text-red-500 mt-1">
+                        Phone number must start with +41 (e.g., +41 44 123 4567)
+                      </p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="email">Email (managed by Replit)</Label>
@@ -787,11 +813,18 @@ export default function Profile() {
                       <Label htmlFor="phoneNumber">Phone Number</Label>
                       <Input
                         id="phoneNumber"
+                        type="tel"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
-                        placeholder="Enter your phone number"
+                        placeholder="+41 44 123 4567"
+                        className={phoneNumber && !validateSwissPhoneNumber(phoneNumber) ? "border-red-500" : ""}
                         data-testid="input-phoneNumber"
                       />
+                      {phoneNumber && !validateSwissPhoneNumber(phoneNumber) && (
+                        <p className="text-sm text-red-500 mt-1">
+                          Phone number must start with +41 (e.g., +41 44 123 4567)
+                        </p>
+                      )}
                     </div>
                     <Button 
                       type="submit" 

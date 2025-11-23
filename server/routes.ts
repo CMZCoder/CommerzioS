@@ -54,6 +54,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const { firstName, lastName, phoneNumber, profileImageUrl } = req.body;
       
+      // Validate Swiss phone number if provided
+      if (phoneNumber) {
+        const swissPhoneRegex = /^\+41\s?(\d{2}\s?\d{3}\s?\d{2}\s?\d{2}|\d{9,11})$/;
+        const normalizedPhone = phoneNumber.replace(/\s/g, '');
+        if (!swissPhoneRegex.test(normalizedPhone)) {
+          return res.status(400).json({ 
+            message: "Invalid phone number. Swiss phone numbers must start with +41 (e.g., +41 44 123 4567)" 
+          });
+        }
+      }
+      
       const updateData: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string } = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
