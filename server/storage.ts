@@ -61,7 +61,7 @@ export interface IStorage {
   updateUserVerification(id: string, isVerified: boolean): Promise<User | undefined>;
   updateUserPlan(userId: string, planId: string): Promise<User | undefined>;
   updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
-  updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string }): Promise<User>;
+  updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string }): Promise<User>;
   
   // Address operations
   getAddresses(userId: string): Promise<SelectAddress[]>;
@@ -535,10 +535,19 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).orderBy(desc(users.createdAt));
   }
 
-  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string }): Promise<User> {
+  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string }): Promise<User> {
+    const updateData: any = { updatedAt: new Date() };
+    if (data.firstName !== undefined) updateData.firstName = data.firstName;
+    if (data.lastName !== undefined) updateData.lastName = data.lastName;
+    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber;
+    if (data.profileImageUrl !== undefined) updateData.profileImageUrl = data.profileImageUrl;
+    if (data.locationLat !== undefined) updateData.locationLat = data.locationLat;
+    if (data.locationLng !== undefined) updateData.locationLng = data.locationLng;
+    if (data.preferredLocationName !== undefined) updateData.preferredLocationName = data.preferredLocationName;
+    
     const [user] = await db
       .update(users)
-      .set({ ...data, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(users.id, userId))
       .returning();
     return user;

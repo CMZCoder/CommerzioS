@@ -53,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, phoneNumber, profileImageUrl } = req.body;
+      const { firstName, lastName, phoneNumber, profileImageUrl, locationLat, locationLng, preferredLocationName } = req.body;
       
       // Validate Swiss phone number if provided
       if (phoneNumber) {
@@ -66,11 +66,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const updateData: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string } = {};
+      // Validate location fields - both must be provided together or neither
+      if ((locationLat !== undefined || locationLng !== undefined) && (locationLat === undefined || locationLng === undefined)) {
+        return res.status(400).json({ 
+          message: "Both latitude and longitude must be provided together" 
+        });
+      }
+      
+      const updateData: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string } = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
       if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
       if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl;
+      if (locationLat !== undefined) updateData.locationLat = locationLat ? parseFloat(locationLat) : null;
+      if (locationLng !== undefined) updateData.locationLng = locationLng ? parseFloat(locationLng) : null;
+      if (preferredLocationName !== undefined) updateData.preferredLocationName = preferredLocationName;
       
       const user = await storage.updateUserProfile(userId, updateData);
       res.json(user);
