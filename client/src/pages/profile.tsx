@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import { Slider } from "@/components/ui/slider";
+import { AddressAutocomplete } from "@/components/address-autocomplete";
 
 export default function Profile() {
   // Scroll to top on mount and tab change
@@ -54,6 +55,7 @@ export default function Profile() {
   const [editingAddress, setEditingAddress] = useState<SelectAddress | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
+  const [isAddressValidated, setIsAddressValidated] = useState(false);
   
   const [addressForm, setAddressForm] = useState({
     label: "",
@@ -317,6 +319,17 @@ export default function Profile() {
 
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Enforce validated address for new addresses
+    if (!editingAddress && !isAddressValidated) {
+      toast({
+        title: "Invalid Address",
+        description: "Please select a validated Swiss address from the search suggestions",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (editingAddress) {
       updateAddressMutation.mutate({ id: editingAddress.id, data: addressForm });
     } else {
@@ -334,6 +347,7 @@ export default function Profile() {
       country: "Switzerland",
       isPrimary: false,
     });
+    setIsAddressValidated(false);
   };
 
   const startEditAddress = (address: SelectAddress) => {
@@ -903,8 +917,8 @@ export default function Profile() {
                         <h3 className="font-semibold">
                           {editingAddress ? "Edit Address" : "Add New Address"}
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="col-span-2">
+                        <div className="space-y-4">
+                          <div>
                             <Label htmlFor="label">Label (optional)</Label>
                             <Input
                               id="label"
@@ -914,61 +928,90 @@ export default function Profile() {
                               data-testid="input-address-label"
                             />
                           </div>
-                          <div className="col-span-2">
-                            <Label htmlFor="street">Street *</Label>
-                            <Input
-                              id="street"
-                              value={addressForm.street}
-                              onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                              placeholder="Enter street address"
-                              required
-                              data-testid="input-address-street"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="postalCode">Postal Code *</Label>
-                            <Input
-                              id="postalCode"
-                              value={addressForm.postalCode}
-                              onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                              placeholder="1234"
-                              required
-                              data-testid="input-address-postalCode"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="city">City *</Label>
-                            <Input
-                              id="city"
-                              value={addressForm.city}
-                              onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
-                              placeholder="Enter city"
-                              required
-                              data-testid="input-address-city"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="canton">Canton</Label>
-                            <Input
-                              id="canton"
-                              value={addressForm.canton}
-                              onChange={(e) => setAddressForm({ ...addressForm, canton: e.target.value })}
-                              placeholder="e.g., Zürich"
-                              data-testid="input-address-canton"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="country">Country *</Label>
-                            <Input
-                              id="country"
-                              value={addressForm.country}
-                              onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })}
-                              placeholder="Switzerland"
-                              required
-                              data-testid="input-address-country"
-                            />
-                          </div>
-                          <div className="col-span-2 flex items-center gap-2">
+                          
+                          <AddressAutocomplete
+                            onAddressSelect={(address) => {
+                              if (address) {
+                                setAddressForm({
+                                  ...addressForm,
+                                  street: address.street,
+                                  city: address.city,
+                                  postalCode: address.postalCode,
+                                  canton: address.canton,
+                                });
+                                setIsAddressValidated(true);
+                              } else {
+                                // Address cleared
+                                setAddressForm({
+                                  ...addressForm,
+                                  street: "",
+                                  city: "",
+                                  postalCode: "",
+                                  canton: "",
+                                });
+                                setIsAddressValidated(false);
+                              }
+                            }}
+                            label="Search Swiss Address"
+                            required
+                          />
+                          
+                          {isAddressValidated && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="col-span-2">
+                                <Label htmlFor="street">Street *</Label>
+                                <Input
+                                  id="street"
+                                  value={addressForm.street}
+                                  disabled
+                                  className="bg-muted"
+                                  data-testid="input-address-street"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="postalCode">Postal Code *</Label>
+                                <Input
+                                  id="postalCode"
+                                  value={addressForm.postalCode}
+                                  disabled
+                                  className="bg-muted"
+                                  data-testid="input-address-postalCode"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="city">City *</Label>
+                                <Input
+                                  id="city"
+                                  value={addressForm.city}
+                                  disabled
+                                  className="bg-muted"
+                                  data-testid="input-address-city"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="canton">Canton</Label>
+                                <Input
+                                  id="canton"
+                                  value={addressForm.canton}
+                                  disabled
+                                  className="bg-muted"
+                                  data-testid="input-address-canton"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="country">Country</Label>
+                                <Input
+                                  id="country"
+                                  value={addressForm.country}
+                                  disabled
+                                  className="bg-muted cursor-not-allowed"
+                                  data-testid="input-address-country"
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               id="isPrimary"

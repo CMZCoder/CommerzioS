@@ -95,6 +95,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const validated = insertAddressSchema.parse(req.body);
+      
+      // Validate Swiss address
+      const fullAddress = `${validated.street}, ${validated.postalCode} ${validated.city}, ${validated.country}`;
+      const isValid = await validateSwissAddress(fullAddress);
+      
+      if (!isValid) {
+        return res.status(400).json({ 
+          message: "Invalid Swiss address. Please select a validated address from the search suggestions." 
+        });
+      }
+      
       const address = await storage.createAddress(userId, validated);
       res.status(201).json(address);
     } catch (error: any) {
@@ -111,6 +122,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const addressId = req.params.id;
       const validated = insertAddressSchema.partial().parse(req.body);
+      
+      // Validate Swiss address if address fields are being updated
+      if (validated.street || validated.city || validated.postalCode || validated.country) {
+        // Get existing address to merge with updates
+        const existingAddresses = await storage.getAddresses(userId);
+        const existingAddress = existingAddresses.find(a => a.id === addressId);
+        
+        if (!existingAddress) {
+          return res.status(404).json({ message: "Address not found or unauthorized" });
+        }
+        
+        const fullAddress = `${validated.street || existingAddress.street}, ${validated.postalCode || existingAddress.postalCode} ${validated.city || existingAddress.city}, ${validated.country || existingAddress.country}`;
+        const isValid = await validateSwissAddress(fullAddress);
+        
+        if (!isValid) {
+          return res.status(400).json({ 
+            message: "Invalid Swiss address. Please select a validated address from the search suggestions." 
+          });
+        }
+      }
+      
       const address = await storage.updateAddress(addressId, userId, validated);
       res.json(address);
     } catch (error: any) {
