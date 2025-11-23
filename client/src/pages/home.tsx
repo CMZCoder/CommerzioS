@@ -4,9 +4,10 @@ import { CategoryFilterBar } from "@/components/category-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation } from "lucide-react";
+import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation, Search, X } from "lucide-react";
 import heroImg from "@assets/generated_images/abstract_community_connection_hero_background.png";
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
@@ -15,13 +16,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<{lat: number; lng: number} | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [radiusKm, setRadiusKm] = useState(10);
+  const [radiusKm, setRadiusKm] = useState(25);
+  
+  const [customLocation, setCustomLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
+  const [locationSearchQuery, setLocationSearchQuery] = useState("");
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<CategoryWithTemporary[]>({
     queryKey: ["/api/categories"],
@@ -54,7 +61,7 @@ export default function Home() {
   }, [newServiceCounts]);
 
   useEffect(() => {
-    if (isAuthenticated && navigator.geolocation) {
+    if (isAuthenticated && navigator.geolocation && !customLocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
@@ -69,15 +76,64 @@ export default function Home() {
         }
       );
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, customLocation]);
+
+  const handleLocationSearch = async () => {
+    if (!locationSearchQuery.trim()) {
+      toast({
+        title: "Location required",
+        description: "Please enter a postcode or city name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeocoding(true);
+    try {
+      const result = await apiRequest<{lat: number; lng: number; displayName: string; name: string}>("/api/geocode", {
+        method: "POST",
+        body: JSON.stringify({ location: locationSearchQuery }),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+
+      setCustomLocation({
+        lat: result.lat,
+        lng: result.lng,
+        name: result.name || result.displayName
+      });
+
+      toast({
+        title: "Location found",
+        description: `Searching near ${result.name}`,
+      });
+    } catch (error: any) {
+      console.error("Geocoding error:", error);
+      toast({
+        title: "Location not found",
+        description: error.message || "Please try a valid Swiss postcode or city name",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handleClearLocation = () => {
+    setCustomLocation(null);
+    setLocationSearchQuery("");
+  };
+
+  const activeLocation = customLocation || userLocation;
 
   const { data: nearbyServices = [], isLoading: nearbyLoading } = useQuery<Array<ServiceWithDetails & { distance: number }>>({
-    queryKey: ["/api/services/nearby", userLocation, radiusKm],
+    queryKey: ["/api/services/nearby", activeLocation, radiusKm],
     queryFn: () => apiRequest("/api/services/nearby", {
       method: "POST",
       body: JSON.stringify({
-        lat: userLocation!.lat,
-        lng: userLocation!.lng,
+        lat: activeLocation!.lat,
+        lng: activeLocation!.lng,
         radiusKm,
         limit: 10
       }),
@@ -85,7 +141,7 @@ export default function Home() {
         "Content-Type": "application/json"
       }
     }),
-    enabled: !!userLocation && isAuthenticated,
+    enabled: !!activeLocation && isAuthenticated,
   });
 
   const filteredServices = useMemo(() => {
@@ -183,39 +239,107 @@ export default function Home() {
             </h2>
           </div>
 
-          {locationError ? (
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="location-search" className="text-sm font-medium mb-2 block">
+                  Search Location
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="location-search"
+                    type="text"
+                    placeholder="Enter postcode or city (e.g., 8001, Zürich)..."
+                    value={locationSearchQuery}
+                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleLocationSearch();
+                      }
+                    }}
+                    disabled={isGeocoding}
+                    className="flex-1"
+                    data-testid="input-location-search"
+                  />
+                  <Button
+                    onClick={handleLocationSearch}
+                    disabled={isGeocoding || !locationSearchQuery.trim()}
+                    data-testid="button-search-location"
+                  >
+                    {isGeocoding ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="w-full md:w-48">
+                <Label htmlFor="radius-select" className="text-sm font-medium mb-2 block">
+                  Search Radius
+                </Label>
+                <Select 
+                  value={radiusKm.toString()} 
+                  onValueChange={(value) => setRadiusKm(parseInt(value, 10))}
+                  disabled={!activeLocation}
+                >
+                  <SelectTrigger id="radius-select" data-testid="select-radius">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 km</SelectItem>
+                    <SelectItem value="10">10 km</SelectItem>
+                    <SelectItem value="25">25 km</SelectItem>
+                    <SelectItem value="50">50 km</SelectItem>
+                    <SelectItem value="100">100 km</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {customLocation && (
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <Badge variant="secondary" className="px-3 py-1" data-testid="badge-active-location">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {customLocation.name}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearLocation}
+                  className="h-7 px-2"
+                  data-testid="button-clear-location"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {locationError && !customLocation ? (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
               <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                Enable location access to see services near you
+                Search for a location to see services
               </h3>
               <p className="text-slate-500 text-sm">
-                Grant location permission to discover local services in your area
+                Enter a Swiss postcode or city name above to find nearby services
               </p>
             </div>
-          ) : !userLocation ? (
+          ) : !activeLocation ? (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
               <Loader2 className="w-12 h-12 text-slate-400 mx-auto mb-4 animate-spin" />
               <h3 className="text-lg font-semibold text-slate-900 mb-2">
                 Detecting your location...
               </h3>
+              <p className="text-slate-500 text-sm">
+                Or search for a location manually above
+              </p>
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-4 mb-6 bg-slate-50 p-4 rounded-lg">
-                <Label className="text-sm font-medium whitespace-nowrap">
-                  Search Radius: <span className="text-primary font-bold">{radiusKm} km</span>
-                </Label>
-                <Slider
-                  value={[radiusKm]}
-                  onValueChange={([value]) => setRadiusKm(value)}
-                  min={1}
-                  max={50}
-                  step={1}
-                  className="flex-1"
-                  data-testid="slider-radius-km"
-                />
-              </div>
 
               {nearbyLoading ? (
                 <div className="flex items-center justify-center py-12">
