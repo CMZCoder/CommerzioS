@@ -2,14 +2,19 @@ import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Search, Filter, Sparkles, ArrowRight, Loader2, Heart } from "lucide-react";
 import heroImg from "@assets/generated_images/abstract_community_connection_hero_background.png";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
 
 export default function Home() {
+  const { isAuthenticated } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [heroSearchResults, setHeroSearchResults] = useState<ServiceWithDetails[]>([]);
@@ -25,6 +30,13 @@ export default function Home() {
   const { data: services = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { status: "active" }],
     queryFn: () => apiRequest("/api/services?status=active"),
+  });
+
+  // Query favorites for authenticated users
+  const { data: favorites = [] } = useQuery<FavoriteWithService[]>({
+    queryKey: ["/api/favorites"],
+    queryFn: () => apiRequest("/api/favorites"),
+    enabled: isAuthenticated,
   });
 
   const filteredServices = useMemo(() => {
@@ -222,6 +234,41 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      {/* Favorites Slider - Only visible for authenticated users with favorites */}
+      {isAuthenticated && favorites && favorites.length > 0 && (
+        <section className="py-12 container mx-auto px-4">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+              Your Favorites
+              <Badge variant="secondary" className="ml-2">{favorites.length}</Badge>
+            </h2>
+            <Link href="/favorites">
+              <Button variant="ghost" className="gap-1" data-testid="button-view-all-favorites">
+                View All <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+          
+          <ScrollArea className="w-full">
+            <div className="flex gap-6 pb-4">
+              {favorites.map((fav) => (
+                <motion.div
+                  key={fav.id}
+                  className="w-80 flex-shrink-0"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  data-testid={`favorite-card-${fav.id}`}
+                >
+                  <ServiceCard service={fav.service} />
+                </motion.div>
+              ))}
+            </div>
+          </ScrollArea>
+        </section>
+      )}
 
       {/* Services Grid */}
       <section className="py-12 bg-slate-50" data-testid="services-section">
