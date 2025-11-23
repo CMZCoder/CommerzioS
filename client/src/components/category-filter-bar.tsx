@@ -61,66 +61,57 @@ export function CategoryFilterBar({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex gap-2 pb-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onCategoryChange(null)}
-              className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shrink-0",
-                selectedCategory === null
-                  ? "bg-primary text-primary-foreground shadow-md"
-                  : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-              )}
-              data-testid="category-filter-all"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>All Services</span>
-              <Badge
-                variant={selectedCategory === null ? "secondary" : "outline"}
-                className="ml-1"
-              >
-                {serviceCount}
-              </Badge>
-            </motion.button>
-
-            {categories.map((category) => (
-              <motion.button
-                key={category.id}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onCategoryChange(category.id)}
-                className={cn(
-                  "relative inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all shrink-0",
-                  selectedCategory === category.id
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                )}
-                data-testid={`category-filter-${category.slug}`}
-              >
-                {newCounts[category.id] > 0 && (
-                  <div className="absolute -top-2 -right-2 flex items-center justify-center">
-                    <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {newCounts[category.id]}
-                    </div>
-                  </div>
-                )}
-                {category.icon && (
-                  <span className="text-lg">{category.icon}</span>
-                )}
-                <span>{category.name}</span>
-                <Badge
-                  variant={selectedCategory === category.id ? "secondary" : "outline"}
-                  className="ml-1"
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pt-2 pb-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => onCategoryChange(null)}
+                  className={cn(
+                    "relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all text-center",
+                    selectedCategory === null
+                      ? "border-primary bg-primary/10"
+                      : "border-slate-200 bg-slate-50 hover:border-primary/50 hover:bg-slate-100"
+                  )}
+                  data-testid="category-filter-all"
                 >
-                  {categoryCounts[category.id] || 0}
-                </Badge>
-              </motion.button>
-            ))}
-                </div>
-                <ScrollBar orientation="horizontal" />
-              </ScrollArea>
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  <span className="text-xs font-semibold">All Services</span>
+                  <Badge variant="secondary" className="mt-1">
+                    {serviceCount}
+                  </Badge>
+                </motion.button>
+
+                {categories.map((category) => (
+                  <motion.button
+                    key={category.id}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => onCategoryChange(category.id)}
+                    className={cn(
+                      "relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all text-center",
+                      selectedCategory === category.id
+                        ? "border-primary bg-primary/10"
+                        : "border-slate-200 bg-slate-50 hover:border-primary/50 hover:bg-slate-100"
+                    )}
+                    data-testid={`category-filter-${category.slug}`}
+                  >
+                    {newCounts[category.id] > 0 && (
+                      <div className="absolute -top-2 -right-2">
+                        <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                          {newCounts[category.id]}
+                        </div>
+                      </div>
+                    )}
+                    {category.icon && (
+                      <span className="text-2xl">{category.icon}</span>
+                    )}
+                    <span className="text-xs font-semibold line-clamp-2">{category.name}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {categoryCounts[category.id] || 0}
+                    </Badge>
+                  </motion.button>
+                ))}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
