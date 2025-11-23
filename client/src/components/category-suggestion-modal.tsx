@@ -75,8 +75,8 @@ export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated 
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
       toast({
-        title: "Temporary Category Created!",
-        description: "Your category has been created and will be available for 24 hours while we review it.",
+        title: "Category Created!",
+        description: "Your category has been created successfully.",
       });
       if (onCategoryCreated) {
         onCategoryCreated(data.id);
@@ -87,7 +87,7 @@ export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated 
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create temporary category",
+        description: error.message || "Failed to create category",
         variant: "destructive",
       });
     },
