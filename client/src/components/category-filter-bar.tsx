@@ -13,8 +13,6 @@ interface CategoryFilterBarProps {
   serviceCount?: number;
   categoryCounts?: Record<string, number>;
   newCounts?: Record<string, number>;
-  isExpanded?: boolean;
-  setIsExpanded?: (expanded: boolean) => void;
 }
 
 export function CategoryFilterBar({
@@ -24,12 +22,8 @@ export function CategoryFilterBar({
   serviceCount = 0,
   categoryCounts = {},
   newCounts = {},
-  isExpanded: controlledIsExpanded,
-  setIsExpanded: controlledSetIsExpanded,
 }: CategoryFilterBarProps) {
-  const [internalIsExpanded, setInternalIsExpanded] = useState(true);
-  const isExpanded = controlledIsExpanded !== undefined ? controlledIsExpanded : internalIsExpanded;
-  const setIsExpanded = controlledSetIsExpanded !== undefined ? controlledSetIsExpanded : setInternalIsExpanded;
+  const [isExpanded, setIsExpanded] = useState(true);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const [firstRowCount, setFirstRowCount] = useState(6);
 
