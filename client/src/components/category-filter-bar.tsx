@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import type { CategoryWithTemporary } from "@/lib/api";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 interface CategoryFilterBarProps {
   categories: CategoryWithTemporary[];
@@ -25,16 +25,48 @@ export function CategoryFilterBar({
 }: CategoryFilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [firstRowCount, setFirstRowCount] = useState(6);
 
-  // Show first 5 categories in the first row, including "All Services"
-  const firstRowCount = 5;
+  // Calculate how many items fit in the first row based on screen width
+  useEffect(() => {
+    const updateRowCount = () => {
+      const width = window.innerWidth;
+      if (width >= 1280) {
+        // xl: 6 columns, show 5 categories + Show More
+        setFirstRowCount(6);
+      } else if (width >= 1024) {
+        // lg: 5 columns, show 4 categories + Show More
+        setFirstRowCount(5);
+      } else if (width >= 768) {
+        // md: 4 columns, show 3 categories + Show More (minimum met)
+        setFirstRowCount(4);
+      } else if (width >= 640) {
+        // sm: 3 columns, show 2 categories + Show More
+        setFirstRowCount(3);
+      } else {
+        // mobile: hide categories (can't fit minimum 3)
+        setFirstRowCount(0);
+      }
+    };
+
+    updateRowCount();
+    window.addEventListener('resize', updateRowCount);
+    return () => window.removeEventListener('resize', updateRowCount);
+  }, []);
+
   const displayedCategories = useMemo(() => {
     if (showAllCategories) return categories;
-    return categories.slice(0, firstRowCount - 1);
-  }, [categories, showAllCategories]);
+    // Reserve last spot for "Show More" button, show firstRowCount - 1 categories
+    return categories.slice(0, Math.max(0, firstRowCount - 1));
+  }, [categories, showAllCategories, firstRowCount]);
+
+  // Hide entire section if screen is too small (can't fit minimum 3 items)
+  if (firstRowCount < 4) {
+    return null;
+  }
 
   return (
-    <div className="w-full bg-white border-b sticky top-16 z-40 shadow-sm hidden sm:block">
+    <div className="w-full bg-white border-b sticky top-16 z-40 shadow-sm">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-slate-700">Categories</h3>
@@ -119,18 +151,18 @@ export function CategoryFilterBar({
                   </motion.button>
                 ))}
 
-                {!showAllCategories && categories.length > firstRowCount - 1 && (
+                {!showAllCategories && categories.length > displayedCategories.length && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowAllCategories(true)}
-                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center"
+                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center col-span-1"
                     data-testid="button-show-more-categories"
                   >
                     <ChevronDown className="w-5 h-5 text-slate-500" />
                     <span className="text-xs font-semibold">Show More</span>
                     <span className="text-xs text-slate-500">
-                      {categories.length - (firstRowCount - 1)} more
+                      +{categories.length - displayedCategories.length}
                     </span>
                   </motion.button>
                 )}
@@ -140,7 +172,7 @@ export function CategoryFilterBar({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowAllCategories(false)}
-                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center"
+                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-primary/50 hover:bg-slate-100 transition-all text-center col-span-1"
                     data-testid="button-show-less-categories"
                   >
                     <ChevronUp className="w-5 h-5 text-slate-500" />
