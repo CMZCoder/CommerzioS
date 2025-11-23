@@ -52,12 +52,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { firstName, lastName, phoneNumber } = req.body;
+      const { firstName, lastName, phoneNumber, profileImageUrl } = req.body;
       
-      const updateData: { firstName?: string; lastName?: string; phoneNumber?: string } = {};
+      const updateData: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string } = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
       if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+      if (profileImageUrl !== undefined) updateData.profileImageUrl = profileImageUrl;
       
       const user = await storage.updateUserProfile(userId, updateData);
       res.json(user);

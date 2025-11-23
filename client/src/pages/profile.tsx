@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -13,11 +13,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import type { Service, SelectAddress } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import Cropper from "react-easy-crop";
+import { Slider } from "@/components/ui/slider";
 
 export default function Profile() {
   // Scroll to top on mount and tab change
@@ -60,6 +64,15 @@ export default function Profile() {
     country: "Switzerland",
     isPrimary: false,
   });
+
+  // Profile picture upload states
+  const [showCropDialog, setShowCropDialog] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -139,7 +152,7 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { firstName?: string; lastName?: string; phoneNumber?: string }) => {
+    mutationFn: async (data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string }) => {
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -322,6 +335,107 @@ export default function Profile() {
     setShowAddressForm(false);
     setEditingAddress(null);
     resetAddressForm();
+  };
+
+  // Profile picture upload handlers
+  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageToCrop(reader.result as string);
+        setShowCropDialog(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const createCroppedImage = async (): Promise<Blob> => {
+    if (!imageToCrop || !croppedAreaPixels) {
+      throw new Error('No image to crop');
+    }
+
+    const image = new Image();
+    image.src = imageToCrop;
+    await new Promise((resolve) => { image.onload = resolve; });
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+
+    // Set canvas size to cropped area
+    canvas.width = croppedAreaPixels.width;
+    canvas.height = croppedAreaPixels.height;
+
+    // Draw the cropped image
+    ctx.drawImage(
+      image,
+      croppedAreaPixels.x,
+      croppedAreaPixels.y,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height,
+      0,
+      0,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height
+    );
+
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+      }, 'image/jpeg', 0.95);
+    });
+  };
+
+  const handleCropSave = async () => {
+    try {
+      const croppedBlob = await createCroppedImage();
+      const file = new File([croppedBlob], 'profile.jpg', { type: 'image/jpeg' });
+
+      // Upload to object storage
+      const uploadRes = await fetch('/api/objects/upload', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!uploadRes.ok) throw new Error('Failed to get upload URL');
+      const { uploadURL } = await uploadRes.json();
+
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+      if (!uploadResponse.ok) throw new Error('Failed to upload image');
+
+      const setAclRes = await fetch('/api/service-images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ imageURL: uploadURL }),
+      });
+      if (!setAclRes.ok) throw new Error('Failed to set image ACL');
+      const { objectPath } = await setAclRes.json();
+
+      // Update user profile with new image URL
+      await updateProfileMutation.mutateAsync({ profileImageUrl: objectPath });
+
+      setShowCropDialog(false);
+      setImageToCrop(null);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setRotation(0);
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload profile picture. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (authLoading) {
@@ -599,6 +713,49 @@ export default function Profile() {
             </TabsContent>
 
             <TabsContent value="settings" data-testid="panel-settings" className="space-y-6">
+              {/* Profile Picture Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Picture</CardTitle>
+                  <CardDescription>Upload and customize your profile picture</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center gap-6">
+                    <Avatar className="w-32 h-32 ring-4 ring-slate-100">
+                      <AvatarImage 
+                        src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                        alt={`${user?.firstName} ${user?.lastName}`}
+                      />
+                      <AvatarFallback>
+                        <UserIcon className="w-16 h-16 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex gap-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        data-testid="input-profile-picture"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={updateProfileMutation.isPending}
+                        data-testid="button-change-photo"
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Change Photo
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                      Recommended: Square image, at least 400x400 pixels. JPG, PNG, or GIF.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Personal Information</CardTitle>
@@ -969,6 +1126,72 @@ export default function Profile() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Profile Picture Crop Dialog */}
+      <Dialog open={showCropDialog} onOpenChange={setShowCropDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Crop Profile Picture</DialogTitle>
+          </DialogHeader>
+          {imageToCrop && (
+            <div className="space-y-6">
+              <div className="relative h-96 bg-slate-900 rounded-lg overflow-hidden">
+                <Cropper
+                  image={imageToCrop}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={1}
+                  onCropChange={setCrop}
+                  onCropComplete={onCropComplete}
+                  onZoomChange={setZoom}
+                />
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Zoom</Label>
+                  <Slider
+                    value={[zoom]}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    onValueChange={([value]) => setZoom(value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCropDialog(false);
+                setImageToCrop(null);
+                setCrop({ x: 0, y: 0 });
+                setZoom(1);
+                setRotation(0);
+              }}
+              data-testid="button-cancel-crop"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCropSave}
+              disabled={updateProfileMutation.isPending}
+              data-testid="button-save-crop"
+            >
+              {updateProfileMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                "Save Profile Picture"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

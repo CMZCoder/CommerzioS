@@ -11,7 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Filter, X, Loader2, SlidersHorizontal, Package } from "lucide-react";
+import { Search, Filter, X, Loader2, SlidersHorizontal, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type SortOption = "newest" | "price-low" | "price-high" | "rating";
 
@@ -26,6 +27,7 @@ export default function BrowseServices() {
   const isMobile = useIsMobile();
   const [location, setLocation] = useLocation();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
   
   // Scroll to top on mount
   useEffect(() => {
@@ -398,19 +400,46 @@ export default function BrowseServices() {
           <div className="flex gap-8">
             {/* Desktop Sidebar */}
             {!isMobile && (
-              <aside className="w-80 flex-shrink-0">
+              <aside className={cn(
+                "flex-shrink-0 transition-all duration-300 ease-in-out",
+                isFiltersCollapsed ? "w-16" : "w-80"
+              )}>
                 <Card className="sticky top-8">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold flex items-center gap-2">
-                        <SlidersHorizontal className="w-5 h-5" />
-                        Filters
-                      </h2>
-                      {activeFiltersCount > 0 && (
-                        <Badge variant="secondary">{activeFiltersCount}</Badge>
-                      )}
-                    </div>
-                    <FilterContent />
+                  <CardContent className="p-6 relative">
+                    <Collapsible open={!isFiltersCollapsed} onOpenChange={(open) => setIsFiltersCollapsed(!open)}>
+                      <div className="flex items-center justify-between mb-4">
+                        <CollapsibleTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="p-0 hover:bg-transparent"
+                            data-testid="button-toggle-filters"
+                          >
+                            <div className="flex items-center gap-2">
+                              {isFiltersCollapsed ? (
+                                <ChevronRight className="w-5 h-5" />
+                              ) : (
+                                <>
+                                  <SlidersHorizontal className="w-5 h-5" />
+                                  <h2 className="text-lg font-semibold">Filters</h2>
+                                </>
+                              )}
+                            </div>
+                          </Button>
+                        </CollapsibleTrigger>
+                        {!isFiltersCollapsed && activeFiltersCount > 0 && (
+                          <Badge variant="secondary">{activeFiltersCount}</Badge>
+                        )}
+                        {isFiltersCollapsed && activeFiltersCount > 0 && (
+                          <Badge variant="secondary" className="absolute top-2 right-2">
+                            {activeFiltersCount}
+                          </Badge>
+                        )}
+                      </div>
+                      <CollapsibleContent className="transition-all duration-300 ease-in-out data-[state=closed]:animate-collapse data-[state=open]:animate-expand">
+                        <FilterContent />
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CardContent>
                 </Card>
               </aside>
