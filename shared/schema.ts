@@ -72,6 +72,8 @@ export const users = pgTable("users", {
   emailVerified: boolean("email_verified").default(false).notNull(),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
   isAdmin: boolean("is_admin").default(false).notNull(),
+  status: varchar("status", { enum: ["active", "warned", "suspended", "banned", "kicked"] }).default("active").notNull(),
+  statusReason: text("status_reason"),
   planId: varchar("plan_id").references(() => plans.id),
   marketingPackage: varchar("marketing_package", { enum: ["basic", "pro", "premium", "enterprise"] }).default("basic"),
   locationLat: decimal("location_lat", { precision: 10, scale: 7 }),
@@ -94,6 +96,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   submittedCategories: many(submittedCategories),
   aiConversations: many(aiConversations),
   addresses: many(addresses),
+  moderationActions: many(userModerationActions),
 }));
 
 // Addresses table
@@ -116,6 +119,61 @@ export const addresses = pgTable("addresses", {
 export const addressesRelations = relations(addresses, ({ one }) => ({
   user: one(users, {
     fields: [addresses.userId],
+    references: [users.id],
+  }),
+}));
+
+// User moderation actions table (audit log)
+export const userModerationActions = pgTable("user_moderation_actions", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  adminId: varchar("admin_id").references(() => users.id),
+  action: varchar("action", { enum: ["warn", "suspend", "ban", "kick", "reactivate"] }).notNull(),
+  previousStatus: varchar("previous_status", { enum: ["active", "warned", "suspended", "banned", "kicked"] }),
+  newStatus: varchar("new_status", { enum: ["active", "warned", "suspended", "banned", "kicked"] }).notNull(),
+  reason: text("reason"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_moderation_user").on(table.userId),
+  index("idx_moderation_admin").on(table.adminId),
+  index("idx_moderation_action").on(table.action),
+]);
+
+export const userModerationActionsRelations = relations(userModerationActions, ({ one }) => ({
+  user: one(users, {
+    fields: [userModerationActions.userId],
+    references: [users.id],
+  }),
+  admin: one(users, {
+    fields: [userModerationActions.adminId],
+    references: [users.id],
+  }),
+}));
+
+// Banned identifiers table (IP, email, phone tracking)
+export const bannedIdentifiers = pgTable("banned_identifiers", {
+  id: varchar("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  identifierType: varchar("identifier_type", { enum: ["ip", "email", "phone"] }).notNull(),
+  identifierValue: varchar("identifier_value", { length: 255 }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  bannedBy: varchar("banned_by").references(() => users.id),
+  reason: text("reason"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => [
+  index("idx_banned_type_value").on(table.identifierType, table.identifierValue),
+  index("idx_banned_user").on(table.userId),
+]);
+
+export const bannedIdentifiersRelations = relations(bannedIdentifiers, ({ one }) => ({
+  user: one(users, {
+    fields: [bannedIdentifiers.userId],
+    references: [users.id],
+  }),
+  bannedByUser: one(users, {
+    fields: [bannedIdentifiers.bannedBy],
     references: [users.id],
   }),
 }));
@@ -365,6 +423,12 @@ export type InsertSubmittedCategory = typeof submittedCategories.$inferInsert;
 
 export type SelectAddress = typeof addresses.$inferSelect;
 
+export type UserModerationAction = typeof userModerationActions.$inferSelect;
+export type InsertUserModerationAction = typeof userModerationActions.$inferInsert;
+
+export type BannedIdentifier = typeof bannedIdentifiers.$inferSelect;
+export type InsertBannedIdentifier = typeof bannedIdentifiers.$inferInsert;
+
 // Zod schemas for validation
 export const insertServiceSchema = createInsertSchema(services, {
   title: z.string().min(5, "Title must be at least 5 characters").max(200),
@@ -477,3 +541,20 @@ export const insertAddressSchema = createInsertSchema(addresses, {
   updatedAt: true,
 });
 export type InsertAddress = z.infer<typeof insertAddressSchema>;
+
+export const insertUserModerationActionSchema = createInsertSchema(userModerationActions, {
+  action: z.enum(["warn", "suspend", "ban", "kick", "reactivate"]),
+  reason: z.string().optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBannedIdentifierSchema = createInsertSchema(bannedIdentifiers, {
+  identifierType: z.enum(["ip", "email", "phone"]),
+  identifierValue: z.string().min(1, "Identifier value is required"),
+  reason: z.string().optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+});

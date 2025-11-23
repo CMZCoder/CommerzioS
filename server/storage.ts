@@ -11,6 +11,8 @@ import {
   aiConversations,
   temporaryCategories,
   addresses,
+  userModerationActions,
+  bannedIdentifiers,
   type User,
   type UserWithPlan,
   type UpsertUser,
@@ -36,6 +38,10 @@ import {
   type InsertTemporaryCategory,
   type SelectAddress,
   type InsertAddress,
+  type UserModerationAction,
+  type InsertUserModerationAction,
+  type BannedIdentifier,
+  type InsertBannedIdentifier,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
@@ -137,6 +143,18 @@ export interface IStorage {
   // New services indicator operations
   getNewServiceCountsSince(userId: string, since: Date | null): Promise<Array<{ categoryId: string; newCount: number }>>;
   updateUserLastHomeVisit(userId: string, visitTime?: Date): Promise<void>;
+  
+  // User moderation operations
+  moderateUser(userId: string, action: "warn" | "suspend" | "ban" | "kick" | "reactivate", adminId: string, reason?: string, ipAddress?: string): Promise<User>;
+  getUserModerationHistory(userId: string): Promise<UserModerationAction[]>;
+  getBannedIdentifiers(): Promise<BannedIdentifier[]>;
+  addBannedIdentifier(data: InsertBannedIdentifier): Promise<BannedIdentifier>;
+  removeBannedIdentifier(id: string): Promise<void>;
+  checkIfBanned(email?: string, phone?: string, ip?: string): Promise<{ isBanned: boolean; reason?: string }>;
+  
+  // Category CRUD operations (admin)
+  updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
+  deleteCategory(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -894,6 +912,179 @@ export class DatabaseStorage implements IStorage {
         lastHomeVisitAt: sql`GREATEST(COALESCE(${users.lastHomeVisitAt}, '1970-01-01'::timestamp), ${timestamp}::timestamp)` 
       })
       .where(eq(users.id, userId));
+  }
+
+  // User moderation operations
+  async moderateUser(
+    userId: string,
+    action: "warn" | "suspend" | "ban" | "kick" | "reactivate",
+    adminId: string,
+    reason?: string,
+    ipAddress?: string
+  ): Promise<User> {
+    // Get current user status
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const previousStatus = user.status;
+    const newStatus = action === "reactivate" ? "active" : action === "warn" ? "warned" : action;
+
+    // Update user status
+    const [updatedUser] = await db
+      .update(users)
+      .set({ 
+        status: newStatus as "active" | "warned" | "suspended" | "banned" | "kicked",
+        statusReason: reason || null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+
+    // Log moderation action
+    await db.insert(userModerationActions).values({
+      userId,
+      adminId,
+      action,
+      previousStatus,
+      newStatus,
+      reason,
+      ipAddress,
+    });
+
+    // If banning or kicking, add identifiers to banned list
+    if (action === "ban" || action === "kick") {
+      const bannedData: InsertBannedIdentifier[] = [];
+      
+      if (user.email) {
+        bannedData.push({
+          identifierType: "email",
+          identifierValue: user.email,
+          userId,
+          bannedBy: adminId,
+          reason,
+        });
+      }
+      
+      if (user.phoneNumber) {
+        bannedData.push({
+          identifierType: "phone",
+          identifierValue: user.phoneNumber,
+          userId,
+          bannedBy: adminId,
+          reason,
+        });
+      }
+      
+      if (ipAddress) {
+        bannedData.push({
+          identifierType: "ip",
+          identifierValue: ipAddress,
+          userId,
+          bannedBy: adminId,
+          reason,
+        });
+      }
+      
+      if (bannedData.length > 0) {
+        await db.insert(bannedIdentifiers).values(bannedData);
+      }
+    }
+
+    return updatedUser;
+  }
+
+  async getUserModerationHistory(userId: string): Promise<UserModerationAction[]> {
+    return await db
+      .select()
+      .from(userModerationActions)
+      .where(eq(userModerationActions.userId, userId))
+      .orderBy(desc(userModerationActions.createdAt));
+  }
+
+  async getBannedIdentifiers(): Promise<BannedIdentifier[]> {
+    return await db
+      .select()
+      .from(bannedIdentifiers)
+      .where(eq(bannedIdentifiers.isActive, true))
+      .orderBy(desc(bannedIdentifiers.createdAt));
+  }
+
+  async addBannedIdentifier(data: InsertBannedIdentifier): Promise<BannedIdentifier> {
+    const [banned] = await db.insert(bannedIdentifiers).values(data).returning();
+    return banned;
+  }
+
+  async removeBannedIdentifier(id: string): Promise<void> {
+    await db
+      .update(bannedIdentifiers)
+      .set({ isActive: false })
+      .where(eq(bannedIdentifiers.id, id));
+  }
+
+  async checkIfBanned(email?: string, phone?: string, ip?: string): Promise<{ isBanned: boolean; reason?: string }> {
+    const conditions = [];
+    
+    if (email) {
+      conditions.push(
+        and(
+          eq(bannedIdentifiers.identifierType, "email"),
+          eq(bannedIdentifiers.identifierValue, email),
+          eq(bannedIdentifiers.isActive, true)
+        )
+      );
+    }
+    
+    if (phone) {
+      conditions.push(
+        and(
+          eq(bannedIdentifiers.identifierType, "phone"),
+          eq(bannedIdentifiers.identifierValue, phone),
+          eq(bannedIdentifiers.isActive, true)
+        )
+      );
+    }
+    
+    if (ip) {
+      conditions.push(
+        and(
+          eq(bannedIdentifiers.identifierType, "ip"),
+          eq(bannedIdentifiers.identifierValue, ip),
+          eq(bannedIdentifiers.isActive, true)
+        )
+      );
+    }
+
+    if (conditions.length === 0) {
+      return { isBanned: false };
+    }
+
+    const results = await db
+      .select()
+      .from(bannedIdentifiers)
+      .where(or(...conditions))
+      .limit(1);
+
+    if (results.length > 0) {
+      return { isBanned: true, reason: results[0].reason || undefined };
+    }
+
+    return { isBanned: false };
+  }
+
+  // Category CRUD operations (admin)
+  async updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined> {
+    const [updated] = await db
+      .update(categories)
+      .set(category)
+      .where(eq(categories.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await db.delete(categories).where(eq(categories.id, id));
   }
 }
 
