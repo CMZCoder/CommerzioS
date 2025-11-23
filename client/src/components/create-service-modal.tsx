@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus, AlertCircle } from "lucide-react";
+import { X, Plus, AlertCircle, Sparkles, Hash } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import type { PlatformSettings } from "@shared/schema";
 import { ImageManager } from "@/components/image-manager";
 import { ContactInput, type Contact } from "@/components/contact-input";
@@ -43,10 +44,15 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
     images: [] as string[],
     imageMetadata: [] as Array<any>,
     mainImageIndex: 0,
+    hashtags: [] as string[],
   });
   const [draftSaved, setDraftSaved] = useState(false);
   const [validatingAddresses, setValidatingAddresses] = useState(false);
   const [addressErrors, setAddressErrors] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState("");
+  const [showHashtagSuggestions, setShowHashtagSuggestions] = useState(false);
+  const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
+  const [loadingHashtags, setLoadingHashtags] = useState(false);
 
   const maxImages = user?.plan?.maxImages || 4;
 
@@ -143,6 +149,7 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
           imageMetadata: data.imageMetadata,
           mainImageIndex: data.mainImageIndex,
           status: "active",
+          hashtags: data.hashtags,
           // Keep old fields for backward compatibility
           contactPhone: data.contacts.find(c => c.contactType === "phone")?.value || "",
           contactEmail: data.contacts.find(c => c.contactType === "email")?.value || "",
@@ -200,9 +207,13 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
       images: [],
       imageMetadata: [],
       mainImageIndex: 0,
+      hashtags: [],
     });
     setDraftSaved(false);
     setAddressErrors([]);
+    setHashtagInput("");
+    setSuggestedHashtags([]);
+    setShowHashtagSuggestions(false);
   };
 
   const addLocation = () => {
@@ -270,6 +281,57 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
       ...prev,
       contacts: prev.contacts.filter((_, i) => i !== index),
     }));
+  };
+
+  const addHashtag = (tag: string) => {
+    const cleaned = tag.replace(/^#/, '').trim().toLowerCase();
+    if (cleaned && cleaned.length > 0 && formData.hashtags.length < 3 && !formData.hashtags.includes(cleaned)) {
+      setFormData((prev) => ({
+        ...prev,
+        hashtags: [...prev.hashtags, cleaned],
+      }));
+      setHashtagInput("");
+    }
+  };
+
+  const removeHashtag = (tag: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      hashtags: prev.hashtags.filter(t => t !== tag),
+    }));
+  };
+
+  const handleAISuggestHashtags = async () => {
+    if (formData.images.length === 0) {
+      toast({
+        title: "No Images",
+        description: "Please upload at least one image to get AI hashtag suggestions",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingHashtags(true);
+    try {
+      const response = await apiRequest("/api/ai/suggest-hashtags", {
+        method: "POST",
+        body: JSON.stringify({ imageUrls: formData.images }),
+      });
+      setSuggestedHashtags(response.hashtags || []);
+      setShowHashtagSuggestions(true);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to get hashtag suggestions",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingHashtags(false);
+    }
+  };
+
+  const selectSuggestedHashtag = (tag: string) => {
+    addHashtag(tag);
   };
 
   const validateAddresses = async (): Promise<boolean> => {
@@ -421,6 +483,86 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
                     Suggest a new one
                   </button>
                 </p>
+              </div>
+
+              {/* Hashtags Section */}
+              <div className="space-y-4">
+                <div>
+                  <Label>Hashtags (Optional)</Label>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Add up to 3 hashtags to help users discover your service
+                  </p>
+                </div>
+
+                {/* Current Hashtags */}
+                {formData.hashtags.length > 0 && (
+                  <div className="flex flex-wrap gap-2" data-testid="hashtags-container">
+                    {formData.hashtags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="pl-3 pr-2 py-1.5 text-sm flex items-center gap-1"
+                        data-testid={`hashtag-badge-${tag}`}
+                      >
+                        <Hash className="w-3 h-3" />
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => removeHashtag(tag)}
+                          className="ml-1 hover:text-destructive"
+                          data-testid={`button-remove-hashtag-${tag}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* Hashtag Input */}
+                {formData.hashtags.length < 3 && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Type a hashtag and press Enter"
+                      value={hashtagInput}
+                      onChange={(e) => setHashtagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addHashtag(hashtagInput);
+                        }
+                      }}
+                      data-testid="input-hashtag"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => addHashtag(hashtagInput)}
+                      disabled={!hashtagInput.trim()}
+                      data-testid="button-add-hashtag"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* AI Suggest Button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAISuggestHashtags}
+                  disabled={formData.images.length === 0 || loadingHashtags}
+                  className="w-full"
+                  data-testid="button-ai-suggest-hashtags"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  {loadingHashtags ? "Analyzing Images..." : "AI Suggest Hashtags"}
+                </Button>
+                {formData.images.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Upload images first to get AI hashtag suggestions
+                  </p>
+                )}
               </div>
             </TabsContent>
 
@@ -669,6 +811,66 @@ export function CreateServiceModal({ open, onOpenChange, onSuggestCategory }: Cr
           </div>
         </form>
       </DialogContent>
+
+      {/* AI Hashtag Suggestions Dialog */}
+      <Dialog open={showHashtagSuggestions} onOpenChange={setShowHashtagSuggestions}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>AI Hashtag Suggestions</DialogTitle>
+            <DialogDescription>
+              Select hashtags to add to your service (max 3 total)
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {suggestedHashtags.length > 0 ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedHashtags.map((tag) => {
+                    const isAdded = formData.hashtags.includes(tag);
+                    const canAdd = formData.hashtags.length < 3;
+                    
+                    return (
+                      <Badge
+                        key={tag}
+                        variant={isAdded ? "default" : "outline"}
+                        className={`cursor-pointer ${!canAdd && !isAdded ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={() => {
+                          if (!isAdded && canAdd) {
+                            selectSuggestedHashtag(tag);
+                          }
+                        }}
+                        data-testid={`suggested-hashtag-${tag}`}
+                      >
+                        <Hash className="w-3 h-3 mr-1" />
+                        {tag}
+                        {isAdded && <span className="ml-1">✓</span>}
+                      </Badge>
+                    );
+                  })}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {formData.hashtags.length}/3 hashtags selected
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No hashtag suggestions available
+              </p>
+            )}
+            
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowHashtagSuggestions(false)}
+                data-testid="button-close-suggestions"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

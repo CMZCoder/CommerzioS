@@ -1,8 +1,8 @@
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useRoute, useLocation } from "wouter";
-import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock } from "lucide-react";
+import { useRoute, useLocation, Link } from "wouter";
+import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -136,7 +136,7 @@ export default function ServiceDetail() {
                   <div className="flex items-center gap-2 mb-4">
                     <Badge variant="secondary" className="text-sm">{service.category.name}</Badge>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <MapPin className="w-4 h-4" /> {service.location}
+                      <MapPin className="w-4 h-4" /> {service.locations?.[0] || 'N/A'}
                     </div>
                   </div>
                   
@@ -161,11 +161,34 @@ export default function ServiceDetail() {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {service.tags.map(tag => (
-                      <Badge key={tag} variant="outline" className="px-3 py-1 text-sm bg-slate-50">#{tag}</Badge>
-                    ))}
-                  </div>
+                  {/* Hashtags Section */}
+                  {service.hashtags && service.hashtags.length > 0 && (
+                    <div className="pb-4 border-b border-border">
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-3">Hashtags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {service.hashtags.map(tag => (
+                          <Link
+                            key={tag}
+                            href={`/hashtags/${tag}`}
+                            className="inline-flex items-center px-3 py-1.5 rounded-full text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors border border-blue-200"
+                            data-testid={`hashtag-${tag}`}
+                          >
+                            <Hash className="w-3.5 h-3.5 mr-1" />
+                            {tag}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tags Section */}
+                  {service.tags && service.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {service.tags.map(tag => (
+                        <Badge key={tag} variant="outline" className="px-3 py-1 text-sm bg-slate-50">#{tag}</Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
