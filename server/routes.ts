@@ -648,6 +648,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User moderation routes
+  app.post('/api/admin/users/:id/moderate', isAdmin, async (req: any, res) => {
+    try {
+      const { action, reason, ipAddress } = req.body;
+      const adminId = req.user?.claims?.sub || req.session?.adminId || 'admin';
+      
+      if (!['warn', 'suspend', 'ban', 'kick', 'reactivate'].includes(action)) {
+        return res.status(400).json({ message: "Invalid moderation action" });
+      }
+
+      const user = await storage.moderateUser(
+        req.params.id,
+        action,
+        adminId,
+        reason,
+        ipAddress
+      );
+      
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error moderating user:", error);
+      res.status(500).json({ message: error.message || "Failed to moderate user" });
+    }
+  });
+
+  app.get('/api/admin/users/:id/history', isAdmin, async (req, res) => {
+    try {
+      const history = await storage.getUserModerationHistory(req.params.id);
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching moderation history:", error);
+      res.status(500).json({ message: "Failed to fetch moderation history" });
+    }
+  });
+
+  // Banned identifiers routes
+  app.get('/api/admin/banned-identifiers', isAdmin, async (_req, res) => {
+    try {
+      const banned = await storage.getBannedIdentifiers();
+      res.json(banned);
+    } catch (error) {
+      console.error("Error fetching banned identifiers:", error);
+      res.status(500).json({ message: "Failed to fetch banned identifiers" });
+    }
+  });
+
+  app.post('/api/admin/banned-identifiers', isAdmin, async (req: any, res) => {
+    try {
+      const { identifierType, identifierValue, userId, reason } = req.body;
+      const adminId = req.user?.claims?.sub || req.session?.adminId || 'admin';
+      
+      const banned = await storage.addBannedIdentifier({
+        identifierType,
+        identifierValue,
+        userId,
+        bannedBy: adminId,
+        reason,
+      });
+      
+      res.status(201).json(banned);
+    } catch (error) {
+      console.error("Error adding banned identifier:", error);
+      res.status(500).json({ message: "Failed to add banned identifier" });
+    }
+  });
+
+  app.delete('/api/admin/banned-identifiers/:id', isAdmin, async (req, res) => {
+    try {
+      await storage.removeBannedIdentifier(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error removing banned identifier:", error);
+      res.status(500).json({ message: "Failed to remove banned identifier" });
+    }
+  });
+
   // Admin service management routes
   app.get('/api/admin/services', isAdmin, async (_req, res) => {
     try {
@@ -698,6 +774,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating category suggestion:", error);
       res.status(500).json({ message: "Failed to update category suggestion" });
+    }
+  });
+
+  // Category CRUD routes
+  app.patch('/api/admin/categories/:id', isAdmin, async (req, res) => {
+    try {
+      const validated = insertCategorySchema.partial().parse(req.body);
+      const category = await storage.updateCategory(req.params.id, validated);
+      res.json(category);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating category:", error);
+      res.status(500).json({ message: "Failed to update category" });
+    }
+  });
+
+  app.delete('/api/admin/categories/:id', isAdmin, async (req, res) => {
+    try {
+      await storage.deleteCategory(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      res.status(500).json({ message: "Failed to delete category" });
     }
   });
 
