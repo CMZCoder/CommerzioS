@@ -23,6 +23,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import { Slider } from "@/components/ui/slider";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
+import { geocodeLocation } from "@/lib/geocoding";
 
 export default function Profile() {
   // Scroll to top on mount and tab change
@@ -682,10 +683,7 @@ export default function Profile() {
                           onClick={async () => {
                             if (!mainLocationName.trim()) return;
                             try {
-                              const result = await apiRequest<{lat: number; lng: number; displayName: string; name: string}>("/api/geocode", {
-                                method: "POST",
-                                body: JSON.stringify({ query: mainLocationName }),
-                              });
+                              const result = await geocodeLocation(mainLocationName);
                               setMainLocationLat(result.lat);
                               setMainLocationLng(result.lng);
                               setMainLocationName(result.name || result.displayName);

@@ -100,6 +100,21 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult> {
 }
 
 /**
+ * Convert a geocoding suggestion to standardized geocode result format
+ * Normalizes lon→lng and provides consistent naming
+ * @param suggestion - The geocoding suggestion
+ * @returns Standardized geocode result
+ */
+export function suggestionToGeocodeResult(suggestion: GeocodingSuggestion): GeocodeResult {
+  return {
+    lat: suggestion.lat,
+    lng: suggestion.lon, // Normalize lon → lng
+    displayName: suggestion.display_name,
+    name: suggestion.city || suggestion.postcode || suggestion.display_name,
+  };
+}
+
+/**
  * Convert a geocoding suggestion to address data format
  * @param suggestion - The geocoding suggestion
  * @returns Formatted address data

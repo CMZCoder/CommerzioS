@@ -5,14 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-
-interface AddressSuggestion {
-  display_name: string;
-  city: string;
-  postcode: string;
-  street: string;
-  state?: string;
-}
+import { useGeocoding } from "@/hooks/useGeocoding";
+import type { GeocodingSuggestion } from "@/lib/geocoding";
 
 interface AddressData {
   street: string;
@@ -36,15 +30,27 @@ export function AddressAutocomplete({
   required = false,
 }: AddressAutocompleteProps) {
   const { toast } = useToast();
-  const [query, setQuery] = useState(initialValue);
-  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { query, setQuery, suggestions, isLoading, error, clearSuggestions } = useGeocoding({
+    minQueryLength: 2,
+    debounceMs: 300,
+    limit: 10,
+    autoSearch: true,
+  });
+  
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [selectedAddress, setSelectedAddress] = useState<AddressData | null>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Initialize query with initial value if provided
+  useEffect(() => {
+    if (initialValue) {
+      setQuery(initialValue);
+    }
+  }, [initialValue, setQuery]);
+
+  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (autocompleteRef.current && !autocompleteRef.current.contains(event.target as Node)) {
@@ -57,62 +63,33 @@ export function AddressAutocomplete({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Show dropdown when suggestions are available
   useEffect(() => {
-    if (!query.trim() || query.length < 2) {
-      setSuggestions([]);
+    if (suggestions.length > 0 && query.length >= 2) {
+      setIsOpen(true);
+      setSelectedIndex(-1);
+    } else {
       setIsOpen(false);
-      setIsLoading(false);
-      return;
     }
+  }, [suggestions, query]);
 
-    setIsLoading(true);
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(async () => {
-      try {
-        const response = await fetch('/api/geocode/search', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: query,
-            limit: 10,
-          }),
-          signal: abortController.signal,
-        });
+  // Show error toast if geocoding fails
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Address search error",
+        description: "Failed to search addresses. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [error, toast]);
 
-        if (!response.ok) {
-          throw new Error(`Address search failed: ${response.status}`);
-        }
-
-        const data = await response.json();
-        setSuggestions(data);
-        setIsOpen(data.length > 0);
-        setSelectedIndex(-1);
-      } catch (error: any) {
-        if (error.name !== 'AbortError') {
-          console.error("Address search error:", error);
-          setSuggestions([]);
-          setIsOpen(false);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      clearTimeout(timeoutId);
-      abortController.abort();
-      setIsLoading(false);
-    };
-  }, [query, toast]);
-
-  const selectAddress = (suggestion: AddressSuggestion) => {
+  const selectAddress = (suggestion: GeocodingSuggestion) => {
     const addressData: AddressData = {
       street: suggestion.street || "",
       city: suggestion.city || "",
       postalCode: suggestion.postcode || "",
-      canton: suggestion.state || "",
+      canton: "", // Canton is typically extracted from state field in address
       fullAddress: suggestion.display_name,
     };
     
@@ -121,7 +98,7 @@ export function AddressAutocomplete({
     onAddressSelect(addressData);
     
     setIsOpen(false);
-    setSuggestions([]);
+    clearSuggestions();
     setSelectedIndex(-1);
   };
 
@@ -230,7 +207,7 @@ export function AddressAutocomplete({
             >
               {suggestions.map((suggestion, index) => (
                 <button
-                  key={index}
+                  key={`${suggestion.lat}-${suggestion.lon}-${index}`}
                   type="button"
                   onClick={() => selectAddress(suggestion)}
                   className={`w-full text-left px-4 py-3 hover:bg-accent transition-colors flex items-start gap-3 ${
@@ -245,7 +222,6 @@ export function AddressAutocomplete({
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {suggestion.postcode} {suggestion.city}
-                      {suggestion.state && `, ${suggestion.state}`}
                     </div>
                   </div>
                 </button>

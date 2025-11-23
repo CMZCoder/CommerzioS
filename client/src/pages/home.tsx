@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useGeocoding } from "@/hooks/useGeocoding";
+import { geocodeLocation, suggestionToGeocodeResult, type GeocodingSuggestion } from "@/lib/geocoding";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -27,13 +29,24 @@ export default function Home() {
   const [radiusKm, setRadiusKm] = useState(10);
   
   const [customLocation, setCustomLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
-  const [locationSearchQuery, setLocationSearchQuery] = useState("");
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isNearbyExpanded, setIsNearbyExpanded] = useState(true);
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
   const [hasSearchedLocation, setHasSearchedLocation] = useState(false);
-  const [addressSuggestions, setAddressSuggestions] = useState<Array<{lat: number; lng: number; displayName: string; name: string}>>([]);
-  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  
+  // Use shared geocoding hook for location search
+  const { 
+    query: locationSearchQuery, 
+    setQuery: setLocationSearchQuery, 
+    suggestions: addressSuggestions, 
+    isLoading: isLoadingSuggestions, 
+    clearSuggestions 
+  } = useGeocoding({
+    minQueryLength: 2,
+    debounceMs: 300,
+    limit: 10,
+    autoSearch: true,
+  });
   
   // Scroll to top on page load
   useEffect(() => {
@@ -101,35 +114,8 @@ export default function Home() {
     }
   }, [isAuthenticated, customLocation, hasSearchedLocation]);
 
-  // Get address suggestions as user types
-  const handleLocationInputChange = async (value: string) => {
-    setLocationSearchQuery(value);
-    
-    if (value.trim().length < 2) {
-      setAddressSuggestions([]);
-      return;
-    }
-
-    setIsLoadingSuggestions(true);
-    try {
-      const results = await apiRequest<Array<{lat: number; lng: number; displayName: string; name: string}>>("/api/geocode-suggestions", {
-        method: "POST",
-        body: JSON.stringify({ query: value }),
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
-      setAddressSuggestions(results);
-    } catch (error) {
-      console.error("Error getting suggestions:", error);
-      setAddressSuggestions([]);
-    } finally {
-      setIsLoadingSuggestions(false);
-    }
-  };
-
-  const handleLocationSearch = async (location?: {lat: number; lng: number; displayName: string; name: string}) => {
-    const selectedLocation = location || (addressSuggestions.length > 0 ? addressSuggestions[0] : null);
+  const handleLocationSearch = async (suggestion?: GeocodingSuggestion) => {
+    const selectedLocation = suggestion || (addressSuggestions.length > 0 ? addressSuggestions[0] : null);
     
     if (!locationSearchQuery.trim() && !selectedLocation) {
       toast({
@@ -146,15 +132,11 @@ export default function Home() {
       let result: {lat: number; lng: number; displayName: string; name: string};
       
       if (selectedLocation) {
-        result = selectedLocation;
+        // Use shared helper to normalize suggestion
+        result = suggestionToGeocodeResult(selectedLocation);
       } else {
-        result = await apiRequest<{lat: number; lng: number; displayName: string; name: string}>("/api/geocode", {
-          method: "POST",
-          body: JSON.stringify({ location: locationSearchQuery }),
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
+        // Use shared geocodeLocation service
+        result = await geocodeLocation(locationSearchQuery);
       }
 
       setCustomLocation({
@@ -163,7 +145,7 @@ export default function Home() {
         name: result.name || result.displayName
       });
       
-      setAddressSuggestions([]);
+      clearSuggestions();
       setLocationSearchQuery("");
 
       toast({
@@ -185,7 +167,7 @@ export default function Home() {
   const handleClearLocation = () => {
     setCustomLocation(null);
     setLocationSearchQuery("");
-    setAddressSuggestions([]);
+    clearSuggestions();
     setHasSearchedLocation(false);
   };
 
@@ -345,7 +327,7 @@ export default function Home() {
                       type="text"
                       placeholder="Enter postcode, city, or street address (e.g., 8001, Zürich or Bahnhofstrasse 1, Zurich)..."
                       value={locationSearchQuery}
-                      onChange={(e) => handleLocationInputChange(e.target.value)}
+                      onChange={(e) => setLocationSearchQuery(e.target.value)}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && locationSearchQuery.trim()) {
                           handleLocationSearch();
@@ -381,8 +363,8 @@ export default function Home() {
                           <div className="flex items-start gap-2">
                             <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{suggestion.name || suggestion.displayName}</p>
-                              <p className="text-xs text-slate-500 truncate">{suggestion.displayName}</p>
+                              <p className="text-sm font-medium text-slate-900 truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
+                              <p className="text-xs text-slate-500 truncate">{suggestion.display_name}</p>
                             </div>
                           </div>
                         </button>
@@ -515,7 +497,7 @@ export default function Home() {
                       type="text"
                       placeholder="Enter postcode, city, or street address..."
                       value={locationSearchQuery}
-                      onChange={(e) => handleLocationInputChange(e.target.value)}
+                      onChange={(e) => setLocationSearchQuery(e.target.value)}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter' && locationSearchQuery.trim()) {
                           handleLocationSearch();
@@ -546,8 +528,8 @@ export default function Home() {
                           <div className="flex items-start gap-2">
                             <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-900 truncate">{suggestion.name || suggestion.displayName}</p>
-                              <p className="text-xs text-slate-500 truncate">{suggestion.displayName}</p>
+                              <p className="text-sm font-medium text-slate-900 truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
+                              <p className="text-xs text-slate-500 truncate">{suggestion.display_name}</p>
                             </div>
                           </div>
                         </button>
