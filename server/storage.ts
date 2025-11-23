@@ -204,16 +204,16 @@ export class DatabaseStorage implements IStorage {
 
   // Category operations
   async getCategories(): Promise<Category[]> {
-    return await tx.select().from(categories);
+    return await db.select().from(categories);
   }
 
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
-    const [category] = await tx.select().from(categories).where(eq(categories.slug, slug));
+    const [category] = await db.select().from(categories).where(eq(categories.slug, slug));
     return category;
   }
 
   async createCategory(category: InsertCategory): Promise<Category> {
-    const [newCategory] = await tx.insert(categories).values(category).returning();
+    const [newCategory] = await db.insert(categories).values(category).returning();
     return newCategory;
   }
 
@@ -307,7 +307,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createService(service: InsertService): Promise<Service> {
-    const [newService] = await tx.insert(services).values(service).returning();
+    const [newService] = await db.insert(services).values(service).returning();
     return newService;
   }
 
@@ -378,7 +378,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createReview(review: InsertReview): Promise<Review> {
-    const [newReview] = await tx.insert(reviews).values(review).returning();
+    const [newReview] = await db.insert(reviews).values(review).returning();
     return newReview;
   }
 
@@ -482,21 +482,21 @@ export class DatabaseStorage implements IStorage {
 
   // Plan operations
   async getPlans(): Promise<Plan[]> {
-    return await tx.select().from(plans).orderBy(plans.sortOrder);
+    return await db.select().from(plans).orderBy(plans.sortOrder);
   }
 
   async getPlan(id: string): Promise<Plan | undefined> {
-    const [plan] = await tx.select().from(plans).where(eq(plans.id, id));
+    const [plan] = await db.select().from(plans).where(eq(plans.id, id));
     return plan;
   }
 
   async getPlanBySlug(slug: string): Promise<Plan | undefined> {
-    const [plan] = await tx.select().from(plans).where(eq(plans.slug, slug));
+    const [plan] = await db.select().from(plans).where(eq(plans.slug, slug));
     return plan;
   }
 
   async createPlan(plan: InsertPlan): Promise<Plan> {
-    const [newPlan] = await tx.insert(plans).values(plan).returning();
+    const [newPlan] = await db.insert(plans).values(plan).returning();
     return newPlan;
   }
 
@@ -532,7 +532,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await tx.select().from(users).orderBy(desc(users.createdAt));
+    return await db.select().from(users).orderBy(desc(users.createdAt));
   }
 
   async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string }): Promise<User> {
@@ -589,9 +589,9 @@ export class DatabaseStorage implements IStorage {
 
   // Platform settings operations
   async getPlatformSettings(): Promise<PlatformSettings | undefined> {
-    const [settings] = await tx.select().from(platformSettings).where(eq(platformSettings.id, 'default'));
+    const [settings] = await db.select().from(platformSettings).where(eq(platformSettings.id, 'default'));
     if (!settings) {
-      const [newSettings] = await tx.insert(platformSettings).values({ id: 'default' }).returning();
+      const [newSettings] = await db.insert(platformSettings).values({ id: 'default' }).returning();
       return newSettings;
     }
     return settings;
@@ -619,7 +619,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createServiceContact(contact: InsertServiceContact): Promise<ServiceContact> {
-    const [newContact] = await tx.insert(serviceContacts).values(contact).returning();
+    const [newContact] = await db.insert(serviceContacts).values(contact).returning();
     return newContact;
   }
 
@@ -660,7 +660,7 @@ export class DatabaseStorage implements IStorage {
 
   // AI conversation operations
   async getAiConversation(id: string): Promise<AiConversation | undefined> {
-    const [conversation] = await tx.select().from(aiConversations).where(eq(aiConversations.id, id));
+    const [conversation] = await db.select().from(aiConversations).where(eq(aiConversations.id, id));
     return conversation;
   }
 
@@ -678,7 +678,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiConversation(conversation: InsertAiConversation): Promise<AiConversation> {
-    const [newConversation] = await tx.insert(aiConversations).values(conversation).returning();
+    const [newConversation] = await db.insert(aiConversations).values(conversation).returning();
     return newConversation;
   }
 
@@ -703,7 +703,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTemporaryCategory(category: InsertTemporaryCategory): Promise<TemporaryCategory> {
-    const [newCategory] = await tx.insert(temporaryCategories).values(category).returning();
+    const [newCategory] = await db.insert(temporaryCategories).values(category).returning();
     return newCategory;
   }
 
@@ -961,7 +961,7 @@ export class DatabaseStorage implements IStorage {
       
       if (user.email) {
         // Check if this identifier already exists
-        const existing = await db
+        const existing = await tx
           .select()
           .from(bannedIdentifiers)
           .where(
@@ -982,7 +982,7 @@ export class DatabaseStorage implements IStorage {
           });
         } else {
           // Reactivate if it was deactivated
-          await db
+          await tx
             .update(bannedIdentifiers)
             .set({ isActive: true, bannedBy: adminId, reason })
             .where(eq(bannedIdentifiers.id, existing[0].id));
@@ -990,7 +990,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (user.phoneNumber) {
-        const existing = await db
+        const existing = await tx
           .select()
           .from(bannedIdentifiers)
           .where(
@@ -1010,7 +1010,7 @@ export class DatabaseStorage implements IStorage {
             reason,
           });
         } else {
-          await db
+          await tx
             .update(bannedIdentifiers)
             .set({ isActive: true, bannedBy: adminId, reason })
             .where(eq(bannedIdentifiers.id, existing[0].id));
@@ -1018,7 +1018,7 @@ export class DatabaseStorage implements IStorage {
       }
       
       if (ipAddress) {
-        const existing = await db
+        const existing = await tx
           .select()
           .from(bannedIdentifiers)
           .where(
@@ -1038,7 +1038,7 @@ export class DatabaseStorage implements IStorage {
             reason,
           });
         } else {
-          await db
+          await tx
             .update(bannedIdentifiers)
             .set({ isActive: true, bannedBy: adminId, reason })
             .where(eq(bannedIdentifiers.id, existing[0].id));
@@ -1053,7 +1053,7 @@ export class DatabaseStorage implements IStorage {
     
     // If reactivating or suspending (lifting ban), deactivate all banned identifiers for this user
     if (action === "reactivate" || action === "suspend") {
-      await db
+      await tx
         .update(bannedIdentifiers)
         .set({ isActive: false })
         .where(eq(bannedIdentifiers.userId, userId));
@@ -1089,7 +1089,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addBannedIdentifier(data: InsertBannedIdentifier): Promise<BannedIdentifier> {
-    const [banned] = await tx.insert(bannedIdentifiers).values(data).returning();
+    const [banned] = await db.insert(bannedIdentifiers).values(data).returning();
     return banned;
   }
 
