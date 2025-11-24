@@ -197,7 +197,11 @@ export function ImageManager({
     
     // Update main image index
     let newMainIndex = mainImageIndex;
-    if (mainImageIndex === draggedIndex) {
+    
+    // If dragging to position 0, make it the main image automatically
+    if (index === 0) {
+      newMainIndex = 0;
+    } else if (mainImageIndex === draggedIndex) {
       newMainIndex = index;
     } else if (draggedIndex < mainImageIndex && index >= mainImageIndex) {
       newMainIndex = mainImageIndex - 1;
@@ -446,7 +450,7 @@ export function ImageManager({
       {/* Help text */}
       {images.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Drag images to reorder • Click <Star className="w-3 h-3 inline" /> to set main image • Click <Edit className="w-3 h-3 inline" /> to crop/rotate
+          Drag images to reorder (first image auto-becomes main) • Click <Star className="w-3 h-3 inline" /> to set main image • Click <Edit className="w-3 h-3 inline" /> to crop/rotate
         </p>
       )}
 
