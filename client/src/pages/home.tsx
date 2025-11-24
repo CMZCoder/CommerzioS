@@ -35,8 +35,6 @@ export default function Home() {
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [useLocationPermissions, setUseLocationPermissions] = useState(false);
-  const [selectedServiceOnMap, setSelectedServiceOnMap] = useState<string | null>(null);
-  const mapSectionRef = useRef<HTMLDivElement>(null);
   const locationPermissionProcessingRef = useRef(false);
   
   // Use shared geocoding hook for location search
@@ -655,7 +653,7 @@ export default function Home() {
       </section>
 
       {searchLocation && (
-        <section className="py-12 container mx-auto px-4" ref={mapSectionRef}>
+        <section className="py-12 container mx-auto px-4">
           <div className="space-y-6">
             <GoogleMaps 
               services={nearbyServices}
@@ -663,7 +661,6 @@ export default function Home() {
               maxServices={5}
               defaultExpanded={false}
               apiKey={mapsConfig?.apiKey || ""}
-              highlightedServiceId={selectedServiceOnMap}
             />
             
             <ServiceResultsRail
@@ -673,11 +670,6 @@ export default function Home() {
               emptyDescription="Try increasing the search radius to discover more services"
               isExpanded={isNearbyExpanded}
               onExpandChange={setIsNearbyExpanded}
-              onShowServiceOnMap={(serviceId) => {
-                setSelectedServiceOnMap(serviceId);
-                // Scroll to map
-                mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
               dataTestIdPrefix="nearby"
             />
           </div>
