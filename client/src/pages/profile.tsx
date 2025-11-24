@@ -36,17 +36,11 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
   
-  // Track search string to detect query param changes
-  const [searchString, setSearchString] = useState(window.location.search);
-  
-  // Update search string when location changes
-  useEffect(() => {
-    setSearchString(window.location.search);
-  }, [location]);
-  
-  // Read tab parameter from URL query string
-  const getInitialTab = () => {
-    const search = window.location.search;
+  // Extract tab from location using wouter's location variable (not window.location)
+  const getTabFromLocation = (loc: string) => {
+    const queryIndex = loc.indexOf('?');
+    if (queryIndex === -1) return 'profile';
+    const search = loc.substring(queryIndex);
     const searchParams = new URLSearchParams(search);
     const tabParam = searchParams.get('tab');
     if (tabParam && ['profile', 'services', 'reviews'].includes(tabParam)) {
@@ -54,21 +48,13 @@ export default function Profile() {
     }
     return 'profile';
   };
-  
-  const [activeTab, setActiveTab] = useState(getInitialTab());
 
-  // Watch for query param changes and update active tab
+  const [activeTab, setActiveTab] = useState(() => getTabFromLocation(location));
+
+  // Watch for location changes from wouter and update active tab
   useEffect(() => {
-    const search = window.location.search;
-    const searchParams = new URLSearchParams(search);
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'services', 'reviews'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    } else if (!tabParam) {
-      // Reset to profile tab when no tab parameter is present
-      setActiveTab('profile');
-    }
-  }, [searchString]);
+    setActiveTab(getTabFromLocation(location));
+  }, [location]);
 
   // Scroll to top when changing tabs
   useEffect(() => {
