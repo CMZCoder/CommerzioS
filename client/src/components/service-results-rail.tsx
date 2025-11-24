@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ServiceWithDetails } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 interface ServiceResultsRailProps {
   services: (ServiceWithDetails & { distance?: number })[];
@@ -14,6 +15,7 @@ interface ServiceResultsRailProps {
   dataTestIdPrefix?: string;
   isExpanded?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  useCompactCardsWhenCollapsed?: boolean;
 }
 
 export function ServiceResultsRail({
@@ -25,6 +27,7 @@ export function ServiceResultsRail({
   dataTestIdPrefix = "service",
   isExpanded: controlledIsExpanded,
   onExpandChange,
+  useCompactCardsWhenCollapsed = false,
 }: ServiceResultsRailProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isExpanded = controlledIsExpanded ?? internalExpanded;
@@ -78,13 +81,16 @@ export function ServiceResultsRail({
                 {services.map((service) => (
                   <motion.div
                     key={service.id}
-                    className="w-72 flex-shrink-0"
+                    className={cn(
+                      "flex-shrink-0",
+                      useCompactCardsWhenCollapsed ? "w-48" : "w-72"
+                    )}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3 }}
                     data-testid={`${dataTestIdPrefix}-card-${service.id}`}
                   >
-                    <ServiceCard service={service} />
+                    <ServiceCard service={service} compact={useCompactCardsWhenCollapsed} />
                   </motion.div>
                 ))}
               </div>

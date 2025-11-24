@@ -125,6 +125,118 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
     }
   };
 
+  // Compact/Mini card version for favorites rail
+  if (compact) {
+    return (
+      <Card className={cn(
+        "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 border-border/50",
+        isExpired && "opacity-60 grayscale-[0.5]"
+      )}>
+        <Link href={`/service/${service.id}`} className="flex-1">
+          <div className="relative aspect-[3/2] overflow-hidden bg-muted flex-shrink-0">
+            {displayImage ? (
+              <img 
+                src={displayImage} 
+                alt={service.title}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full bg-muted animate-pulse" />
+            )}
+            
+            {/* Favorite button */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className={cn(
+                      "absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 shadow-md transition-all duration-200",
+                      isAuthenticated ? "hover:bg-white hover:scale-110" : "cursor-pointer opacity-80"
+                    )}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (isAuthenticated) {
+                        handleSaveClick();
+                      }
+                    }}
+                    disabled={isAuthenticated && toggleSaved.isPending}
+                    data-testid={`button-favorite-${service.id}`}
+                  >
+                    <Heart 
+                      className={cn(
+                        "w-3.5 h-3.5 transition-all duration-100",
+                        isSaved ? "fill-red-500 text-red-500" : "text-gray-400"
+                      )}
+                    />
+                  </button>
+                </TooltipTrigger>
+                {!isAuthenticated && (
+                  <TooltipContent>
+                    <p>Login to save services</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          <CardContent className="p-3 flex flex-col gap-2">
+            <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+              {service.title}
+            </h3>
+            
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className="flex items-center text-amber-400">
+                <Star className="w-3 h-3 fill-current" />
+                <span className="ml-0.5 font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "New"}</span>
+              </div>
+              <span className="text-muted-foreground">({service.reviewCount})</span>
+            </div>
+
+            <div className="flex items-baseline gap-1 min-w-0">
+              {service.priceType === 'fixed' && (
+                <>
+                  <span className="text-base font-bold text-primary whitespace-nowrap">CHF {service.price}</span>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">/{service.priceUnit}</span>
+                </>
+              )}
+              {service.priceType === 'text' && (
+                <span className="text-xs font-semibold text-primary underline underline-offset-2">
+                  Visit Listing
+                </span>
+              )}
+              {service.priceType === 'list' && (
+                <span className="text-xs font-medium text-foreground whitespace-nowrap">From CHF {(service.priceList as any)?.[0]?.price || 'N/A'}</span>
+              )}
+            </div>
+          </CardContent>
+        </Link>
+
+        <AlertDialog open={showUnfavoriteDialog} onOpenChange={setShowUnfavoriteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove from Saved?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove this service from your saved services? You can always add it back later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-cancel-unsave">Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => toggleSaved.mutate({ action: 'remove' })}
+                className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-unsave"
+              >
+                Remove from Saved
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </Card>
+    );
+  }
+
+  // Full card version
   return (
     <Card className={cn(
       "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50",
@@ -259,15 +371,13 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
         </div>
       </div>
       
-      {!compact && (
-        <CardFooter className="p-5 pt-0">
-          <Link href={`/service/${service.id}`} className="w-full">
-            <Button variant="outline" className="w-full group-hover:border-primary/50 group-hover:text-primary transition-colors">
-              View Details
-            </Button>
-          </Link>
-        </CardFooter>
-      )}
+      <CardFooter className="p-5 pt-0">
+        <Link href={`/service/${service.id}`} className="w-full">
+          <Button variant="outline" className="w-full group-hover:border-primary/50 group-hover:text-primary transition-colors">
+            View Details
+          </Button>
+        </Link>
+      </CardFooter>
 
       <AlertDialog open={showUnfavoriteDialog} onOpenChange={setShowUnfavoriteDialog}>
         <AlertDialogContent>

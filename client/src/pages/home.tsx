@@ -707,6 +707,7 @@ export default function Home() {
             isExpanded={isFavoritesExpanded}
             onExpandChange={setIsFavoritesExpanded}
             dataTestIdPrefix="favorite"
+            useCompactCardsWhenCollapsed={true}
           />
         </section>
       )}
