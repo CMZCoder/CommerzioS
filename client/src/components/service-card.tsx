@@ -18,10 +18,9 @@ interface ServiceCardProps {
   service: ServiceWithDetails & { distance?: number };
   compact?: boolean;
   isSaved?: boolean;
-  onShowOnMap?: () => void;
 }
 
-export function ServiceCard({ service, compact = false, isSaved: initialIsSaved, onShowOnMap }: ServiceCardProps) {
+export function ServiceCard({ service, compact = false, isSaved: initialIsSaved }: ServiceCardProps) {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -277,27 +276,12 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved,
       </div>
       
       {!compact && (
-        <CardFooter className="p-5 pt-0 gap-2 flex-col">
+        <CardFooter className="p-5 pt-0">
           <Link href={`/service/${service.id}`} className="w-full">
             <Button variant="outline" className="w-full group-hover:border-primary/50 group-hover:text-primary transition-colors">
               View Details
             </Button>
           </Link>
-          {onShowOnMap && (
-            <Button 
-              variant="default" 
-              className="w-full"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onShowOnMap();
-              }}
-              data-testid={`button-show-on-map-${service.id}`}
-            >
-              <MapPin className="w-4 h-4 mr-2" />
-              Show on Map
-            </Button>
-          )}
         </CardFooter>
       )}
 
