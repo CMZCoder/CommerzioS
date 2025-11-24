@@ -64,7 +64,16 @@ export function ServiceResultsRail({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            className="relative"
           >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm text-slate-600">
+                Scroll to see more services →
+              </p>
+              <span className="text-xs text-slate-500">
+                {services.length} result{services.length !== 1 ? 's' : ''}
+              </span>
+            </div>
             <ScrollArea className="w-full">
               <div className="flex gap-4 pb-4" data-testid={`${dataTestIdPrefix}-rail-compact`}>
                 {services.map((service) => (
@@ -81,6 +90,8 @@ export function ServiceResultsRail({
                 ))}
               </div>
             </ScrollArea>
+            {/* Fade gradient to indicate more content */}
+            <div className="absolute right-0 top-12 bottom-16 w-20 bg-gradient-to-l from-white via-white/80 to-transparent pointer-events-none" />
           </motion.div>
         ) : (
           <motion.div

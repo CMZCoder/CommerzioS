@@ -655,6 +655,16 @@ export default function Home() {
       {searchLocation && (
         <section className="py-12 container mx-auto px-4">
           <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-1 flex items-center gap-2">
+                <MapPin className="w-6 h-6 text-primary" />
+                Services Near {searchLocation.name}
+              </h2>
+              <p className="text-slate-600 text-sm mb-6">
+                Showing services within {radiusKm} km of your selected location
+              </p>
+            </div>
+            
             <GoogleMaps 
               services={nearbyServices}
               userLocation={searchLocation}
