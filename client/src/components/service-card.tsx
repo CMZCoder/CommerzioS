@@ -471,21 +471,21 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
       </CardContent>
 
       {/* Pricing section - FULL WIDTH, separate line with responsive font sizing */}
-      <div className="flex items-center gap-3 px-3 sm:px-4 md:px-5 py-3 border-t border-border/50 bg-muted/30 min-w-0 min-h-[4.5rem]">
-        <div className="min-w-0 flex-1 flex items-center">
+      <div className="flex items-center gap-3 px-3 sm:px-4 md:px-5 border-t border-border/50 bg-muted/30 min-w-0 h-[4.5rem]">
+        <div className="min-w-0 flex-1 flex items-center justify-center">
           {service.priceType === 'fixed' && (
-            <div className="flex flex-col gap-0">
+            <div className="flex flex-col gap-0 w-full">
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">CHF {service.price}</span>
               <span className="text-xs sm:text-sm text-muted-foreground">per {service.priceUnit}</span>
             </div>
           )}
           {service.priceType === 'text' && (
-            <Link href={`/service/${service.id}`} className="text-sm sm:text-base md:text-lg font-semibold text-primary hover:text-primary/80 underline underline-offset-4 transition-colors">
+            <Link href={`/service/${service.id}`} className="text-sm sm:text-base md:text-lg font-semibold text-primary hover:text-primary/80 underline underline-offset-4 transition-colors w-full text-center">
               Visit Listing
             </Link>
           )}
           {service.priceType === 'list' && (
-            <span className="text-sm sm:text-base md:text-lg font-medium text-foreground whitespace-nowrap">From CHF {(service.priceList as any)?.[0]?.price || 'N/A'}</span>
+            <span className="text-sm sm:text-base md:text-lg font-medium text-foreground whitespace-nowrap w-full text-center">From CHF {(service.priceList as any)?.[0]?.price || 'N/A'}</span>
           )}
         </div>
       </div>
