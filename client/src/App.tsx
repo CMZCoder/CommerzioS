@@ -21,6 +21,7 @@ import Privacy from "@/pages/privacy";
 import { AdminPage } from "@/pages/admin";
 import HashtagResults from "@/pages/hashtag-results";
 import UserProfile from "@/pages/user-profile";
+import PlansPage from "@/pages/plans";
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/profile" component={Profile} />
       <Route path="/dashboard" component={Profile} />
       <Route path="/settings" component={Profile} />
+      <Route path="/plans" component={PlansPage} />
       <Route path="/favorites" component={Favorites} />
       <Route path="/saved" component={Favorites} />
       <Route path="/categories" component={Home} />

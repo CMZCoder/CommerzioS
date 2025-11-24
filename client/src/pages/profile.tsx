@@ -5,16 +5,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { useEffect, useCallback, useRef } from "react";
-import type { Service, SelectAddress } from "@shared/schema";
+import type { Service, SelectAddress, Plan } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
@@ -1095,46 +1095,115 @@ export default function Profile() {
             </TabsContent>
             
             <TabsContent value="services" data-testid="panel-my-services" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary/10 rounded-full text-primary">
-                      <BarChart3 className="w-6 h-6" />
+              {/* Fallback plan object when user.plan is null */}
+              {(() => {
+                const currentPlan = user.plan || {
+                  name: "Free",
+                  priceMonthly: "0.00",
+                  maxImages: 2,
+                  listingDurationDays: 7,
+                  featuredListing: false,
+                  prioritySupport: false,
+                  analyticsAccess: false,
+                  customBranding: false,
+                  slug: "free"
+                };
+
+                return (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-primary/10 rounded-full text-primary">
+                            <BarChart3 className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground font-medium">Total Views</p>
+                            <h3 className="text-2xl font-bold">{totalViews.toLocaleString()}</h3>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm" data-testid="card-current-plan">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-4">
+                            <div className="p-3 bg-green-50 rounded-full text-green-600">
+                              <CreditCard className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="text-sm text-muted-foreground font-medium">Active Plan</p>
+                              <h3 className="text-2xl font-bold capitalize" data-testid="text-plan-name">
+                                {currentPlan.name}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1" data-testid="text-plan-price">
+                                CHF {currentPlan.priceMonthly}/month
+                              </p>
+                            </div>
+                          </div>
+                          {currentPlan.slug === 'enterprise' ? (
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-600" data-testid="badge-current-plan">
+                              Current Plan
+                            </Badge>
+                          ) : (
+                            <Button asChild variant="default" data-testid="button-upgrade-plan">
+                              <Link href="/plans">Upgrade Plan</Link>
+                            </Button>
+                          )}
+                        </div>
+                        <div className="pt-4 border-t space-y-2">
+                          <div className="flex items-center gap-2 text-sm" data-testid="feature-max-images">
+                            <Check className="w-4 h-4 text-green-600" />
+                            <span>{currentPlan.maxImages} images per listing</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm" data-testid="feature-listing-duration">
+                            <Check className="w-4 h-4 text-green-600" />
+                            <span>{currentPlan.listingDurationDays} day listing duration</span>
+                          </div>
+                          {currentPlan.featuredListing && (
+                            <div className="flex items-center gap-2 text-sm" data-testid="feature-featured-listing">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span>Featured listings</span>
+                            </div>
+                          )}
+                          {currentPlan.prioritySupport && (
+                            <div className="flex items-center gap-2 text-sm" data-testid="feature-priority-support">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span>Priority support</span>
+                            </div>
+                          )}
+                          {currentPlan.analyticsAccess && (
+                            <div className="flex items-center gap-2 text-sm" data-testid="feature-analytics">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span>Analytics access</span>
+                            </div>
+                          )}
+                          {currentPlan.customBranding && (
+                            <div className="flex items-center gap-2 text-sm" data-testid="feature-custom-branding">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span>Custom branding</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-4">
+                          <div className="p-3 bg-amber-50 rounded-full text-amber-600">
+                            <Settings className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground font-medium">Account Status</p>
+                            <h3 className="text-2xl font-bold flex items-center gap-2">
+                              {user.isVerified ? "Verified" : "Not Verified"}
+                              {user.isVerified && (
+                                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">✓</Badge>
+                              )}
+                            </h3>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground font-medium">Total Views</p>
-                      <h3 className="text-2xl font-bold">{totalViews.toLocaleString()}</h3>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-green-50 rounded-full text-green-600">
-                      <CreditCard className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground font-medium">Active Plan</p>
-                      <h3 className="text-2xl font-bold capitalize">{user.plan?.name || user.marketingPackage || "Free"}</h3>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-amber-50 rounded-full text-amber-600">
-                      <Settings className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground font-medium">Account Status</p>
-                      <h3 className="text-2xl font-bold flex items-center gap-2">
-                        {user.isVerified ? "Verified" : "Not Verified"}
-                        {user.isVerified && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">✓</Badge>
-                        )}
-                      </h3>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                  </>
+                );
+              })()}
 
               <div className="bg-white rounded-xl border border-border shadow-sm p-6">
                 <h2 className="text-xl font-semibold mb-6">Active Listings</h2>
