@@ -386,7 +386,11 @@ export async function seedDatabase() {
         status: "active" as const,
         expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         viewCount: 267,
-        images: ["https://images.unsplash.com/photo-1517694712202-14dd9538aa97?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: [
+          "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1547658719-da2b51169166?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1498050108023-c5249f4df085?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"
+        ],
         tags: ["web design", "development", "programming"],
         hashtags: ["webdesign", "webdev", "programming"],
       },
@@ -423,7 +427,11 @@ export async function seedDatabase() {
         status: "active" as const,
         expiresAt: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000),
         viewCount: 213,
-        images: ["https://images.unsplash.com/photo-1502920917128-1aa500764cbd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: [
+          "https://images.unsplash.com/photo-1502920917128-1aa500764cbd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1471341971476-ae15ff5dd4ea?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"
+        ],
         tags: ["photography", "events", "corporate"],
         hashtags: ["photography", "basel", "events"],
       },
@@ -537,7 +545,12 @@ export async function seedDatabase() {
         status: "active" as const,
         expiresAt: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000),
         viewCount: 298,
-        images: ["https://images.unsplash.com/photo-1534438327276-14e5300c3a48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: [
+          "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?crop=entropy&cs=tinysrgb&fit=max&fm=jpg",
+          "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"
+        ],
         tags: ["fitness", "training", "health"],
       },
       {
