@@ -23,7 +23,7 @@ export function GoogleMaps({
   defaultExpanded = false,
   apiKey,
 }: GoogleMapsProps) {
-  if (!userLocation || !apiKey) return null;
+  if (!userLocation) return null;
 
   const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function GoogleMaps({
 
   // Initialize map
   useEffect(() => {
-    if (!isMapVisible || !mapContainerRef.current || mapRef.current) return;
+    if (!isMapVisible || !mapContainerRef.current || mapRef.current || !apiKey) return;
 
     const win = window as GoogleMapsWindow;
 
@@ -194,13 +194,21 @@ export function GoogleMaps({
     );
   }
 
+  const handleToggleMap = () => {
+    if (!apiKey) {
+      alert("Google Maps API key is not configured. Please add it in the admin panel settings.");
+      return;
+    }
+    setIsMapVisible(!isMapVisible);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => setIsMapVisible(!isMapVisible)}
+          onClick={handleToggleMap}
           className="gap-2"
           data-testid="button-toggle-map"
         >
@@ -219,7 +227,7 @@ export function GoogleMaps({
       </div>
 
       <AnimatePresence>
-        {isMapVisible && (
+        {isMapVisible && apiKey && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 400, opacity: 1 }}
