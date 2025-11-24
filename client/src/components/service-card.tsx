@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Star, MapPin, CheckCircle2, Heart } from "lucide-react";
+import { Star, MapPin, CheckCircle2, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { useCroppedImage } from "@/hooks/useCroppedImage";
@@ -12,12 +12,28 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import useEmblaCarousel from "embla-carousel-react";
 
 interface ServiceCardProps {
   service: ServiceWithDetails & { distance?: number };
   compact?: boolean;
   isSaved?: boolean;
+}
+
+// Helper component to render image with crop
+function ImageWithCrop({ imageUrl, metadata, alt }: { imageUrl: string; metadata: any; alt: string }) {
+  const croppedImage = useCroppedImage(imageUrl, metadata);
+  
+  return croppedImage ? (
+    <img 
+      src={croppedImage} 
+      alt={alt}
+      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+    />
+  ) : (
+    <div className="w-full h-full bg-muted animate-pulse" />
+  );
 }
 
 export function ServiceCard({ service, compact = false, isSaved: initialIsSaved }: ServiceCardProps) {
@@ -29,14 +45,48 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
   const daysRemaining = Math.ceil((new Date(service.expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
   const isExpired = daysRemaining <= 0;
 
-  // Get the main image based on mainImageIndex
-  const mainImageIndex = service.mainImageIndex || 0;
-  const mainImage = service.images[mainImageIndex] || service.images[0];
-  const imageMetadata = service.imageMetadata as any[] || [];
-  const mainImageMetadata = imageMetadata[mainImageIndex];
+  // Image carousel state
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
-  // Generate cropped thumbnail using canvas rendering
-  const displayImage = useCroppedImage(mainImage, mainImageMetadata);
+  // Update carousel button states
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return;
+    setCurrentImageIndex(emblaApi.selectedScrollSnap());
+    setCanScrollPrev(emblaApi.canScrollPrev());
+    setCanScrollNext(emblaApi.canScrollNext());
+  }, [emblaApi]);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    onSelect();
+    emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
+  }, [emblaApi, onSelect]);
+
+  const scrollPrev = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (emblaApi) emblaApi.scrollPrev();
+  }, [emblaApi]);
+
+  const scrollNext = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (emblaApi) emblaApi.scrollNext();
+  }, [emblaApi]);
+
+  // Get the main image based on mainImageIndex (for initial display)
+  const mainImageIndex = service.mainImageIndex || 0;
+  const imageMetadata = service.imageMetadata as any[] || [];
+
+  // Generate cropped images for all service images
+  const allImages = service.images.map((img, idx) => ({
+    url: img,
+    metadata: imageMetadata[idx],
+  }));
 
   // Query favorite status only if not provided
   const { data: favoriteStatus } = useQuery({
@@ -134,14 +184,60 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
       )}>
         <Link href={`/service/${service.id}`} className="flex-1">
           <div className="relative aspect-[3/2] overflow-hidden bg-muted flex-shrink-0">
-            {displayImage ? (
-              <img 
-                src={displayImage} 
-                alt={service.title}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
+            {/* Image Carousel */}
+            {allImages.length > 0 ? (
+              <div className="overflow-hidden w-full h-full" ref={emblaRef}>
+                <div className="flex h-full">
+                  {allImages.map((img, index) => (
+                    <div key={index} className="flex-[0_0_100%] min-w-0 h-full">
+                      <ImageWithCrop imageUrl={img.url} metadata={img.metadata} alt={`${service.title} - Image ${index + 1}`} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="w-full h-full bg-muted animate-pulse" />
+            )}
+            
+            {/* Carousel Navigation - Only show if multiple images */}
+            {allImages.length > 1 && (
+              <>
+                <button
+                  onClick={scrollPrev}
+                  disabled={!canScrollPrev}
+                  className={cn(
+                    "absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-white/90 shadow-md transition-all duration-200",
+                    canScrollPrev ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                  )}
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-700" />
+                </button>
+                <button
+                  onClick={scrollNext}
+                  disabled={!canScrollNext}
+                  className={cn(
+                    "absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-white/90 shadow-md transition-all duration-200",
+                    canScrollNext ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                  )}
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-700" />
+                </button>
+                
+                {/* Image indicators */}
+                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
+                  {allImages.map((_, index) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        "w-1.5 h-1.5 rounded-full transition-all duration-200",
+                        index === currentImageIndex ? "bg-white w-4" : "bg-white/60"
+                      )}
+                    />
+                  ))}
+                </div>
+              </>
             )}
             
             {/* Favorite button */}
@@ -243,14 +339,60 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
       isExpired && "opacity-60 grayscale-[0.5]"
     )}>
       <div className="relative aspect-[4/3] overflow-hidden bg-muted flex-shrink-0">
-        {displayImage ? (
-          <img 
-            src={displayImage} 
-            alt={service.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+        {/* Image Carousel */}
+        {allImages.length > 0 ? (
+          <div className="overflow-hidden w-full h-full" ref={emblaRef}>
+            <div className="flex h-full">
+              {allImages.map((img, index) => (
+                <div key={index} className="flex-[0_0_100%] min-w-0 h-full">
+                  <ImageWithCrop imageUrl={img.url} metadata={img.metadata} alt={`${service.title} - Image ${index + 1}`} />
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="w-full h-full bg-muted animate-pulse" />
+        )}
+        
+        {/* Carousel Navigation - Only show if multiple images */}
+        {allImages.length > 1 && (
+          <>
+            <button
+              onClick={scrollPrev}
+              disabled={!canScrollPrev}
+              className={cn(
+                "absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 shadow-lg transition-all duration-200",
+                canScrollPrev ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+              )}
+              aria-label="Previous image"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-700" />
+            </button>
+            <button
+              onClick={scrollNext}
+              disabled={!canScrollNext}
+              className={cn(
+                "absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 shadow-lg transition-all duration-200",
+                canScrollNext ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+              )}
+              aria-label="Next image"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-700" />
+            </button>
+            
+            {/* Image indicators */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-1.5">
+              {allImages.map((_, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "w-2 h-2 rounded-full transition-all duration-200",
+                    index === currentImageIndex ? "bg-white w-6" : "bg-white/60"
+                  )}
+                />
+              ))}
+            </div>
+          </>
         )}
         <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
           <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground font-medium shadow-sm">

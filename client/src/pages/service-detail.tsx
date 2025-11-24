@@ -23,24 +23,25 @@ export default function ServiceDetail() {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  if (!match) return null;
-
   const { data: service, isLoading: serviceLoading, error: serviceError } = useQuery<ServiceWithDetails>({
-    queryKey: [`/api/services/${params.id}`],
+    queryKey: [`/api/services/${params?.id}`],
     queryFn: () => apiRequest(`/api/services/${params.id}`),
+    enabled: match && !!params?.id,
   });
 
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery<ReviewWithUser[]>({
-    queryKey: [`/api/services/${params.id}/reviews`],
+    queryKey: [`/api/services/${params?.id}/reviews`],
     queryFn: () => apiRequest(`/api/services/${params.id}/reviews`),
-    enabled: !!service,
+    enabled: match && !!service && !!params?.id,
   });
 
   const { data: savedStatus } = useQuery({
-    queryKey: [`/api/favorites/${params.id}/status`],
+    queryKey: [`/api/favorites/${params?.id}/status`],
     queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${params.id}/status`),
-    enabled: isAuthenticated && !!params.id,
+    enabled: match && isAuthenticated && !!params?.id,
   });
+
+  if (!match) return null;
 
   // Update saved state when status is fetched
   useEffect(() => {
