@@ -277,7 +277,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
           </div>
 
           <CardContent className="p-3 flex flex-col gap-2">
-            <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 group-hover:text-primary transition-colors">
+            <h3 className="font-semibold text-sm leading-tight text-foreground line-clamp-2 group-hover:text-primary transition-colors min-h-[2.5rem]">
               {service.title}
             </h3>
             
@@ -452,8 +452,8 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
         </div>
       </div>
 
-      <CardContent className="p-5 flex-1 flex flex-col">
-        <div className="flex justify-between items-start gap-4 mb-3">
+      <CardContent className="p-5 flex flex-col">
+        <div className="flex justify-between items-start gap-4 mb-3 min-h-[3.5rem]">
           <Link href={`/service/${service.id}`} className="min-w-0 flex-1">
             <h3 className="font-bold text-base sm:text-lg leading-tight text-foreground hover:text-primary cursor-pointer line-clamp-2">
               {service.title}
