@@ -123,10 +123,21 @@ export function GoogleMaps({
         },
       });
 
+      // Generate pricing display based on priceType
+      let priceDisplay = '';
+      if (service.priceType === 'fixed') {
+        priceDisplay = `<span style="color: #3b82f6; font-weight: 600;">CHF ${service.price}</span>`;
+      } else if (service.priceType === 'text') {
+        priceDisplay = `<a href="/service/${service.id}" style="color: #3b82f6; font-weight: 600; text-decoration: underline;">Visit Listing</a>`;
+      } else if (service.priceType === 'list') {
+        const firstPrice = (service.priceList as any)?.[0]?.price;
+        priceDisplay = `<span style="color: #3b82f6; font-weight: 600;">From CHF ${firstPrice || 'N/A'}</span>`;
+      }
+
       const serviceInfoWindow = new google.maps.InfoWindow({
         content: `<div style="min-width: 200px; padding: 8px;">
           <strong>${service.title}</strong><br/>
-          <span style="color: #3b82f6; font-weight: 600;">CHF ${service.price}</span>
+          ${priceDisplay}
           ${service.distance ? `<br/><small style="color: #64748b;">${service.distance.toFixed(1)} km away</small>` : ''}
         </div>`,
       });
