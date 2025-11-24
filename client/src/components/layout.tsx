@@ -15,6 +15,31 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [showCreateService, setShowCreateService] = useState(false);
   const [showCategorySuggestion, setShowCategorySuggestion] = useState(false);
 
+  // Smart navigation function for profile tabs
+  const navigateToProfile = (tab?: string) => {
+    const currentPath = window.location.pathname;
+    const isOnProfile = currentPath === '/profile';
+    
+    if (isOnProfile) {
+      // Already on profile page
+      const url = new URL(window.location.href);
+      if (tab) {
+        url.searchParams.set('tab', tab);
+      } else {
+        url.searchParams.delete('tab'); // Clear tab parameter for default
+      }
+      window.history.pushState({}, '', url.toString());
+      window.dispatchEvent(new Event('popstate'));
+    } else {
+      // Navigate to profile page
+      if (tab) {
+        window.location.href = `/profile?tab=${tab}`;
+      } else {
+        window.location.href = '/profile';
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
       <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
@@ -49,11 +74,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="text-sm text-muted-foreground">Loading...</div>
               ) : isAuthenticated && user ? (
                 <>
-                  <Link href="/profile">
-                    <Button variant="ghost" className="gap-2 hover:bg-slate-100 transition-colors cursor-pointer" data-testid="link-profile">
-                      Profile
-                    </Button>
-                  </Link>
+                  <Button 
+                    variant="ghost" 
+                    className="gap-2 hover:bg-slate-100 transition-colors cursor-pointer" 
+                    data-testid="link-profile"
+                    onClick={() => navigateToProfile()}
+                  >
+                    Profile
+                  </Button>
                   <Button 
                     className="gap-2 shadow-md shadow-primary/20"
                     onClick={() => setShowCreateService(true)}
@@ -73,15 +101,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => window.location.href = "/profile"} data-testid="menu-item-profile">
+                      <DropdownMenuItem onClick={() => navigateToProfile()} data-testid="menu-item-profile">
                         <User className="w-4 h-4 mr-2" />
                         Profile
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.location.href = "/profile?tab=services"} data-testid="link-my-listings">
+                      <DropdownMenuItem onClick={() => navigateToProfile('services')} data-testid="link-my-listings">
                         <PlusCircle className="w-4 h-4 mr-2" />
                         My Listings
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.location.href = "/profile?tab=reviews"} data-testid="menu-item-reviews">
+                      <DropdownMenuItem onClick={() => navigateToProfile('reviews')} data-testid="menu-item-reviews">
                         <Star className="w-4 h-4 mr-2" />
                         Reviews
                       </DropdownMenuItem>

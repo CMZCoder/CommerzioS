@@ -391,7 +391,7 @@ export default function Profile() {
       return;
     }
     
-    // Enforce validated address for new addresses
+    // Enforce validated address for new addresses only (not when editing)
     if (!editingAddress && !isAddressValidated) {
       toast({
         title: "Invalid Address",
@@ -400,6 +400,9 @@ export default function Profile() {
       });
       return;
     }
+    
+    // Note: When editing, we allow saving without re-validation since it's already a saved address
+    // Users can manually update fields if needed
     
     if (editingAddress) {
       updateAddressMutation.mutate({ id: editingAddress.id, data: addressForm });
@@ -421,7 +424,7 @@ export default function Profile() {
     setIsAddressValidated(false);
   };
 
-  const startEditAddress = (address: SelectAddress) => {
+    const startEditAddress = (address: SelectAddress) => {
     setEditingAddress(address);
     setAddressForm({
       label: address.label || "",
@@ -432,6 +435,7 @@ export default function Profile() {
       country: address.country,
       isPrimary: address.isPrimary,
     });
+    // No need to set isAddressValidated for editing - validation check is bypassed for edits
     setShowAddressForm(true);
   };
 
@@ -852,7 +856,11 @@ export default function Profile() {
                       </div>
                     )}
 
-                    {addresses.map((address) => (
+                    {[...addresses].sort((a, b) => {
+                      if (a.isPrimary && !b.isPrimary) return -1;
+                      if (!a.isPrimary && b.isPrimary) return 1;
+                      return 0;
+                    }).map((address) => (
                       <div 
                         key={address.id} 
                         className="border rounded-lg p-4 space-y-2"
@@ -880,7 +888,7 @@ export default function Profile() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setEditingAddress(address)}
+                              onClick={() => startEditAddress(address)}
                               data-testid={`button-edit-address-${address.id}`}
                             >
                               <Edit className="w-4 h-4" />
@@ -912,13 +920,24 @@ export default function Profile() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="street">Street Address</Label>
-                          <Input
-                            id="street"
-                            value={addressForm.street}
-                            onChange={(e) => setAddressForm({...addressForm, street: e.target.value})}
-                            placeholder="Street address"
-                            data-testid="input-address-street"
+                          <AddressAutocomplete
+                            label="Street Address"
+                            required
+                            initialValue={addressForm.street}
+                            onAddressSelect={(address) => {
+                              if (address) {
+                                setAddressForm({
+                                  ...addressForm,
+                                  street: address.street,
+                                  city: address.city,
+                                  postalCode: address.postalCode,
+                                  canton: address.canton,
+                                });
+                                setIsAddressValidated(true);
+                              } else {
+                                setIsAddressValidated(false);
+                              }
+                            }}
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-4">

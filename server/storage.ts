@@ -568,6 +568,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAddress(userId: string, data: InsertAddress): Promise<SelectAddress> {
+    // If setting as primary, unset all other primary addresses for this user
+    if (data.isPrimary) {
+      await db
+        .update(addresses)
+        .set({ isPrimary: false })
+        .where(eq(addresses.userId, userId));
+    }
+    
     const [address] = await db
       .insert(addresses)
       .values({ ...data, userId })
@@ -576,6 +584,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAddress(addressId: string, userId: string, data: Partial<InsertAddress>): Promise<SelectAddress> {
+    // If setting as primary, unset all other primary addresses for this user
+    if (data.isPrimary) {
+      await db
+        .update(addresses)
+        .set({ isPrimary: false })
+        .where(and(
+          eq(addresses.userId, userId),
+          sql`${addresses.id} != ${addressId}`
+        ));
+    }
+    
     const [address] = await db
       .update(addresses)
       .set({ ...data, updatedAt: new Date() })
@@ -945,7 +964,13 @@ export class DatabaseStorage implements IStorage {
       }
 
       const previousStatus = user.status;
-      const newStatus = action === "reactivate" ? "active" : action === "warn" ? "warned" : action;
+      const newStatus = 
+        action === "reactivate" ? "active" :
+        action === "warn" ? "warned" :
+        action === "suspend" ? "suspended" :
+        action === "ban" ? "banned" :
+        action === "kick" ? "kicked" :
+        "active" as "active" | "warned" | "suspended" | "banned" | "kicked";
 
       // Update user status
       const [updatedUser] = await tx
