@@ -186,11 +186,11 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
             </h3>
             
             <div className="flex items-center gap-1.5 text-xs">
-              <div className="flex items-center text-amber-400">
+              <div className={`flex items-center ${service.reviewCount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
                 <Star className="w-3 h-3 fill-current" />
-                <span className="ml-0.5 font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "New"}</span>
+                <span className="ml-0.5 font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "0"}</span>
               </div>
-              <span className="text-muted-foreground">({service.reviewCount})</span>
+              <span className="text-muted-foreground">({service.reviewCount} {service.reviewCount === 1 ? 'review' : 'reviews'})</span>
             </div>
 
             <div className="min-w-0">
@@ -320,11 +320,11 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
         </div>
         
         <div className="flex items-center gap-2 mb-3">
-          <div className="flex items-center text-amber-400">
+          <div className={`flex items-center ${service.reviewCount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
             <Star className="w-4 h-4 fill-current" />
-            <span className="ml-1 text-sm font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "New"}</span>
+            <span className="ml-1 text-sm font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "0"}</span>
           </div>
-          <span className="text-muted-foreground text-sm">({service.reviewCount} reviews)</span>
+          <span className="text-muted-foreground text-sm">({service.reviewCount} {service.reviewCount === 1 ? 'review' : 'reviews'})</span>
         </div>
       </CardContent>
 
