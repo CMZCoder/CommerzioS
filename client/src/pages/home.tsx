@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
 import { ServiceResultsRail } from "@/components/service-results-rail";
 import { GoogleMaps } from "@/components/google-maps";
-import { CategoryFilterBar } from "@/components/category-filter-bar";
+import { StickyCategoryBar } from "@/components/sticky-category-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -706,62 +706,20 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Category Quick Filters */}
-              <div className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-white/10 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/40 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-white/20 hover:[&::-webkit-scrollbar-thumb]:bg-primary/60 [&::-webkit-scrollbar-thumb]:transition-colors">
-                <div className="flex gap-3 pb-2 min-w-max">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedCategory(null)}
-                    className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 transition-all backdrop-blur-sm text-sm font-medium whitespace-nowrap",
-                      selectedCategory === null
-                        ? "bg-white text-primary border-white"
-                        : "bg-white/20 text-white border-white/30 hover:bg-white/30"
-                    )}
-                    data-testid="category-hero-filter-all"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    All Services
-                    <Badge variant={selectedCategory === null ? "default" : "secondary"} className="ml-1">
-                      {services.length}
-                    </Badge>
-                  </motion.button>
-
-                  {categories.map((category) => (
-                    <motion.button
-                      key={category.id}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setSelectedCategory(category.id)}
-                      className={cn(
-                        "relative inline-flex items-center gap-2 px-4 py-2.5 rounded-full border-2 transition-all backdrop-blur-sm text-sm font-medium whitespace-nowrap",
-                        selectedCategory === category.id
-                          ? "bg-white text-primary border-white"
-                          : "bg-white/20 text-white border-white/30 hover:bg-white/30"
-                      )}
-                      data-testid={`category-hero-filter-${category.slug}`}
-                    >
-                      {newCountsMap[category.id] > 0 && (
-                        <div className="absolute -top-1 -right-1">
-                          <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                            {newCountsMap[category.id]}
-                          </div>
-                        </div>
-                      )}
-                      {category.icon && <span className="text-lg">{category.icon}</span>}
-                      {category.name}
-                      <Badge variant={selectedCategory === category.id ? "default" : "secondary"} className="ml-1">
-                        {categoryServiceCounts[category.id] || 0}
-                      </Badge>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
             </motion.div>
           </div>
         </div>
       </section>
+
+      {/* Sticky Category Bar */}
+      <StickyCategoryBar
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        serviceCount={services.length}
+        categoryCounts={categoryServiceCounts}
+        newCounts={newCountsMap}
+      />
 
       {searchLocation && (
         <section className="py-12 container mx-auto px-4">
@@ -814,15 +772,6 @@ export default function Home() {
             </TabsList>
 
             <TabsContent value="all" className="mt-0">
-              <CategoryFilterBar
-                categories={categories}
-                selectedCategory={allListingsCategory}
-                onCategoryChange={setAllListingsCategory}
-                serviceCount={services.length}
-                categoryCounts={allListingsCategoryCounts}
-                newCounts={newCountsMap}
-              />
-              
               <div className="bg-white border-b shadow-sm">
                 <div className="container mx-auto px-4 py-3">
                   <div className="flex items-center justify-between">
@@ -903,15 +852,6 @@ export default function Home() {
             <TabsContent value="saved" className="mt-0">
               {isAuthenticated ? (
                 <>
-                  <CategoryFilterBar
-                    categories={categories}
-                    selectedCategory={savedListingsCategory}
-                    onCategoryChange={setSavedListingsCategory}
-                    serviceCount={favorites?.length || 0}
-                    categoryCounts={savedListingsCategoryCounts}
-                    newCounts={newCountsMap}
-                  />
-                  
                   <div className="bg-white border-b shadow-sm">
                     <div className="container mx-auto px-4 py-3">
                       <div className="flex items-center justify-between">
