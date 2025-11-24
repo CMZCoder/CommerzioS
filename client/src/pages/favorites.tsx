@@ -8,12 +8,13 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useSavedListingsFilter } from "@/hooks/useSavedListingsFilter";
 import { apiRequest, type FavoriteWithService, type CategoryWithTemporary } from "@/lib/api";
 import { useEffect, useState, useMemo } from "react";
 
 export default function Saved() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { selectedCategory, setSelectedCategory } = useSavedListingsFilter();
 
   // Scroll to top on page load
   useEffect(() => {

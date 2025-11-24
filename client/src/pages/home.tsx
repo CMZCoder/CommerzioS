@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useSavedListingsFilter } from "@/hooks/useSavedListingsFilter";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -50,8 +51,8 @@ export default function Home() {
   const [allListingsCategory, setAllListingsCategory] = useState<string | null>(null);
   const [allListingsSort, setAllListingsSort] = useState<SortOption>("newest");
   
-  // Independent state for Saved Listings tab
-  const [savedListingsCategory, setSavedListingsCategory] = useState<string | null>(null);
+  // Shared state for Saved Listings tab (synced with /favorites page)
+  const { selectedCategory: savedListingsCategory, setSelectedCategory: setSavedListingsCategory } = useSavedListingsFilter();
   const [savedListingsSort, setSavedListingsSort] = useState<SortOption>("newest");
   
   // Pagination state for All Listings and Saved Listings
