@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type MouseEvent } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 
 interface ServiceCardProps {
@@ -66,13 +66,13 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
     emblaApi.on("reInit", onSelect);
   }, [emblaApi, onSelect]);
 
-  const scrollPrev = useCallback((e: React.MouseEvent) => {
+  const scrollPrev = useCallback((e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (emblaApi) emblaApi.scrollPrev();
   }, [emblaApi]);
 
-  const scrollNext = useCallback((e: React.MouseEvent) => {
+  const scrollNext = useCallback((e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (emblaApi) emblaApi.scrollNext();
@@ -82,8 +82,8 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
   const mainImageIndex = service.mainImageIndex || 0;
   const imageMetadata = service.imageMetadata as any[] || [];
 
-  // Generate cropped images for all service images
-  const allImages = service.images.map((img, idx) => ({
+  // Generate cropped images for all service images (handle missing images array)
+  const allImages = (service.images ?? []).map((img, idx) => ({
     url: img,
     metadata: imageMetadata[idx],
   }));

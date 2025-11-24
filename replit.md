@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 - **Geocoding Centralization**: All location fields use shared geocoding infrastructure (`lib/geocoding.ts` service and `hooks/useGeocoding.ts` hook) for consistent address autocomplete, debouncing (300ms), and AbortController-based race condition prevention. This eliminates duplicate geocoding logic across components.
 - **Home Page Auto-Load**: Home page automatically loads and displays services near the user's saved main address (from profile) when the page loads. Users can change the search location inline within the "Find Services Near You" section without navigating away.
 - **Google Maps Everywhere**: All map displays throughout the application use Google Maps exclusively. The admin-configurable API key (stored in database settings) powers home page service discovery maps, service detail page location maps, and any toggleable map views. Markers use consistent styling with numbered red markers for services and blue markers for user locations, with automatic spreading to prevent overlaps.
+- **Image Carousel on Cards** (2025-11-24): All service cards feature interactive image carousels allowing users to browse multiple service images directly on cards using left/right arrow buttons and dot indicators. Powered by embla-carousel-react with loop functionality. Controls only appear when service has 2+ images.
 
 ### Backend Architecture
 

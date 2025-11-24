@@ -11,8 +11,37 @@ import { apiRequest, type ServiceWithDetails, type ReviewWithUser } from "@/lib/
 import { useAuth } from "@/hooks/useAuth";
 import { ServiceMap } from "@/components/service-map";
 
+// Route guard wrapper - only mounts content when service ID is available
 export default function ServiceDetail() {
   const [match, params] = useRoute("/service/:id");
+  
+  // Don't render anything if route doesn't match
+  if (!match) {
+    return null;
+  }
+  
+  // Show error if ID is missing (edge case)
+  if (!params?.id) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <p className="text-xl font-semibold text-destructive mb-2">Invalid Service</p>
+            <p className="text-muted-foreground">No service ID provided</p>
+            <Button onClick={() => window.location.href = "/"} className="mt-4">
+              Return to Home
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+  
+  return <ServiceDetailContent serviceId={params.id} />;
+}
+
+// Content component - hooks only initialize with valid serviceId
+function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isContactRevealed, setIsContactRevealed] = useState(false);
@@ -24,24 +53,21 @@ export default function ServiceDetail() {
   const queryClient = useQueryClient();
 
   const { data: service, isLoading: serviceLoading, error: serviceError } = useQuery<ServiceWithDetails>({
-    queryKey: [`/api/services/${params?.id}`],
-    queryFn: () => apiRequest(`/api/services/${params.id}`),
-    enabled: match && !!params?.id,
+    queryKey: [`/api/services/${serviceId}`],
+    queryFn: () => apiRequest(`/api/services/${serviceId}`),
   });
 
   const { data: reviews = [], isLoading: reviewsLoading } = useQuery<ReviewWithUser[]>({
-    queryKey: [`/api/services/${params?.id}/reviews`],
-    queryFn: () => apiRequest(`/api/services/${params.id}/reviews`),
-    enabled: match && !!service && !!params?.id,
+    queryKey: [`/api/services/${serviceId}/reviews`],
+    queryFn: () => apiRequest(`/api/services/${serviceId}/reviews`),
+    enabled: !!service,
   });
 
   const { data: savedStatus } = useQuery({
-    queryKey: [`/api/favorites/${params?.id}/status`],
-    queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${params.id}/status`),
-    enabled: match && isAuthenticated && !!params?.id,
+    queryKey: [`/api/favorites/${serviceId}/status`],
+    queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${serviceId}/status`),
+    enabled: isAuthenticated && !!service,
   });
-
-  if (!match) return null;
 
   // Update saved state when status is fetched
   useEffect(() => {
@@ -52,13 +78,13 @@ export default function ServiceDetail() {
 
   const createReviewMutation = useMutation({
     mutationFn: (data: { rating: number; comment: string }) =>
-      apiRequest(`/api/services/${params.id}/reviews`, {
+      apiRequest(`/api/services/${serviceId}/reviews`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/services/${params.id}/reviews`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/services/${params.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/reviews`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}`] });
       toast({
         title: "Review Submitted",
         description: "Your review has been posted successfully.",
@@ -78,9 +104,9 @@ export default function ServiceDetail() {
   const toggleSaved = useMutation({
     mutationFn: async ({ action }: { action: 'add' | 'remove' }) => {
       if (action === 'remove') {
-        await apiRequest(`/api/favorites/${params.id}`, { method: "DELETE" });
+        await apiRequest(`/api/favorites/${serviceId}`, { method: "DELETE" });
       } else {
-        await apiRequest(`/api/favorites/${params.id}`, { method: "POST" });
+        await apiRequest(`/api/favorites/${serviceId}`, { method: "POST" });
       }
     },
     onMutate: async ({ action }) => {
@@ -97,7 +123,7 @@ export default function ServiceDetail() {
     onSuccess: (_data, variables) => {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/favorites/${params.id}/status`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/favorites/${serviceId}/status`] });
       
       // Show feedback toast
       const wasAdded = variables.action === 'add';
@@ -206,12 +232,19 @@ export default function ServiceDetail() {
             {/* Left Column: Images & Details */}
             <div className="lg:col-span-2 space-y-8">
               <div className="rounded-2xl overflow-hidden bg-white shadow-sm border border-border">
-                <div className="aspect-video bg-slate-100 relative">
-                   <img 
-                    src={service.images[0]} 
-                    alt={service.title}
-                    className="w-full h-full object-cover"
-                  />
+                <div className="aspect-video bg-slate-100 relative flex items-center justify-center">
+                  {service.images && service.images.length > 0 ? (
+                    <img 
+                      src={service.images[0]} 
+                      alt={service.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <MapPin className="w-16 h-16 mx-auto mb-2 opacity-20" />
+                      <p>No image available</p>
+                    </div>
+                  )}
                 </div>
                 <div className="p-6 md:p-8">
                   <div className="flex items-center gap-2 mb-4">
@@ -225,9 +258,9 @@ export default function ServiceDetail() {
                   
                   <div className="flex items-center gap-6 pb-6 border-b border-border">
                     <div className="flex items-center gap-1">
-                      <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-                      <span className="font-bold text-lg">{service.rating ? service.rating.toFixed(1) : "New"}</span>
-                      <span className="text-muted-foreground">({service.reviewCount} reviews)</span>
+                      <Star className={`w-5 h-5 ${service.reviewCount > 0 ? 'fill-amber-400 text-amber-400' : 'fill-gray-300 text-gray-300'}`} />
+                      <span className="font-bold text-lg">{service.rating ? service.rating.toFixed(1) : "0"}</span>
+                      <span className="text-muted-foreground">({service.reviewCount} {service.reviewCount === 1 ? 'review' : 'reviews'})</span>
                     </div>
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Calendar className="w-5 h-5" />
