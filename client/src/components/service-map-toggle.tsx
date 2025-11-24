@@ -1,24 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Map, ZoomIn, ZoomOut, X } from "lucide-react";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ServiceWithDetails } from "@/lib/api";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix Leaflet default icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-});
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/api";
 
 interface ServiceMapToggleProps {
   services: (ServiceWithDetails & { distance?: number })[];
   userLocation: { lat: number; lng: number; name: string } | null;
   maxServices?: number;
   defaultExpanded?: boolean;
+}
+
+interface GoogleMapsWindow extends Window {
+  google?: any;
 }
 
 export function ServiceMapToggle({
@@ -32,8 +28,18 @@ export function ServiceMapToggle({
 
   const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const isInitializedRef = useRef(false);
+  const hasFitBoundsRef = useRef(false);
+
+  // Fetch Google Maps API key
+  const { data: mapsConfig } = useQuery({
+    queryKey: ['/api/maps/config'],
+    queryFn: () => apiRequest<{ apiKey: string }>('/api/maps/config'),
+  });
+
+  const apiKey = mapsConfig?.apiKey;
 
   // Memoize closest services to prevent unnecessary re-renders
   const closestServices = useMemo(() => {
@@ -43,112 +49,197 @@ export function ServiceMapToggle({
       .slice(0, maxServices);
   }, [services, maxServices]);
 
-  // Effect 1: Initialize map when it becomes visible
-  useEffect(() => {
-    if (!isMapVisible || !mapContainerRef.current || mapRef.current) return;
-
-    const map = L.map(mapContainerRef.current, {
-      zoomControl: false,
-      scrollWheelZoom: true,
-      touchZoom: true,
-      dragging: true,
-    }).setView([userLocation.lat, userLocation.lng], 12);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
-
-    mapRef.current = map;
-  }, [isMapVisible, userLocation]);
-
-  // Effect 2: Update markers when services or location changes
-  useEffect(() => {
-    if (!isMapVisible || !mapRef.current) return;
-
-    const map = mapRef.current;
+  // Update markers when services change
+  const updateMarkers = useCallback((shouldFitBounds = false) => {
+    const google = (window as GoogleMapsWindow).google;
+    if (!google || !mapRef.current || !userLocation) return;
 
     // Clear existing markers
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach((marker: any) => marker.setMap(null));
     markersRef.current = [];
 
     // Add user location marker
-    const userIcon = L.divIcon({
-      className: "user-location-marker",
-      html: `<div style="background: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+    const userMarker = new google.maps.Marker({
+      map: mapRef.current,
+      position: { lat: userLocation.lat, lng: userLocation.lng },
+      title: userLocation.name,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: "#3b82f6",
+        fillOpacity: 1,
+        strokeColor: "#fff",
+        strokeWeight: 2,
+      },
     });
 
-    const userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
-      .addTo(map)
-      .bindPopup(`<strong>${userLocation.name}</strong><br/>Your location`);
-    
+    const userInfoWindow = new google.maps.InfoWindow({
+      content: `<div style="padding: 8px; font-weight: bold;">${userLocation.name}<br/><small>Your location</small></div>`,
+    });
+
+    userMarker.addListener("click", () => {
+      userInfoWindow.open(mapRef.current, userMarker);
+    });
+
     markersRef.current.push(userMarker);
 
-    // Add service markers
-    const bounds: [number, number][] = [[userLocation.lat, userLocation.lng]];
+    // Add service markers with spreading for overlaps
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+
+    const positionCounts: Record<string, number> = {};
 
     closestServices.forEach((service, index) => {
       if (!service.owner?.locationLat || !service.owner?.locationLng) return;
 
-      const serviceLat = parseFloat(service.owner.locationLat as any);
-      const serviceLng = parseFloat(service.owner.locationLng as any);
+      let serviceLat = parseFloat(service.owner.locationLat as any);
+      let serviceLng = parseFloat(service.owner.locationLng as any);
 
-      const serviceIcon = L.divIcon({
-        className: "service-marker",
-        html: `<div style="background: #ef4444; color: white; width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px;">${index + 1}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+      // Check for overlapping coordinates and spread markers
+      const posKey = `${serviceLat},${serviceLng}`;
+      const count = positionCounts[posKey] || 0;
+      positionCounts[posKey] = count + 1;
+
+      if (count > 0) {
+        const angle = (count * 60) * (Math.PI / 180);
+        const offsetDistance = 0.002;
+        serviceLat += offsetDistance * Math.cos(angle);
+        serviceLng += offsetDistance * Math.sin(angle);
+      }
+
+      const serviceMarker = new google.maps.Marker({
+        map: mapRef.current,
+        position: { lat: serviceLat, lng: serviceLng },
+        title: service.title,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#ef4444",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+        label: {
+          text: String(index + 1),
+          color: "#fff",
+          fontSize: "12px",
+          fontWeight: "bold",
+        },
       });
 
-      const serviceMarker = L.marker([serviceLat, serviceLng], { icon: serviceIcon })
-        .addTo(map)
-        .bindPopup(`
-          <div style="min-width: 200px;">
-            <strong>${service.title}</strong><br/>
-            <span style="color: #3b82f6; font-weight: 600;">CHF ${service.price}</span>
-            ${service.distance ? `<br/><span style="color: #64748b;">${service.distance.toFixed(1)} km away</span>` : ''}
-          </div>
-        `);
+      // Generate pricing display based on priceType
+      let priceDisplay = '';
+      if (service.priceType === 'fixed') {
+        priceDisplay = `<span style="color: #3b82f6; font-weight: 600;">CHF ${service.price}</span>`;
+      } else if (service.priceType === 'text') {
+        priceDisplay = `<a href="/service/${service.id}" style="color: #3b82f6; font-weight: 600; text-decoration: underline;">Visit Listing</a>`;
+      } else if (service.priceType === 'list') {
+        const firstPrice = (service.priceList as any)?.[0]?.price;
+        priceDisplay = `<span style="color: #3b82f6; font-weight: 600;">From CHF ${firstPrice || 'N/A'}</span>`;
+      }
+
+      const serviceInfoWindow = new google.maps.InfoWindow({
+        content: `<div style="min-width: 200px; padding: 8px;">
+          <strong>${service.title}</strong><br/>
+          ${priceDisplay}
+          ${service.distance ? `<br/><small style="color: #64748b;">${service.distance.toFixed(1)} km away</small>` : ''}
+        </div>`,
+      });
+
+      serviceMarker.addListener("click", () => {
+        serviceInfoWindow.open(mapRef.current, serviceMarker);
+      });
 
       markersRef.current.push(serviceMarker);
-      bounds.push([serviceLat, serviceLng]);
+      bounds.extend({ lat: serviceLat, lng: serviceLng });
     });
 
-    // Fit map to show all markers
-    if (bounds.length > 1) {
-      map.fitBounds(bounds as any, { padding: [50, 50] });
+    // Only fit bounds on initial load or when explicitly requested
+    if (shouldFitBounds && closestServices.length > 0) {
+      mapRef.current?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+      hasFitBoundsRef.current = true;
     }
-  }, [isMapVisible, userLocation, closestServices]);
+  }, [userLocation, closestServices]);
 
-  // Effect 3: Cleanup when map is hidden
+  // Initialize map only once when it becomes visible
   useEffect(() => {
-    if (!isMapVisible && mapRef.current) {
-      markersRef.current.forEach(marker => marker.remove());
+    if (!isMapVisible || !mapContainerRef.current || isInitializedRef.current || !apiKey) return;
+
+    const win = window as GoogleMapsWindow;
+
+    function initializeMap() {
+      const google = (window as GoogleMapsWindow).google;
+      if (!google || !mapContainerRef.current || !userLocation) return;
+
+      const map = new google.maps.Map(mapContainerRef.current as any, {
+        zoom: 12,
+        center: { lat: userLocation.lat, lng: userLocation.lng },
+        mapTypeControl: false,
+        fullscreenControl: false,
+        streetViewControl: false,
+      });
+
+      mapRef.current = map;
+      isInitializedRef.current = true;
+      hasFitBoundsRef.current = false;
+      // Fit bounds on initial load
+      updateMarkers(true);
+    }
+
+    // Load Google Maps script if not already loaded
+    if (!win.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeMap;
+      document.head.appendChild(script);
+    } else {
+      initializeMap();
+    }
+  }, [isMapVisible, userLocation, apiKey, updateMarkers]);
+
+  // Update markers when services change (but not bounds)
+  useEffect(() => {
+    if (isMapVisible && isInitializedRef.current) {
+      updateMarkers(false);
+    }
+  }, [isMapVisible, updateMarkers]);
+
+  // Cleanup when map is hidden
+  useEffect(() => {
+    if (!isMapVisible) {
+      markersRef.current.forEach((marker: any) => marker?.setMap?.(null));
       markersRef.current = [];
-      mapRef.current.remove();
-      mapRef.current = null;
+      if (mapRef.current) {
+        mapRef.current = null;
+      }
+      isInitializedRef.current = false;
+      hasFitBoundsRef.current = false;
     }
   }, [isMapVisible]);
 
-  // Effect 4: Cleanup on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      markersRef.current.forEach(marker => marker.remove());
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      markersRef.current.forEach((marker: any) => marker?.setMap?.(null));
+      markersRef.current = [];
+      mapRef.current = null;
     };
   }, []);
 
   const handleZoomIn = () => {
-    mapRef.current?.zoomIn();
+    if (mapRef.current) {
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.setZoom(currentZoom + 1);
+    }
   };
 
   const handleZoomOut = () => {
-    mapRef.current?.zoomOut();
+    if (mapRef.current) {
+      const currentZoom = mapRef.current.getZoom();
+      mapRef.current.setZoom(currentZoom - 1);
+    }
   };
 
   // Show helpful message if no services with locations

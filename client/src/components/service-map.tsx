@@ -1,28 +1,8 @@
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { MapPin, Navigation } from 'lucide-react';
 import type { ServiceWithDetails } from '@/lib/api';
-import { useState, useEffect } from 'react';
-
-// Fix Leaflet default marker icon issue
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
-
-// Custom marker icon for user location (green)
-const userMarkerIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
+import { useState, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
 
 // Calculate distance using Haversine formula
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -41,8 +21,23 @@ interface ServiceMapProps {
   userLocation: { lat: number; lng: number } | null;
 }
 
+interface GoogleMapsWindow extends Window {
+  google?: any;
+}
+
 export function ServiceMap({ service, userLocation }: ServiceMapProps) {
   const [mapHeight, setMapHeight] = useState(400);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const isInitializedRef = useRef(false);
+
+  // Fetch Google Maps API key
+  const { data: mapsConfig } = useQuery({
+    queryKey: ['/api/maps/config'],
+    queryFn: () => apiRequest<{ apiKey: string }>('/api/maps/config'),
+  });
+
+  const apiKey = mapsConfig?.apiKey;
 
   useEffect(() => {
     const updateHeight = () => {
@@ -52,6 +47,122 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
     window.addEventListener('resize', updateHeight);
     return () => window.removeEventListener('resize', updateHeight);
   }, []);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || isInitializedRef.current || !apiKey) return;
+    if (!service.owner.locationLat || !service.owner.locationLng) return;
+
+    const serviceLat = parseFloat(service.owner.locationLat);
+    const serviceLng = parseFloat(service.owner.locationLng);
+
+    const win = window as GoogleMapsWindow;
+
+    function initializeMap() {
+      const google = (window as GoogleMapsWindow).google;
+      if (!google || !mapContainerRef.current) return;
+
+      const map = new google.maps.Map(mapContainerRef.current as any, {
+        zoom: 13,
+        center: { lat: serviceLat, lng: serviceLng },
+        mapTypeControl: false,
+        fullscreenControl: false,
+        streetViewControl: false,
+      });
+
+      mapRef.current = map;
+      isInitializedRef.current = true;
+
+      // Service location marker (red)
+      const serviceMarker = new google.maps.Marker({
+        map: map,
+        position: { lat: serviceLat, lng: serviceLng },
+        title: service.title,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#ef4444",
+          fillOpacity: 1,
+          strokeColor: "#fff",
+          strokeWeight: 2,
+        },
+      });
+
+      const serviceInfoWindow = new google.maps.InfoWindow({
+        content: `<div style="padding: 8px;">
+          <p style="font-weight: 600; margin-bottom: 4px;">${service.title}</p>
+          <p style="color: #64748b; font-size: 14px;">${service.locations[0] || 'Service location'}</p>
+        </div>`,
+      });
+
+      serviceMarker.addListener("click", () => {
+        serviceInfoWindow.open(map, serviceMarker);
+      });
+
+      // User location marker (green)
+      if (userLocation) {
+        const userMarker = new google.maps.Marker({
+          map: map,
+          position: { lat: userLocation.lat, lng: userLocation.lng },
+          title: "Your location",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#22c55e",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 2,
+          },
+        });
+
+        const userInfoWindow = new google.maps.InfoWindow({
+          content: `<div style="padding: 8px; font-weight: 600;">
+            Your location
+          </div>`,
+        });
+
+        userMarker.addListener("click", () => {
+          userInfoWindow.open(map, userMarker);
+        });
+
+        // Distance line (polyline)
+        new google.maps.Polyline({
+          path: [
+            { lat: userLocation.lat, lng: userLocation.lng },
+            { lat: serviceLat, lng: serviceLng }
+          ],
+          geodesic: true,
+          strokeColor: '#3b82f6',
+          strokeOpacity: 0.7,
+          strokeWeight: 2,
+          map: map,
+        });
+
+        // Fit bounds to show both markers
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend({ lat: serviceLat, lng: serviceLng });
+        bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+        map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+      }
+    }
+
+    // Load Google Maps script if not already loaded
+    if (!win.google) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeMap;
+      document.head.appendChild(script);
+    } else {
+      initializeMap();
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current = null;
+      }
+    };
+  }, [apiKey, service, userLocation]);
 
   if (!service.owner.locationLat || !service.owner.locationLng) {
     return (
@@ -72,59 +183,15 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
 
   return (
     <>
-      <div className="rounded-lg overflow-hidden border border-border mb-4" style={{ height: `${mapHeight}px` }}>
-        <MapContainer
-          center={[serviceLat, serviceLng]}
-          zoom={13}
-          style={{ height: '100%', width: '100%' }}
-          scrollWheelZoom={true}
+      <div 
+        className="rounded-lg overflow-hidden border border-border mb-4" 
+        style={{ height: `${mapHeight}px` }}
+      >
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full"
           data-testid="service-map"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          
-          {/* Service location marker */}
-          <Marker position={[serviceLat, serviceLng]}>
-            <Popup>
-              <div className="text-center">
-                <p className="font-semibold">{service.title}</p>
-                <p className="text-sm text-muted-foreground">{service.locations[0] || 'Service location'}</p>
-              </div>
-            </Popup>
-          </Marker>
-          
-          {/* User location marker */}
-          {userLocation && (
-            <>
-              <Marker 
-                position={[userLocation.lat, userLocation.lng]}
-                icon={userMarkerIcon}
-              >
-                <Popup>
-                  <div className="text-center">
-                    <p className="font-semibold flex items-center gap-1">
-                      <Navigation className="w-4 h-4" />
-                      Your location
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-              
-              {/* Distance line */}
-              <Polyline
-                positions={[
-                  [userLocation.lat, userLocation.lng],
-                  [serviceLat, serviceLng]
-                ]}
-                color="#3b82f6"
-                dashArray="5, 10"
-                weight={2}
-              />
-            </>
-          )}
-        </MapContainer>
+        />
       </div>
       
       {/* Location info */}
