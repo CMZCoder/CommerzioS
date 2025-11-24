@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
+import { CategoryFilterBar } from "@/components/category-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, ArrowRight, Sparkles } from "lucide-react";
@@ -7,11 +8,12 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest, type FavoriteWithService } from "@/lib/api";
-import { useEffect } from "react";
+import { apiRequest, type FavoriteWithService, type CategoryWithTemporary } from "@/lib/api";
+import { useEffect, useState, useMemo } from "react";
 
 export default function Saved() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   // Scroll to top on page load
   useEffect(() => {
@@ -23,6 +25,26 @@ export default function Saved() {
     queryFn: () => apiRequest("/api/favorites"),
     enabled: isAuthenticated,
   });
+
+  const { data: categories = [] } = useQuery<CategoryWithTemporary[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiRequest("/api/categories"),
+  });
+
+  // Filter saved services by category
+  const filteredSaved = useMemo(() => {
+    if (!selectedCategory) return saved;
+    return saved.filter((fav) => fav.service.categoryId === selectedCategory);
+  }, [saved, selectedCategory]);
+
+  // Calculate category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    saved.forEach((fav) => {
+      counts[fav.service.categoryId] = (counts[fav.service.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, [saved]);
 
   // Show loading state while checking auth
   if (authLoading || savedLoading) {
@@ -66,10 +88,10 @@ export default function Saved() {
 
   return (
     <Layout>
-      <div className="bg-gradient-to-b from-slate-50 to-white py-12">
-        <div className="container mx-auto px-4">
-          {/* Page Header */}
-          <div className="mb-8">
+      <div className="bg-gradient-to-b from-slate-50 to-white">
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-4 py-8">
+            {/* Page Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-red-50 rounded-full">
@@ -92,22 +114,55 @@ export default function Saved() {
               </Link>
             </div>
           </div>
+        </div>
 
+        {/* Category Filter Bar */}
+        {saved.length > 0 && (
+          <CategoryFilterBar
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onCategoryChange={setSelectedCategory}
+            serviceCount={saved.length}
+            categoryCounts={categoryCounts}
+          />
+        )}
+
+        <div className="container mx-auto px-4 py-12">
           {/* Saved Grid or Empty State */}
           {saved.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {saved.map((fav, index) => (
-                <motion.div
-                  key={fav.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
-                  data-testid={`saved-service-${fav.service.id}`}
-                >
-                  <ServiceCard service={fav.service} isSaved={true} />
-                </motion.div>
-              ))}
-            </div>
+            filteredSaved.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {filteredSaved.map((fav, index) => (
+                  <motion.div
+                    key={fav.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: index * 0.05 }}
+                    data-testid={`saved-service-${fav.service.id}`}
+                  >
+                    <ServiceCard service={fav.service} isSaved={true} />
+                  </motion.div>
+                ))}
+              </div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="text-center py-20 bg-white rounded-2xl border border-dashed"
+              >
+                <div className="mx-auto w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                  <Heart className="w-10 h-10 text-slate-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-3">No Services in This Category</h2>
+                <p className="text-slate-600 max-w-md mx-auto mb-6">
+                  You don't have any saved services in this category.
+                </p>
+                <Button variant="outline" onClick={() => setSelectedCategory(null)}>
+                  Show All Saved Services
+                </Button>
+              </motion.div>
+            )
           ) : (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -131,7 +186,7 @@ export default function Saved() {
             </motion.div>
           )}
         </div>
-      </div>
+        </div>
     </Layout>
   );
 }

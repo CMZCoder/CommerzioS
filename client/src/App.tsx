@@ -47,6 +47,7 @@ function Router() {
       <Route path="/dashboard" component={Profile} />
       <Route path="/settings" component={Profile} />
       <Route path="/favorites" component={Favorites} />
+      <Route path="/saved" component={Favorites} />
       <Route path="/categories" component={Home} />
       <Route path="/post-service" component={Profile} />
       <Route path="/how-it-works" component={HowItWorks} />

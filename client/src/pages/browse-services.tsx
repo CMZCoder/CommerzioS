@@ -1,5 +1,6 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
+import { CategoryFilterBar } from "@/components/category-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +41,9 @@ export default function BrowseServices() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(
+    searchParams.get("category") || null
+  );
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     searchParams.get("categories")?.split(",").filter(Boolean) || []
   );
@@ -68,6 +72,7 @@ export default function BrowseServices() {
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchQuery) params.set("search", searchQuery);
+    if (selectedCategory) params.set("category", selectedCategory);
     if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
     if (priceMin > 0) params.set("priceMin", priceMin.toString());
     if (priceMax < 1000) params.set("priceMax", priceMax.toString());
@@ -80,7 +85,7 @@ export default function BrowseServices() {
     if (window.location.pathname + window.location.search !== newUrl) {
       window.history.replaceState({}, "", newUrl);
     }
-  }, [searchQuery, selectedCategories, priceMin, priceMax, locationFilter, sortBy, currentPage]);
+  }, [searchQuery, selectedCategory, selectedCategories, priceMin, priceMax, locationFilter, sortBy, currentPage]);
 
   // Apply filters and sorting
   const filteredServices = useMemo(() => {
@@ -96,7 +101,12 @@ export default function BrowseServices() {
       );
     }
 
-    // Category filter
+    // Category filter (from filter bar)
+    if (selectedCategory) {
+      filtered = filtered.filter((service) => service.categoryId === selectedCategory);
+    }
+
+    // Category filter (from sidebar checkboxes)
     if (selectedCategories.length > 0) {
       filtered = filtered.filter((service) =>
         selectedCategories.includes(service.categoryId)
@@ -151,7 +161,7 @@ export default function BrowseServices() {
     });
 
     return filtered;
-  }, [allServices, searchQuery, selectedCategories, priceMin, priceMax, locationFilter, sortBy]);
+  }, [allServices, searchQuery, selectedCategory, selectedCategories, priceMin, priceMax, locationFilter, sortBy]);
 
   // Pagination
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
@@ -165,16 +175,18 @@ export default function BrowseServices() {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (searchQuery) count++;
+    if (selectedCategory) count++;
     if (selectedCategories.length > 0) count++;
     if (priceMin > 0 || priceMax < 1000) count++;
     if (locationFilter) count++;
     return count;
-  }, [searchQuery, selectedCategories, priceMin, priceMax, locationFilter]);
+  }, [searchQuery, selectedCategory, selectedCategories, priceMin, priceMax, locationFilter]);
 
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
     setSearchInput("");
+    setSelectedCategory(null);
     setSelectedCategories([]);
     setPriceMin(0);
     setPriceMax(1000);
@@ -185,6 +197,15 @@ export default function BrowseServices() {
     setSortBy("newest");
     setCurrentPage(1);
   };
+
+  // Calculate category counts
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allServices.forEach((service) => {
+      counts[service.categoryId] = (counts[service.categoryId] || 0) + 1;
+    });
+    return counts;
+  }, [allServices]);
 
   // Toggle category selection
   const toggleCategory = (categoryId: string) => {
@@ -394,6 +415,18 @@ export default function BrowseServices() {
             </div>
           </div>
         </div>
+
+        {/* Category Filter Bar */}
+        <CategoryFilterBar
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onCategoryChange={(categoryId) => {
+            setSelectedCategory(categoryId);
+            setCurrentPage(1);
+          }}
+          serviceCount={allServices.length}
+          categoryCounts={categoryCounts}
+        />
 
         {/* Main Content */}
         <div className="container mx-auto px-4 py-8">
