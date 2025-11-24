@@ -594,7 +594,7 @@ export default function Home() {
               </div>
 
               {/* Category Quick Filters */}
-              <div className="overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50">
+              <div className="overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <div className="flex gap-3 pb-2 min-w-max">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
