@@ -471,8 +471,8 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
       </CardContent>
 
       {/* Pricing section - FULL WIDTH, separate line with responsive font sizing */}
-      <div className="flex items-center gap-3 px-3 sm:px-4 md:px-5 py-3 border-t border-border/50 bg-muted/30 min-w-0">
-        <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-3 px-3 sm:px-4 md:px-5 py-3 border-t border-border/50 bg-muted/30 min-w-0 min-h-[4.5rem]">
+        <div className="min-w-0 flex-1 flex items-center">
           {service.priceType === 'fixed' && (
             <div className="flex flex-col gap-0">
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">CHF {service.price}</span>
