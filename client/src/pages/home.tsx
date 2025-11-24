@@ -511,8 +511,12 @@ export default function Home() {
   // Filtered and sorted Saved Listings
   const filteredSavedListings = useMemo(() => {
     const savedServices = favorites?.map(fav => fav.service) || [];
-    return sortServices(savedServices, savedListingsSort);
-  }, [favorites, savedListingsSort]);
+    let filtered = savedServices;
+    if (selectedCategory) {
+      filtered = filtered.filter(service => service.categoryId === selectedCategory);
+    }
+    return sortServices(filtered, savedListingsSort);
+  }, [favorites, selectedCategory, savedListingsSort]);
   
 
   // Pagination logic for All Listings
