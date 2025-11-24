@@ -2206,27 +2206,21 @@ function SettingsManagement() {
   const handleSaveApiKeys = async () => {
     setIsSavingApiKeys(true);
     try {
-      const envVars: Record<string, string> = {};
-      
-      if (apiKeys.twilioAccountSid) envVars.TWILIO_ACCOUNT_SID = apiKeys.twilioAccountSid;
-      if (apiKeys.twilioAuthToken) envVars.TWILIO_AUTH_TOKEN = apiKeys.twilioAuthToken;
-      if (apiKeys.twilioPhoneNumber) envVars.TWILIO_PHONE_NUMBER = apiKeys.twilioPhoneNumber;
-      if (apiKeys.emailServiceProvider) envVars.EMAIL_SERVICE_PROVIDER = apiKeys.emailServiceProvider;
-      if (apiKeys.emailServiceApiKey) envVars.EMAIL_SERVICE_API_KEY = apiKeys.emailServiceApiKey;
-      if (apiKeys.googleMapsApiKey) envVars.GOOGLE_MAPS_API_KEY = apiKeys.googleMapsApiKey;
-
-      if (Object.keys(envVars).length === 0) {
+      if (!apiKeys.googleMapsApiKey) {
         toast({
           title: "Warning",
-          description: "No API keys to save. Please enter at least one value.",
+          description: "Please enter a Google Maps API Key",
           variant: "destructive",
         });
+        setIsSavingApiKeys(false);
         return;
       }
 
-      toast({
-        title: "Info",
-        description: "Setting environment variables...",
+      await apiRequest("/api/admin/api-keys", {
+        method: "PATCH",
+        body: JSON.stringify({
+          googleMapsApiKey: apiKeys.googleMapsApiKey,
+        }),
       });
 
       setApiKeys({
@@ -2239,10 +2233,11 @@ function SettingsManagement() {
       });
 
       queryClient.invalidateQueries({ queryKey: ["/api/admin/env-status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/maps/config"] });
       
       toast({
         title: "Success",
-        description: "API keys saved successfully. Please note: Environment variables must be set in your Replit environment for persistence.",
+        description: "Google Maps API key saved successfully!",
       });
     } catch (error: any) {
       toast({

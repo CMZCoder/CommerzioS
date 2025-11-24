@@ -1015,6 +1015,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/admin/api-keys', isAdmin, async (req, res) => {
+    try {
+      const schema = z.object({
+        googleMapsApiKey: z.string().optional(),
+      });
+
+      const validated = schema.parse(req.body);
+      const settings = await storage.updatePlatformSettings(validated);
+      res.json({ success: true, message: "API keys updated successfully" });
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error updating API keys:", error);
+      res.status(500).json({ message: "Failed to update API keys" });
+    }
+  });
+
   app.get('/api/admin/env-status', isAdmin, async (_req, res) => {
     try {
       const status = {
@@ -1031,9 +1049,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/maps/config', async (_req, res) => {
     try {
+      const settings = await storage.getPlatformSettings();
+      // Fall back to env var if not in database
+      const apiKey = settings?.googleMapsApiKey || process.env.GOOGLE_MAPS_API_KEY || "";
       const config = {
-        apiKey: process.env.GOOGLE_MAPS_API_KEY || "",
-        isConfigured: !!process.env.GOOGLE_MAPS_API_KEY,
+        apiKey,
+        isConfigured: !!apiKey,
       };
       res.json(config);
     } catch (error) {
