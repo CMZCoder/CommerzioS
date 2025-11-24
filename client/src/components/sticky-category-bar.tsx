@@ -28,8 +28,8 @@ export function StickyCategoryBar({
 
   return (
     <div className="sticky top-16 z-40 w-full bg-white border-b shadow-md">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
+      <div className="container mx-auto px-4 py-2">
+        <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold text-slate-700">Categories</h3>
           <Button
             variant="ghost"
@@ -40,12 +40,12 @@ export function StickyCategoryBar({
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="w-4 h-4 mr-1" />
+                <ChevronUp className="w-3.5 h-3.5 mr-1" />
                 <span className="text-xs">Hide</span>
               </>
             ) : (
               <>
-                <ChevronDown className="w-4 h-4 mr-1" />
+                <ChevronDown className="w-3.5 h-3.5 mr-1" />
                 <span className="text-xs">Show</span>
               </>
             )}
@@ -61,7 +61,7 @@ export function StickyCategoryBar({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="overflow-x-auto overflow-y-hidden pb-3 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:transition-colors">
+              <div className="overflow-x-auto overflow-y-hidden pb-3 [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:transition-colors">
                 <div className="flex gap-2 min-w-max">
                   {/* All Services Button */}
                   <motion.button
@@ -69,14 +69,14 @@ export function StickyCategoryBar({
                     whileTap={{ scale: 0.97 }}
                     onClick={() => onCategoryChange(null)}
                     className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-medium whitespace-nowrap",
+                      "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all text-xs font-medium whitespace-nowrap",
                       selectedCategory === null
                         ? "bg-primary text-primary-foreground border-primary shadow-sm"
                         : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
                     )}
                     data-testid="category-filter-all"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <Sparkles className="w-3.5 h-3.5" />
                     All Services
                     <Badge variant={selectedCategory === null ? "secondary" : "outline"} className="ml-0.5 bg-white/20 text-white border-0">
                       {serviceCount}
@@ -91,7 +91,7 @@ export function StickyCategoryBar({
                       whileTap={{ scale: 0.97 }}
                       onClick={() => onCategoryChange(category.id)}
                       className={cn(
-                        "relative inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-medium whitespace-nowrap",
+                        "relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all text-xs font-medium whitespace-nowrap",
                         selectedCategory === category.id
                           ? "bg-primary text-primary-foreground border-primary shadow-sm"
                           : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
@@ -105,7 +105,6 @@ export function StickyCategoryBar({
                           </div>
                         </div>
                       )}
-                      {category.icon && <span className="text-base">{category.icon}</span>}
                       {category.name}
                       <Badge 
                         variant={selectedCategory === category.id ? "secondary" : "outline"} 
@@ -125,11 +124,11 @@ export function StickyCategoryBar({
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setShowAllCategories(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-xs font-medium whitespace-nowrap text-slate-600"
                       data-testid="button-show-more-categories"
                     >
                       <span>Show More</span>
-                      <ChevronRight className="w-4 h-4" />
+                      <ChevronRight className="w-3.5 h-3.5" />
                       <span className="text-xs">+{categories.length - 6}</span>
                     </motion.button>
                   )}
@@ -139,10 +138,10 @@ export function StickyCategoryBar({
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setShowAllCategories(false)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-xs font-medium whitespace-nowrap text-slate-600"
                       data-testid="button-show-less-categories"
                     >
-                      <ChevronUp className="w-4 h-4" />
+                      <ChevronUp className="w-3.5 h-3.5" />
                       <span>Show Less</span>
                     </motion.button>
                   )}
