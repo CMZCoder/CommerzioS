@@ -18,7 +18,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { useSavedListingsFilter } from "@/hooks/useSavedListingsFilter";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -52,8 +51,7 @@ export default function Home() {
   const [allListingsCategory, setAllListingsCategory] = useState<string | null>(null);
   const [allListingsSort, setAllListingsSort] = useState<SortOption>("newest");
   
-  // Shared state for Saved Listings tab (synced with /favorites page)
-  const { selectedCategory: savedListingsCategory, setSelectedCategory: setSavedListingsCategory } = useSavedListingsFilter();
+  // State for Saved Listings tab
   const [savedListingsSort, setSavedListingsSort] = useState<SortOption>("newest");
   
   // Pagination state for All Listings and Saved Listings
@@ -97,10 +95,6 @@ export default function Home() {
   useEffect(() => {
     setAllListingsPage(1);
   }, [allListingsCategory]);
-
-  useEffect(() => {
-    setSavedListingsPage(1);
-  }, [savedListingsCategory]);
 
   // Reset nearby page when category or radius changes
   useEffect(() => {
@@ -517,22 +511,9 @@ export default function Home() {
   // Filtered and sorted Saved Listings
   const filteredSavedListings = useMemo(() => {
     const savedServices = favorites?.map(fav => fav.service) || [];
-    let filtered = savedServices;
-    if (savedListingsCategory) {
-      filtered = filtered.filter(service => service.categoryId === savedListingsCategory);
-    }
-    return sortServices(filtered, savedListingsSort);
-  }, [favorites, savedListingsCategory, savedListingsSort]);
+    return sortServices(savedServices, savedListingsSort);
+  }, [favorites, savedListingsSort]);
   
-  // Category counts for Saved Listings
-  const savedListingsCategoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    const savedServices = favorites?.map(fav => fav.service) || [];
-    savedServices.forEach(service => {
-      counts[service.categoryId] = (counts[service.categoryId] || 0) + 1;
-    });
-    return counts;
-  }, [favorites]);
 
   // Pagination logic for All Listings
   const paginatedAllListings = useMemo(() => {
@@ -1008,14 +989,6 @@ export default function Home() {
             <TabsContent value="saved" className="mt-0">
               {isAuthenticated ? (
                 <>
-                  <CategoryFilterBar
-                    categories={categories}
-                    selectedCategory={savedListingsCategory}
-                    onCategoryChange={setSavedListingsCategory}
-                    serviceCount={favorites.length}
-                    categoryCounts={savedListingsCategoryCounts}
-                  />
-
                   <div className="bg-white border-b shadow-sm">
                     <div className="container mx-auto px-4 py-3">
                       <div className="flex items-center justify-between">
@@ -1080,13 +1053,10 @@ export default function Home() {
                           <Heart className="w-8 h-8 text-slate-400" />
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900">
-                          {savedListingsCategory ? 'No saved services in this category' : 'No saved services yet'}
+                          No saved services yet
                         </h3>
                         <p className="text-slate-500">
-                          {savedListingsCategory 
-                            ? 'Try selecting a different category' 
-                            : 'Start saving services you like to see them here'
-                          }
+                          Start saving services you like to see them here
                         </p>
                       </div>
                     )}
