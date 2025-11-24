@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, PlusCircle, LogOut, Heart, Settings } from "lucide-react";
+import { Menu, PlusCircle, LogOut, Heart, Settings, User, Star } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,11 +73,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-item-profile">
+                        <User className="w-4 h-4 mr-2" />
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation("/profile?tab=reviews")} data-testid="menu-item-reviews">
+                        <Star className="w-4 h-4 mr-2" />
+                        Reviews
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setLocation("/favorites")} data-testid="menu-item-saved">
                         <Heart className="w-4 h-4 mr-2" />
                         Saved
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setLocation(`/users/${user.id}`)} data-testid="menu-item-public-profile">My Public Profile</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => window.location.href = "/api/logout"} className="text-destructive" data-testid="menu-item-logout">
                         <LogOut className="w-4 h-4 mr-2" />
                         Log out

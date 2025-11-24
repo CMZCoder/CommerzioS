@@ -34,8 +34,31 @@ export default function Profile() {
   const { toast } = useToast();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("profile");
+  const [location, setLocation] = useLocation();
+  
+  // Read tab parameter from URL query string
+  const getInitialTab = () => {
+    const searchParams = new URLSearchParams(location.split('?')[1] || '');
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['profile', 'services', 'reviews'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'profile';
+  };
+  
+  const [activeTab, setActiveTab] = useState(getInitialTab());
+
+  // Watch for location changes and update active tab
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.split('?')[1] || '');
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['profile', 'services', 'reviews'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    } else if (!tabParam) {
+      // Reset to profile tab when no tab parameter is present
+      setActiveTab('profile');
+    }
+  }, [location]);
 
   // Scroll to top when changing tabs
   useEffect(() => {
