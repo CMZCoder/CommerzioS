@@ -82,7 +82,7 @@ export function GoogleMaps({
     );
 
     // Track positions to add offset for overlapping markers
-    const positionCounts = new Map<string, number>();
+    const positionCounts: Record<string, number> = {};
 
     closestServices.forEach((service, index) => {
       if (!service.owner?.locationLat || !service.owner?.locationLng) return;
@@ -92,8 +92,8 @@ export function GoogleMaps({
 
       // Create a key for this position to detect duplicates
       const posKey = `${serviceLat.toFixed(4)},${serviceLng.toFixed(4)}`;
-      const count = positionCounts.get(posKey) || 0;
-      positionCounts.set(posKey, count + 1);
+      const count = positionCounts[posKey] || 0;
+      positionCounts[posKey] = count + 1;
 
       // Add small offset for overlapping markers (circle pattern)
       if (count > 0) {
