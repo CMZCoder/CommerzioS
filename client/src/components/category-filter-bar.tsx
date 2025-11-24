@@ -2,9 +2,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, ChevronRight } from "lucide-react";
 import type { CategoryWithTemporary } from "@/lib/api";
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 
 interface CategoryFilterBarProps {
   categories: CategoryWithTemporary[];
@@ -25,51 +25,12 @@ export function CategoryFilterBar({
 }: CategoryFilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAllCategories, setShowAllCategories] = useState(false);
-  const [firstRowCount, setFirstRowCount] = useState(6);
-
-  // Calculate how many items fit in the first row based on screen width
-  useEffect(() => {
-    const updateRowCount = () => {
-      const width = window.innerWidth;
-      if (width >= 1280) {
-        // xl: 6 columns, show 5 categories + Show More
-        setFirstRowCount(6);
-      } else if (width >= 1024) {
-        // lg: 5 columns, show 4 categories + Show More
-        setFirstRowCount(5);
-      } else if (width >= 768) {
-        // md: 4 columns, show 3 categories + Show More (minimum met)
-        setFirstRowCount(4);
-      } else if (width >= 640) {
-        // sm: 3 columns, show 2 categories + Show More
-        setFirstRowCount(3);
-      } else {
-        // mobile: hide categories (can't fit minimum 3)
-        setFirstRowCount(0);
-      }
-    };
-
-    updateRowCount();
-    window.addEventListener('resize', updateRowCount);
-    return () => window.removeEventListener('resize', updateRowCount);
-  }, []);
-
-  const displayedCategories = useMemo(() => {
-    if (showAllCategories) return categories;
-    // Reserve spots for "All Services" (1) and "Show More" (1), show firstRowCount - 2 categories
-    return categories.slice(0, Math.max(0, firstRowCount - 2));
-  }, [categories, showAllCategories, firstRowCount]);
-
-  // Hide entire section if screen is too small (can't fit minimum 3 items)
-  if (firstRowCount < 4) {
-    return null;
-  }
 
   return (
     <div className="w-full bg-white border-b shadow-sm">
       <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-slate-700">Categories</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-slate-700">Filter by Category</h3>
           <Button
             variant="ghost"
             size="sm"
@@ -100,85 +61,92 @@ export function CategoryFilterBar({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 pt-2 pb-2 pr-2">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => onCategoryChange(null)}
-                  className={cn(
-                    "relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all text-center",
-                    selectedCategory === null
-                      ? "border-primary bg-primary/10"
-                      : "border-slate-200 bg-slate-50 hover:border-primary/50 hover:bg-slate-100"
-                  )}
-                  data-testid="category-filter-all"
-                >
-                  <Sparkles className="w-5 h-5 text-primary" />
-                  <span className="text-xs font-semibold">All Services</span>
-                  <Badge variant="secondary" className="mt-1">
-                    {serviceCount}
-                  </Badge>
-                </motion.button>
-
-                {displayedCategories.map((category) => (
+              <div className="overflow-x-auto overflow-y-hidden pb-3 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:transition-colors">
+                <div className="flex gap-2 min-w-max">
+                  {/* All Services Button */}
                   <motion.button
-                    key={category.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => onCategoryChange(category.id)}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => onCategoryChange(null)}
                     className={cn(
-                      "relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 transition-all text-center",
-                      selectedCategory === category.id
-                        ? "border-primary bg-primary/10"
-                        : "border-slate-200 bg-slate-50 hover:border-primary/50 hover:bg-slate-100"
+                      "inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-medium whitespace-nowrap",
+                      selectedCategory === null
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
                     )}
-                    data-testid={`category-filter-${category.slug}`}
+                    data-testid="category-filter-all"
                   >
-                    {newCounts[category.id] > 0 && (
-                      <div className="absolute -top-2 -right-2">
-                        <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                          {newCounts[category.id]}
-                        </div>
-                      </div>
-                    )}
-                    {category.icon && (
-                      <span className="text-2xl">{category.icon}</span>
-                    )}
-                    <span className="text-xs font-semibold line-clamp-2">{category.name}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {categoryCounts[category.id] || 0}
+                    <Sparkles className="w-4 h-4" />
+                    All Services
+                    <Badge variant={selectedCategory === null ? "secondary" : "outline"} className="ml-0.5 bg-white/20 text-white border-0">
+                      {serviceCount}
                     </Badge>
                   </motion.button>
-                ))}
 
-                {!showAllCategories && categories.length > displayedCategories.length && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowAllCategories(true)}
-                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-center col-span-1"
-                    data-testid="button-show-more-categories"
-                  >
-                    <ChevronDown className="w-5 h-5 text-slate-500" />
-                    <span className="text-xs font-semibold">Show More</span>
-                    <span className="text-xs text-slate-500">
-                      +{categories.length - displayedCategories.length}
-                    </span>
-                  </motion.button>
-                )}
+                  {/* Category Buttons */}
+                  {(showAllCategories ? categories : categories.slice(0, 6)).map((category) => (
+                    <motion.button
+                      key={category.id}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => onCategoryChange(category.id)}
+                      className={cn(
+                        "relative inline-flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all text-sm font-medium whitespace-nowrap",
+                        selectedCategory === category.id
+                          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                          : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
+                      )}
+                      data-testid={`category-filter-${category.slug}`}
+                    >
+                      {newCounts[category.id] > 0 && (
+                        <div className="absolute -top-1 -right-1">
+                          <div className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                            {newCounts[category.id]}
+                          </div>
+                        </div>
+                      )}
+                      {category.icon && <span className="text-base">{category.icon}</span>}
+                      {category.name}
+                      <Badge 
+                        variant={selectedCategory === category.id ? "secondary" : "outline"} 
+                        className={cn(
+                          "ml-0.5",
+                          selectedCategory === category.id ? "bg-white/20 text-white border-0" : ""
+                        )}
+                      >
+                        {categoryCounts[category.id] || 0}
+                      </Badge>
+                    </motion.button>
+                  ))}
 
-                {showAllCategories && (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowAllCategories(false)}
-                    className="relative flex flex-col items-center gap-2 px-3 py-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-center col-span-1"
-                    data-testid="button-show-less-categories"
-                  >
-                    <ChevronUp className="w-5 h-5 text-slate-500" />
-                    <span className="text-xs font-semibold">Show Less</span>
-                  </motion.button>
-                )}
+                  {/* Show More/Less Button */}
+                  {!showAllCategories && categories.length > 6 && (
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setShowAllCategories(true)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      data-testid="button-show-more-categories"
+                    >
+                      <span>Show More</span>
+                      <ChevronRight className="w-4 h-4" />
+                      <span className="text-xs">+{categories.length - 6}</span>
+                    </motion.button>
+                  )}
+
+                  {showAllCategories && categories.length > 6 && (
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => setShowAllCategories(false)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      data-testid="button-show-less-categories"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                      <span>Show Less</span>
+                    </motion.button>
+                  )}
+                </div>
               </div>
             </motion.div>
           )}
