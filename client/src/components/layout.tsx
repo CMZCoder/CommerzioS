@@ -73,15 +73,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setLocation("/profile")} data-testid="menu-item-profile">
+                      <DropdownMenuItem onClick={() => window.location.href = "/profile"} data-testid="menu-item-profile">
                         <User className="w-4 h-4 mr-2" />
                         Profile
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setLocation("/profile?tab=services")} data-testid="link-my-listings">
+                      <DropdownMenuItem onClick={() => window.location.href = "/profile?tab=services"} data-testid="link-my-listings">
                         <PlusCircle className="w-4 h-4 mr-2" />
                         My Listings
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setLocation("/profile?tab=reviews")} data-testid="menu-item-reviews">
+                      <DropdownMenuItem onClick={() => window.location.href = "/profile?tab=reviews"} data-testid="menu-item-reviews">
                         <Star className="w-4 h-4 mr-2" />
                         Reviews
                       </DropdownMenuItem>
