@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { categories, users, services, reviews, plans } from "@shared/schema";
+import { categories, subcategories, users, services, reviews, plans } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const CATEGORIES = [
@@ -13,6 +13,81 @@ const CATEGORIES = [
   { name: "Events & Entertainment", slug: "events", icon: "PartyPopper" },
   { name: "Legal & Financial", slug: "legal-financial", icon: "Scale" },
   { name: "Technology & IT", slug: "technology", icon: "Laptop" },
+];
+
+const SUBCATEGORIES = [
+  // Home Services
+  { name: "Cleaning & Housekeeping", slug: "cleaning-housekeeping", categorySlug: "home-services" },
+  { name: "Plumbing & Electrical", slug: "plumbing-electrical", categorySlug: "home-services" },
+  { name: "Painting & Renovation", slug: "painting-renovation", categorySlug: "home-services" },
+  { name: "Garden & Landscaping", slug: "garden-landscaping", categorySlug: "home-services" },
+  { name: "Moving & Delivery", slug: "moving-delivery", categorySlug: "home-services" },
+  { name: "Handyman Services", slug: "handyman", categorySlug: "home-services" },
+
+  // Design & Creative
+  { name: "Logo & Branding", slug: "logo-branding", categorySlug: "design-creative" },
+  { name: "Web & App Design", slug: "web-app-design", categorySlug: "design-creative" },
+  { name: "Graphic Design", slug: "graphic-design", categorySlug: "design-creative" },
+  { name: "Photography", slug: "photography", categorySlug: "design-creative" },
+  { name: "Video Production", slug: "video-production", categorySlug: "design-creative" },
+  { name: "Interior Design", slug: "interior-design", categorySlug: "design-creative" },
+
+  // Education & Tutoring
+  { name: "Language Lessons", slug: "language-lessons", categorySlug: "education" },
+  { name: "Math & Science", slug: "math-science", categorySlug: "education" },
+  { name: "Music Lessons", slug: "music-lessons", categorySlug: "education" },
+  { name: "Exam Preparation", slug: "exam-prep", categorySlug: "education" },
+  { name: "Adult Education", slug: "adult-education", categorySlug: "education" },
+  { name: "Children's Tutoring", slug: "children-tutoring", categorySlug: "education" },
+
+  // Wellness & Fitness
+  { name: "Personal Training", slug: "personal-training", categorySlug: "wellness" },
+  { name: "Yoga & Pilates", slug: "yoga-pilates", categorySlug: "wellness" },
+  { name: "Massage Therapy", slug: "massage-therapy", categorySlug: "wellness" },
+  { name: "Nutrition & Coaching", slug: "nutrition-coaching", categorySlug: "wellness" },
+  { name: "Mental Health Support", slug: "mental-health", categorySlug: "wellness" },
+
+  // Business Support
+  { name: "Bookkeeping & Accounting", slug: "bookkeeping-accounting", categorySlug: "business" },
+  { name: "Consulting & Strategy", slug: "consulting-strategy", categorySlug: "business" },
+  { name: "Marketing & SEO", slug: "marketing-seo", categorySlug: "business" },
+  { name: "Translation & Writing", slug: "translation-writing", categorySlug: "business" },
+  { name: "HR & Recruitment", slug: "hr-recruitment", categorySlug: "business" },
+
+  // Automotive Services
+  { name: "Repair & Maintenance", slug: "repair-maintenance", categorySlug: "automotive" },
+  { name: "Car Detailing & Cleaning", slug: "car-detailing", categorySlug: "automotive" },
+  { name: "Tire Services", slug: "tire-services", categorySlug: "automotive" },
+  { name: "Pre-Purchase Inspection", slug: "pre-purchase-inspection", categorySlug: "automotive" },
+  { name: "Mobile Mechanics", slug: "mobile-mechanics", categorySlug: "automotive" },
+
+  // Pet Care & Animals
+  { name: "Dog Walking", slug: "dog-walking", categorySlug: "pets" },
+  { name: "Pet Grooming", slug: "pet-grooming", categorySlug: "pets" },
+  { name: "Veterinary Care", slug: "veterinary-care", categorySlug: "pets" },
+  { name: "Pet Sitting & Boarding", slug: "pet-sitting-boarding", categorySlug: "pets" },
+  { name: "Training & Behavior", slug: "training-behavior", categorySlug: "pets" },
+
+  // Events & Entertainment
+  { name: "Photography & Video", slug: "event-photo-video", categorySlug: "events" },
+  { name: "Catering", slug: "catering", categorySlug: "events" },
+  { name: "DJ & Music", slug: "dj-music", categorySlug: "events" },
+  { name: "Event Planning", slug: "event-planning", categorySlug: "events" },
+  { name: "Entertainment & Performers", slug: "entertainment-performers", categorySlug: "events" },
+
+  // Legal & Financial
+  { name: "Legal Consulting", slug: "legal-consulting", categorySlug: "legal-financial" },
+  { name: "Immigration & Work Permits", slug: "immigration-permits", categorySlug: "legal-financial" },
+  { name: "Financial Planning", slug: "financial-planning", categorySlug: "legal-financial" },
+  { name: "Tax Preparation", slug: "tax-preparation", categorySlug: "legal-financial" },
+  { name: "Notary Services", slug: "notary-services", categorySlug: "legal-financial" },
+
+  // Technology & IT
+  { name: "Computer Repair", slug: "computer-repair", categorySlug: "technology" },
+  { name: "Software Development", slug: "software-development", categorySlug: "technology" },
+  { name: "Network & Security", slug: "network-security", categorySlug: "technology" },
+  { name: "Website Maintenance", slug: "website-maintenance", categorySlug: "technology" },
+  { name: "Cloud & DevOps", slug: "cloud-devops", categorySlug: "technology" },
 ];
 
 const SAMPLE_USERS = [
@@ -227,6 +302,33 @@ export async function seedDatabase() {
 
     // Get all categories for reference
     const allCategories = await db.select().from(categories);
+
+    // Seed subcategories
+    for (const subcategory of SUBCATEGORIES) {
+      // Find the parent category
+      const parentCategory = allCategories.find((c) => c.slug === subcategory.categorySlug);
+      
+      if (!parentCategory) {
+        console.log(`Skipping subcategory ${subcategory.name} - parent category ${subcategory.categorySlug} not found`);
+        continue;
+      }
+
+      const existing = await db
+        .select()
+        .from(subcategories)
+        .where(eq(subcategories.slug, subcategory.slug));
+
+      if (existing.length === 0) {
+        await db.insert(subcategories).values({
+          name: subcategory.name,
+          slug: subcategory.slug,
+          categoryId: parentCategory.id,
+        });
+        console.log(`Created subcategory: ${subcategory.name}`);
+      } else {
+        console.log(`Subcategory already exists: ${subcategory.name}`);
+      }
+    }
 
     // Seed sample users
     for (const user of SAMPLE_USERS) {
