@@ -1394,6 +1394,10 @@ export default function Profile() {
         open={showCreateModal} 
         onOpenChange={setShowCreateModal}
         onSuggestCategory={() => setShowCategorySuggestionModal(true)}
+        onCategoryCreated={(categoryId) => setPendingCategoryCallback(() => (id: string) => {
+          // Auto-select the newly created category in the form
+          // This will be handled by the category suggestion modal callback
+        })}
       />
       <EditServiceModal 
         open={!!editingService} 

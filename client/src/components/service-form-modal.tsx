@@ -22,6 +22,7 @@ interface ServiceFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuggestCategory?: () => void;
+  onCategoryCreated?: (categoryId: string) => void;
   service?: Service & { category: any; owner: any } | null;
 }
 
@@ -55,7 +56,7 @@ interface FormData {
   selectedPromotionalPackage?: string | null;
 }
 
-export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, service }: ServiceFormModalProps) {
+export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCategoryCreated, service }: ServiceFormModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -493,6 +494,19 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
     }));
   };
 
+  // Handle auto-select when new category is created
+  useEffect(() => {
+    if (onCategoryCreated && categories.length > 0 && !formData?.categoryId && !isEditMode) {
+      // Look for the most recently created category (the new one)
+      const newestCategory = categories[0];
+      if (newestCategory && newestCategory.isTemporary) {
+        // Auto-select the new temporary category
+        const callback = onCategoryCreated as any;
+        callback?.(newestCategory.id);
+      }
+    }
+  }, [categories, isEditMode]);
+
   const handleAISuggestHashtags = async () => {
     if (formData.images.length === 0) {
       toast({
@@ -505,17 +519,32 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
 
     setLoadingHashtags(true);
     try {
+      // Send only valid URLs to the backend
+      const validImages = formData.images.filter(img => 
+        typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:') || img.startsWith('/'))
+      );
+      
+      if (validImages.length === 0) {
+        toast({
+          title: "Images Not Ready",
+          description: "Please make sure your images are fully uploaded before requesting hashtags",
+          variant: "destructive",
+        });
+        setLoadingHashtags(false);
+        return;
+      }
+
       const response = await apiRequest("/api/ai/suggest-hashtags", {
         method: "POST",
-        body: JSON.stringify({ imageUrls: formData.images }),
+        body: JSON.stringify({ imageUrls: validImages }),
       });
       
       if (response.hashtags && response.hashtags.length > 0) {
         setSuggestedHashtags(response.hashtags);
         setShowHashtagSuggestions(true);
         toast({
-          title: "Hashtags Suggested",
-          description: `AI suggested ${response.hashtags.length} hashtags based on your images`,
+          title: "Hashtags Suggested!",
+          description: `AI suggested ${response.hashtags.length} hashtags: ${response.hashtags.slice(0, 3).join(', ')}...`,
         });
       } else {
         toast({
@@ -524,6 +553,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
         });
       }
     } catch (error: any) {
+      console.error("Hashtag suggestion error:", error);
       toast({
         title: "Suggestion Failed",
         description: "We couldn't generate hashtag suggestions right now. You can add hashtags manually instead.",

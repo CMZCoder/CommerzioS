@@ -1340,6 +1340,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/temporary-categories', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const categoryName = req.body.name?.trim();
+      
+      if (!categoryName) {
+        return res.status(400).json({ message: "Category name is required" });
+      }
+      
+      // Validate category name for duplicates and appropriateness
+      const validation = await validateCategoryName(categoryName);
+      if (!validation.isValid) {
+        return res.status(400).json({ message: validation.message });
+      }
+      
+      if (validation.isDuplicate || (validation.similarity && validation.similarity > 0.7)) {
+        return res.status(409).json({ 
+          message: `A similar category "${categoryName}" already exists. Please use that instead or choose a different name.`,
+          isDuplicate: true,
+          similarity: validation.similarity
+        });
+      }
       
       // Set expiry to 24 hours from now
       const expiresAt = new Date();
@@ -1352,7 +1371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const tempCategory = await storage.createTemporaryCategory(validated);
-      res.status(201).json(tempCategory);
+      res.status(201).json({ ...tempCategory, isNewCategory: true });
     } catch (error: any) {
       if (error.name === 'ZodError') {
         return res.status(400).json({ message: fromZodError(error).message });
