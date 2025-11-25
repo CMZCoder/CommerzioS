@@ -277,6 +277,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Subcategory routes
+  app.get('/api/categories/:categoryId/subcategories', async (req, res) => {
+    try {
+      const subcategories = await storage.getSubcategoriesByCategoryId(req.params.categoryId);
+      res.json(subcategories);
+    } catch (error) {
+      console.error("Error fetching subcategories:", error);
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
+  app.get('/api/subcategories', async (req, res) => {
+    try {
+      const subcategories = await storage.getSubcategories();
+      res.json(subcategories);
+    } catch (error) {
+      console.error("Error fetching all subcategories:", error);
+      res.status(500).json({ message: "Failed to fetch subcategories" });
+    }
+  });
+
   app.post('/api/categories/suggest', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
