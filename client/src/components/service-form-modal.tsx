@@ -521,9 +521,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
     setLoadingHashtags(true);
     try {
-      // Send only HTTP/HTTPS URLs to the backend (OpenAI requirement)
+      // Filter valid uploaded images (object paths or HTTP URLs)
       const validImages = formData.images.filter(img => 
-        typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))
+        typeof img === 'string' && (
+          img.startsWith('/objects/') || 
+          img.startsWith('http://') || 
+          img.startsWith('https://')
+        )
       );
       
       if (validImages.length === 0) {
@@ -582,7 +586,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     setGeneratingTitle(true);
     try {
       const validImages = formData.images.filter(img => 
-        typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))
+        typeof img === 'string' && (
+          img.startsWith('/objects/') || 
+          img.startsWith('http://') || 
+          img.startsWith('https://')
+        )
       );
 
       if (validImages.length === 0) {

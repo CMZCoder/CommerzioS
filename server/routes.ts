@@ -1482,23 +1482,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validated = schema.parse(req.body);
       
-      // Filter for OpenAI-compatible URLs (http/https only - no blob: URLs)
-      const validUrls = validated.imageUrls.filter(url => {
+      // Convert object paths to signed URLs for OpenAI
+      const objectStorageService = new ObjectStorageService();
+      const signedUrls: string[] = [];
+      
+      for (const url of validated.imageUrls) {
         try {
-          // OpenAI only supports http/https URLs (not blob: or relative paths)
-          return url.startsWith('http://') || url.startsWith('https://');
-        } catch {
-          return false;
+          if (url.startsWith('/objects/')) {
+            // Convert internal object path to signed URL
+            const signedUrl = await objectStorageService.getSignedObjectUrl(url, 3600);
+            signedUrls.push(signedUrl);
+          } else if (url.startsWith('http://') || url.startsWith('https://')) {
+            // Already a valid URL
+            signedUrls.push(url);
+          }
+          // Skip blob: URLs and other invalid formats
+        } catch (error) {
+          console.error(`Failed to sign URL for ${url}:`, error);
+          // Continue with other images
         }
-      });
+      }
 
-      if (validUrls.length === 0) {
+      if (signedUrls.length === 0) {
         return res.status(400).json({ 
           message: "Images must be fully uploaded before AI can analyze them. Please wait for uploads to complete." 
         });
       }
 
-      const hashtags = await analyzeImagesForHashtags(validUrls);
+      const hashtags = await analyzeImagesForHashtags(signedUrls);
       res.json({ hashtags });
     } catch (error: any) {
       if (error.name === 'ZodError') {
@@ -1516,12 +1527,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/ai/generate-title', isAuthenticated, async (req: any, res) => {
     try {
       const schema = z.object({
-        imageUrls: z.array(z.string().url()).min(1, "At least one image URL is required"),
+        imageUrls: z.array(z.string()).min(1, "At least one image is required"),
         currentTitle: z.string().optional(),
       });
 
       const validated = schema.parse(req.body);
-      const title = await generateServiceTitle(validated.imageUrls, validated.currentTitle);
+      
+      // Convert object paths to signed URLs for OpenAI
+      const objectStorageService = new ObjectStorageService();
+      const signedUrls: string[] = [];
+      
+      for (const url of validated.imageUrls) {
+        try {
+          if (url.startsWith('/objects/')) {
+            const signedUrl = await objectStorageService.getSignedObjectUrl(url, 3600);
+            signedUrls.push(signedUrl);
+          } else if (url.startsWith('http://') || url.startsWith('https://')) {
+            signedUrls.push(url);
+          }
+        } catch (error) {
+          console.error(`Failed to sign URL for ${url}:`, error);
+        }
+      }
+
+      if (signedUrls.length === 0) {
+        return res.status(400).json({ message: "Images must be fully uploaded" });
+      }
+
+      const title = await generateServiceTitle(signedUrls, validated.currentTitle);
       res.json({ title });
     } catch (error: any) {
       if (error.name === 'ZodError') {

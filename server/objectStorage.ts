@@ -238,6 +238,24 @@ export class ObjectStorageService {
       requestedPermission: requestedPermission ?? ObjectPermission.READ,
     });
   }
+
+  // Gets a signed GET URL for an object path (for external access like OpenAI)
+  async getSignedObjectUrl(objectPath: string, ttlSec: number = 3600): Promise<string> {
+    if (!objectPath.startsWith("/objects/")) {
+      throw new Error("Invalid object path format");
+    }
+
+    const objectFile = await this.getObjectEntityFile(objectPath);
+    const { bucketName, objectName } = parseObjectPath(`${this.getPrivateObjectDir()}/${objectPath.split('/').slice(2).join('/')}`);
+    
+    // Generate signed GET URL with specified TTL
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec,
+    });
+  }
 }
 
 function parseObjectPath(path: string): {
