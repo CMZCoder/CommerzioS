@@ -1,6 +1,7 @@
 import {
   users,
   categories,
+  subcategories,
   services,
   reviews,
   favorites,
@@ -18,6 +19,7 @@ import {
   type UpsertUser,
   type Category,
   type InsertCategory,
+  type Subcategory,
   type Service,
   type InsertService,
   type Review,
@@ -73,6 +75,10 @@ export interface IStorage {
   getCategories(): Promise<Category[]>;
   getCategoryBySlug(slug: string): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
+  
+  // Subcategory operations
+  getSubcategories(): Promise<Subcategory[]>;
+  getSubcategoriesByCategoryId(categoryId: string): Promise<Subcategory[]>;
   
   // Service operations
   getServices(filters?: {
@@ -216,6 +222,15 @@ export class DatabaseStorage implements IStorage {
   async createCategory(category: InsertCategory): Promise<Category> {
     const [newCategory] = await db.insert(categories).values(category).returning();
     return newCategory;
+  }
+
+  // Subcategory operations
+  async getSubcategories(): Promise<Subcategory[]> {
+    return await db.select().from(subcategories);
+  }
+
+  async getSubcategoriesByCategoryId(categoryId: string): Promise<Subcategory[]> {
+    return await db.select().from(subcategories).where(eq(subcategories.categoryId, categoryId));
   }
 
   // Service operations
