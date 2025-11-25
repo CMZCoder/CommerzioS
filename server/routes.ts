@@ -1482,11 +1482,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validated = schema.parse(req.body);
       
-      // Filter out invalid URLs silently
+      // Filter for OpenAI-compatible URLs (http/https only - no blob: URLs)
       const validUrls = validated.imageUrls.filter(url => {
         try {
-          // Check if it's a valid URL or data URL
-          return url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:');
+          // OpenAI only supports http/https URLs (not blob: or relative paths)
+          return url.startsWith('http://') || url.startsWith('https://');
         } catch {
           return false;
         }
@@ -1494,7 +1494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (validUrls.length === 0) {
         return res.status(400).json({ 
-          message: "Unable to analyze images. Please upload images and try again." 
+          message: "Images must be fully uploaded before AI can analyze them. Please wait for uploads to complete." 
         });
       }
 

@@ -79,7 +79,7 @@ export default function Profile() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingService, setEditingService] = useState<ServiceWithDetails | null>(null);
   const [showCategorySuggestionModal, setShowCategorySuggestionModal] = useState(false);
-  const [pendingCategoryCallback, setPendingCategoryCallback] = useState<((categoryId: string) => void) | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<string | null>(null);
   const [serviceToPause, setServiceToPause] = useState<string | null>(null);
   const [serviceToActivate, setServiceToActivate] = useState<string | null>(null);
@@ -1392,12 +1392,16 @@ export default function Profile() {
 
       <CreateServiceModal 
         open={showCreateModal} 
-        onOpenChange={setShowCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open);
+          if (!open) {
+            // Reset selected category when modal closes
+            setSelectedCategoryId(null);
+          }
+        }}
         onSuggestCategory={() => setShowCategorySuggestionModal(true)}
-        onCategoryCreated={(categoryId) => setPendingCategoryCallback(() => (id: string) => {
-          // Auto-select the newly created category in the form
-          // This will be handled by the category suggestion modal callback
-        })}
+        onCategoryCreated={setSelectedCategoryId}
+        preselectedCategoryId={selectedCategoryId}
       />
       <EditServiceModal 
         open={!!editingService} 
@@ -1408,10 +1412,8 @@ export default function Profile() {
         open={showCategorySuggestionModal}
         onOpenChange={setShowCategorySuggestionModal}
         onCategoryCreated={(categoryId) => {
-          if (pendingCategoryCallback) {
-            pendingCategoryCallback(categoryId);
-            setPendingCategoryCallback(null);
-          }
+          setSelectedCategoryId(categoryId);
+          setShowCategorySuggestionModal(false);
         }}
       />
 

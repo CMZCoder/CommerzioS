@@ -5,15 +5,17 @@ interface CreateServiceModalProps {
   onOpenChange: (open: boolean) => void;
   onSuggestCategory: () => void;
   onCategoryCreated?: (categoryId: string) => void;
+  preselectedCategoryId?: string | null;
 }
 
-export function CreateServiceModal({ open, onOpenChange, onSuggestCategory, onCategoryCreated }: CreateServiceModalProps) {
+export function CreateServiceModal({ open, onOpenChange, onSuggestCategory, onCategoryCreated, preselectedCategoryId }: CreateServiceModalProps) {
   return (
     <ServiceFormModal
       open={open}
       onOpenChange={onOpenChange}
       onSuggestCategory={onSuggestCategory}
       onCategoryCreated={onCategoryCreated}
+      preselectedCategoryId={preselectedCategoryId}
     />
   );
 }

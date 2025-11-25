@@ -14,6 +14,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [showCreateService, setShowCreateService] = useState(false);
   const [showCategorySuggestion, setShowCategorySuggestion] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
   // Smart navigation function for profile tabs
   const navigateToProfile = (tab?: string) => {
@@ -198,12 +199,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </footer>
       <CreateServiceModal 
         open={showCreateService} 
-        onOpenChange={setShowCreateService}
+        onOpenChange={(open) => {
+          setShowCreateService(open);
+          if (!open) {
+            // Reset selected category when modal closes
+            setSelectedCategoryId(null);
+          }
+        }}
         onSuggestCategory={() => setShowCategorySuggestion(true)}
+        onCategoryCreated={setSelectedCategoryId}
+        preselectedCategoryId={selectedCategoryId}
       />
       <CategorySuggestionModal 
         open={showCategorySuggestion} 
         onOpenChange={setShowCategorySuggestion}
+        onCategoryCreated={(categoryId) => {
+          setSelectedCategoryId(categoryId);
+          setShowCategorySuggestion(false);
+        }}
       />
     </div>
   );

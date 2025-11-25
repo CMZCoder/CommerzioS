@@ -23,6 +23,7 @@ interface ServiceFormModalProps {
   onOpenChange: (open: boolean) => void;
   onSuggestCategory?: () => void;
   onCategoryCreated?: (categoryId: string) => void;
+  preselectedCategoryId?: string | null;
   service?: Service & { category: any; owner: any } | null;
 }
 
@@ -56,7 +57,7 @@ interface FormData {
   selectedPromotionalPackage?: string | null;
 }
 
-export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCategoryCreated, service }: ServiceFormModalProps) {
+export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCategoryCreated, preselectedCategoryId, service }: ServiceFormModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -495,7 +496,18 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     }));
   };
 
-  // This effect is not needed - category auto-selection is handled via callback
+  // Auto-select category when it's provided from parent (after CategorySuggestionModal creates one)
+  useEffect(() => {
+    if (preselectedCategoryId && formData && !isEditMode && !formData.categoryId) {
+      setFormData((prev: FormData | null) => ({
+        ...prev!,
+        categoryId: preselectedCategoryId,
+      }));
+      if (onCategoryCreated) {
+        onCategoryCreated(preselectedCategoryId);
+      }
+    }
+  }, [preselectedCategoryId, isEditMode]);
 
   const handleAISuggestHashtags = async () => {
     if (formData.images.length === 0) {
@@ -509,15 +521,15 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
     setLoadingHashtags(true);
     try {
-      // Send only valid URLs to the backend
+      // Send only HTTP/HTTPS URLs to the backend (OpenAI requirement)
       const validImages = formData.images.filter(img => 
-        typeof img === 'string' && (img.startsWith('http') || img.startsWith('data:') || img.startsWith('/'))
+        typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))
       );
       
       if (validImages.length === 0) {
         toast({
           title: "Images Not Ready",
-          description: "Please make sure your images are fully uploaded before requesting hashtags",
+          description: "Please wait for all images to finish uploading before requesting AI hashtags",
           variant: "destructive",
         });
         setLoadingHashtags(false);
@@ -570,13 +582,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     setGeneratingTitle(true);
     try {
       const validImages = formData.images.filter(img => 
-        typeof img === 'string' && (img.startsWith('http') || img.startsWith('/'))
+        typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))
       );
 
       if (validImages.length === 0) {
         toast({
           title: "Images Not Ready",
-          description: "Please wait for images to upload before generating a title",
+          description: "Please wait for all images to finish uploading before generating a title",
           variant: "destructive",
         });
         setGeneratingTitle(false);
