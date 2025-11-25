@@ -223,8 +223,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
     if (formData.locations.length === 0 && userAddresses.length > 0) {
       const mainAddress = userAddresses.find((a: any) => a.isMain) || userAddresses[0];
       if (mainAddress) {
-        updates.locations = [mainAddress.fullAddress];
-        hasChanges = true;
+        // Construct full address from components
+        const fullAddress = mainAddress.fullAddress || 
+          `${mainAddress.street}, ${mainAddress.postalCode} ${mainAddress.city}`;
+        if (fullAddress?.trim()) {
+          updates.locations = [fullAddress];
+          hasChanges = true;
+        }
       }
     }
     
@@ -284,7 +289,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
           priceText: data.priceType === "text" ? data.priceText : undefined,
           priceList: data.priceType === "list" ? data.priceList : undefined,
           priceUnit: data.priceUnit,
-          locations: data.locations.filter((l: string) => l.trim()),
+          locations: data.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim()),
           images: data.images,
           imageMetadata: data.imageMetadata,
           mainImageIndex: data.mainImageIndex,
@@ -343,7 +348,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
           priceText: data.priceType === "text" ? data.priceText : undefined,
           priceList: data.priceType === "list" ? data.priceList : undefined,
           priceUnit: data.priceUnit,
-          locations: data.locations.filter((l: string) => l.trim()),
+          locations: data.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim()),
           images: data.images,
           imageMetadata: data.imageMetadata,
           mainImageIndex: data.mainImageIndex,
@@ -572,7 +577,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
   };
 
   const validateAddresses = async (): Promise<boolean> => {
-    const validLocations = formData!.locations.filter((l: string) => l.trim());
+    const validLocations = formData!.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
     if (validLocations.length === 0) return false;
 
     setValidatingAddresses(true);
@@ -607,7 +612,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
     
     if (!formData) return;
     
-    const validLocations = formData.locations.filter((l: string) => l.trim());
+    const validLocations = formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
     const validContacts = formData.contacts.filter((c: Contact) => c.value.trim());
 
     if (settings?.enableSwissAddressValidation) {
@@ -677,7 +682,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
   };
 
   const handleSaveDraft = async () => {
-    const validLocations = formData!.locations.filter((l: string) => l.trim());
+    const validLocations = formData!.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
     const validContacts = formData!.contacts.filter((c: Contact) => c.value.trim());
 
     // Basic validation for draft - only require title
@@ -898,7 +903,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, servic
                   </Alert>
                 )}
                 <LocationAutocomplete
-                  locations={formData.locations.filter((l: string) => l.trim())}
+                  locations={formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim())}
                   onLocationsChange={(locations: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, locations }))}
                   maxLocations={10}
                   label="Service Locations"
