@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,8 @@ import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import { Slider } from "@/components/ui/slider";
@@ -41,7 +43,7 @@ export default function Profile() {
     const search = window.location.search;
     const searchParams = new URLSearchParams(search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'services', 'reviews'].includes(tabParam)) {
+    if (tabParam && ['profile', 'services', 'reviews', 'referrals'].includes(tabParam)) {
       return tabParam;
     }
     return 'profile';
@@ -593,6 +595,10 @@ export default function Profile() {
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="services" data-testid="tab-my-services">My Listings</TabsTrigger>
               <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews ({receivedReviews.length})</TabsTrigger>
+              <TabsTrigger value="referrals" data-testid="tab-referrals" className="gap-1">
+                <Gift className="w-3 h-3" />
+                Referrals
+              </TabsTrigger>
             </TabsList>
 
             {/* Sub-toggles for Profile Section Navigation */}
@@ -1386,6 +1392,11 @@ export default function Profile() {
               </Card>
             </TabsContent>
 
+            {/* Referrals Tab */}
+            <TabsContent value="referrals" data-testid="panel-referrals" className="space-y-6">
+              <ReferralDashboard />
+            </TabsContent>
+
           </Tabs>
         </div>
       </div>
@@ -1565,5 +1576,324 @@ export default function Profile() {
         </DialogContent>
       </Dialog>
     </Layout>
+  );
+}
+
+// ===========================================
+// REFERRAL DASHBOARD COMPONENT (Embedded in Profile)
+// ===========================================
+
+interface ReferralStats {
+  referralCode: string;
+  referralLink: string;
+  totalDirectReferrals: number;
+  activeDirectReferrals: number;
+  totalNetworkSize: number;
+  totalPointsEarned: number;
+  currentPoints: number;
+  totalCommissionEarned: number;
+  pendingCommission: number;
+  referralRank: number | null;
+}
+
+interface MyReferrer {
+  hasReferrer: boolean;
+  referrer: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    profileImageUrl: string | null;
+    referralCode: string | null;
+  } | null;
+}
+
+interface NetworkLevel {
+  count: number;
+  referrals: Array<{
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    createdAt: string;
+    status: string;
+    referredByName?: string;
+  }>;
+}
+
+interface MyNetwork {
+  maxLevels: number;
+  level1: NetworkLevel;
+  level2: NetworkLevel;
+  level3: NetworkLevel;
+}
+
+interface CommissionEvent {
+  id: string;
+  fromUserName: string;
+  level: number;
+  pointsEarned: number;
+  commissionEarned: string;
+  triggerType: string;
+  status: string;
+  createdAt: string;
+}
+
+function ReferralDashboard() {
+  const { toast } = useToast();
+  const [expandedLevels, setExpandedLevels] = useState<Record<number, boolean>>({ 1: true });
+
+  // Fetch referral stats
+  const { data: stats, isLoading: statsLoading } = useQuery<ReferralStats>({
+    queryKey: ["/api/referral/my-stats"],
+  });
+
+  // Fetch who referred me
+  const { data: myReferrer } = useQuery<MyReferrer>({
+    queryKey: ["/api/referral/my-referrer"],
+  });
+
+  // Fetch network
+  const { data: myNetwork } = useQuery<MyNetwork>({
+    queryKey: ["/api/referral/my-network"],
+  });
+
+  // Fetch commissions
+  const { data: commissions } = useQuery<CommissionEvent[]>({
+    queryKey: ["/api/referral/my-commissions"],
+  });
+
+  const copyReferralLink = async () => {
+    if (stats?.referralLink) {
+      await navigator.clipboard.writeText(stats.referralLink);
+      toast({ title: "Copied!", description: "Referral link copied" });
+    }
+  };
+
+  const shareToWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`Join me on Commerzio! ${stats?.referralLink}`)}`, '_blank');
+  };
+
+  const shareToFacebook = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(stats?.referralLink || '')}`, '_blank');
+  };
+
+  const shareToTwitter = () => {
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent("Join me on Commerzio!")}&url=${encodeURIComponent(stats?.referralLink || '')}`, '_blank');
+  };
+
+  if (statsLoading) {
+    return <div className="text-center py-12 text-muted-foreground">Loading referral data...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Quick Stats Row */}
+      <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+          <CardContent className="pt-4">
+            <p className="text-blue-100 text-sm">Points</p>
+            <p className="text-2xl font-bold">{stats?.currentPoints || 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <CardContent className="pt-4">
+            <p className="text-green-100 text-sm">Referrals</p>
+            <p className="text-2xl font-bold">{stats?.totalDirectReferrals || 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+          <CardContent className="pt-4">
+            <p className="text-purple-100 text-sm">Earned</p>
+            <p className="text-2xl font-bold">CHF {(stats?.totalCommissionEarned || 0).toFixed(0)}</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+          <CardContent className="pt-4">
+            <p className="text-orange-100 text-sm">Network</p>
+            <p className="text-2xl font-bold">{stats?.totalNetworkSize || 0}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Who Referred Me */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Who Referred You
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {myReferrer?.hasReferrer && myReferrer.referrer ? (
+            <div className="flex items-center gap-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white font-medium">
+                {myReferrer.referrer.firstName?.charAt(0) || "?"}
+              </div>
+              <div>
+                <p className="font-medium text-green-800 dark:text-green-200">
+                  {myReferrer.referrer.firstName} {myReferrer.referrer.lastName}
+                </p>
+                <p className="text-sm text-green-600">Code: {myReferrer.referrer.referralCode}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">You joined independently</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Share Link */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            Your Referral Link
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input value={stats?.referralLink || ""} readOnly className="font-mono text-sm" />
+            <Button variant="outline" onClick={copyReferralLink}><Copy className="h-4 w-4" /></Button>
+          </div>
+          <p className="text-sm text-muted-foreground">Code: <strong className="font-mono">{stats?.referralCode}</strong></p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={shareToWhatsApp} className="text-green-600">
+              <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
+            </Button>
+            <Button variant="outline" size="sm" onClick={shareToFacebook} className="text-blue-600">
+              Facebook
+            </Button>
+            <Button variant="outline" size="sm" onClick={shareToTwitter} className="text-sky-500">
+              X
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Network Tree */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Your Referral Network</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {myNetwork ? (
+            <>
+              {/* Level 1 */}
+              <Collapsible open={expandedLevels[1]} onOpenChange={(o) => setExpandedLevels(p => ({ ...p, 1: o }))}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100">
+                  <div className="flex items-center gap-2">
+                    {expandedLevels[1] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    <span className="font-medium">Level 1 (Direct)</span>
+                    <Badge variant="secondary">{myNetwork.level1.count}</Badge>
+                  </div>
+                  <span className="text-sm text-green-600">10%</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2 space-y-1 pl-6">
+                  {myNetwork.level1.referrals.length > 0 ? myNetwork.level1.referrals.map(r => (
+                    <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                      <div className="h-6 w-6 rounded-full bg-green-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
+                      <span>{r.firstName} {r.lastName}</span>
+                      <Badge variant="outline" className="ml-auto text-xs">{r.status}</Badge>
+                    </div>
+                  )) : <p className="text-sm text-muted-foreground py-2">No direct referrals yet</p>}
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* Level 2 */}
+              {myNetwork.maxLevels >= 2 && (
+                <Collapsible open={expandedLevels[2]} onOpenChange={(o) => setExpandedLevels(p => ({ ...p, 2: o }))}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100">
+                    <div className="flex items-center gap-2">
+                      {expandedLevels[2] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      <span className="font-medium">Level 2 (Indirect)</span>
+                      <Badge variant="secondary">{myNetwork.level2.count}</Badge>
+                    </div>
+                    <span className="text-sm text-blue-600">4%</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-1 pl-6">
+                    {myNetwork.level2.referrals.length > 0 ? myNetwork.level2.referrals.slice(0, 10).map(r => (
+                      <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                        <div className="h-6 w-6 rounded-full bg-blue-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
+                        <span>{r.firstName} {r.lastName}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">via {r.referredByName}</span>
+                      </div>
+                    )) : <p className="text-sm text-muted-foreground py-2">No level 2 referrals yet</p>}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Level 3 */}
+              {myNetwork.maxLevels >= 3 && myNetwork.level3.count > 0 && (
+                <Collapsible open={expandedLevels[3]} onOpenChange={(o) => setExpandedLevels(p => ({ ...p, 3: o }))}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100">
+                    <div className="flex items-center gap-2">
+                      {expandedLevels[3] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      <span className="font-medium">Level 3 (Extended)</span>
+                      <Badge variant="secondary">{myNetwork.level3.count}</Badge>
+                    </div>
+                    <span className="text-sm text-purple-600">1%</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2 space-y-1 pl-6">
+                    {myNetwork.level3.referrals.slice(0, 5).map(r => (
+                      <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                        <div className="h-6 w-6 rounded-full bg-purple-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
+                        <span>{r.firstName} {r.lastName}</span>
+                      </div>
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">No network data</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Commissions */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Recent Commissions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {commissions && commissions.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>From</TableHead>
+                  <TableHead>Level</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {commissions.slice(0, 10).map(c => (
+                  <TableRow key={c.id}>
+                    <TableCell className="text-sm">{new Date(c.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{c.fromUserName}</TableCell>
+                    <TableCell><Badge variant="outline">L{c.level}</Badge></TableCell>
+                    <TableCell className="text-right font-medium text-green-600">CHF {parseFloat(c.commissionEarned).toFixed(2)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">No commissions yet</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Link to full referrals page */}
+      <div className="text-center">
+        <Link href="/referrals">
+          <Button variant="outline" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
+            View Full Referral Dashboard
+          </Button>
+        </Link>
+      </div>
+    </div>
   );
 }

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation, Search, X, ChevronDown, ChevronUp, Gift, Users } from "lucide-react";
 import heroImg from "@assets/generated_images/abstract_community_connection_hero_background.png";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -872,6 +872,32 @@ export default function Home() {
                 )}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* Referral CTA Banner */}
+      {isAuthenticated && (
+        <section className="py-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
+          <div className="container mx-auto px-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <Gift className="h-6 w-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Invite Friends, Earn Rewards!</h3>
+                  <p className="text-white/80 text-sm">Get points and commissions for every friend who joins</p>
+                </div>
+              </div>
+              <Link href="/profile?tab=referrals">
+                <Button variant="secondary" className="gap-2 shadow-lg">
+                  <Users className="h-4 w-4" />
+                  Start Referring
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
       )}
