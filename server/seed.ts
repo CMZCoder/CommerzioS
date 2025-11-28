@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { categories, subcategories, users, services, reviews, plans } from "@shared/schema";
+import { categories, subcategories, users, services, reviews, plans, chatConversations, chatMessages } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const CATEGORIES = [
@@ -1565,10 +1565,153 @@ export async function seedDatabase() {
       }
     }
 
+    // Seed demo chat conversations
+    await seedDemoChats();
+
     console.log("Database seeding completed!");
   } catch (error) {
     console.error("Error seeding database:", error);
     // Don't throw - just log and continue
     console.log("Continuing despite seeding errors...");
+  }
+}
+
+/**
+ * Seed demo chat conversations between existing users
+ */
+async function seedDemoChats() {
+  try {
+    // Check if conversations already exist
+    const existingConversations = await db.select().from(chatConversations).limit(1);
+    if (existingConversations.length > 0) {
+      console.log("Chat conversations already seeded, skipping...");
+      return;
+    }
+
+    // Get existing demo users (get first 6 users excluding admin)
+    const demoUsers = await db.select()
+      .from(users)
+      .where(eq(users.isAdmin, false))
+      .limit(6);
+
+    if (demoUsers.length < 2) {
+      console.log("Not enough users to seed conversations, skipping...");
+      return;
+    }
+
+    // Get some services for context
+    const demoServices = await db.select().from(services).limit(5);
+
+    // Demo conversation templates
+    const conversationTemplates = [
+      {
+        messages: [
+          { role: 'customer', content: "Hi! I saw your cleaning service and I'm interested. Can you tell me more about what's included?" },
+          { role: 'vendor', content: "Hello! Thank you for your interest. Our standard cleaning includes dusting, vacuuming, mopping, bathroom cleaning, and kitchen cleaning. We can also add extras like window cleaning or deep cleaning." },
+          { role: 'customer', content: "That sounds great! How much would it cost for a 3-bedroom apartment?" },
+          { role: 'vendor', content: "For a 3-bedroom apartment, our standard cleaning is CHF 180. Deep cleaning would be CHF 250. Both include all supplies." },
+          { role: 'customer', content: "Perfect, I'd like to book the standard cleaning. When are you available?" },
+        ]
+      },
+      {
+        messages: [
+          { role: 'customer', content: "Hello! Do you offer piano lessons for beginners?" },
+          { role: 'vendor', content: "Yes, absolutely! I work with students of all levels, from complete beginners to advanced. I've been teaching for 10 years." },
+          { role: 'customer', content: "That's great! My daughter is 8 years old and has never played before. Is that too young?" },
+          { role: 'vendor', content: "Not at all! 8 is actually a perfect age to start. Children at this age absorb music quickly and develop good habits. I use fun, age-appropriate methods." },
+          { role: 'customer', content: "Wonderful! Can we schedule a trial lesson?" },
+          { role: 'vendor', content: "Of course! I have openings on Wednesday at 4pm or Saturday at 10am. Which works better for you?" },
+        ]
+      },
+      {
+        messages: [
+          { role: 'customer', content: "Hi, I need help with a website for my small business. Is this something you can help with?" },
+          { role: 'vendor', content: "Hello! Yes, I specialize in websites for small businesses. What kind of business do you have?" },
+          { role: 'customer', content: "I run a bakery. I need something simple with a menu, contact info, and maybe online ordering." },
+          { role: 'vendor', content: "Perfect! I can create a beautiful, mobile-friendly website for your bakery. For a site with menu, gallery, contact form, and basic online ordering, it would be around CHF 1,500-2,000." },
+          { role: 'customer', content: "That's within my budget. How long would it take?" },
+          { role: 'vendor', content: "Usually 2-3 weeks from start to launch. I'll need your logo, some photos of your products, and your menu. Can we schedule a call to discuss the details?" },
+        ]
+      },
+      {
+        messages: [
+          { role: 'customer', content: "Good morning! I need a plumber urgently - my kitchen sink is leaking!" },
+          { role: 'vendor', content: "Good morning! I'm sorry to hear that. Can you describe what's happening? Is the leak from the pipes under the sink or from the faucet?" },
+          { role: 'customer', content: "It's from under the sink, where the pipes connect. There's water dripping constantly." },
+          { role: 'vendor', content: "That sounds like it could be a loose connection or a worn seal. I can come by this afternoon around 3pm. Would that work for you?" },
+          { role: 'customer', content: "Yes, please! That would be amazing. What should I do in the meantime?" },
+          { role: 'vendor', content: "Turn off the water supply valve under the sink to stop the leak temporarily. It's usually a knob you turn clockwise. Put a bucket under the leak and I'll see you at 3pm!" },
+        ]
+      },
+      {
+        messages: [
+          { role: 'customer', content: "Hello! I'm looking for a personal trainer. Do you offer sessions for weight loss?" },
+          { role: 'vendor', content: "Hi there! Yes, weight loss is one of my specialties. I combine strength training with cardio and provide nutrition guidance. What are your goals?" },
+          { role: 'customer', content: "I want to lose about 10kg and get more toned. I've never really worked out before." },
+          { role: 'vendor', content: "That's a very achievable goal! For beginners, I recommend 2-3 sessions per week. We'll start slow and progressively increase intensity. I'll also help you with meal planning." },
+          { role: 'customer', content: "Sounds perfect! What are your rates?" },
+          { role: 'vendor', content: "Individual sessions are CHF 90/hour. Or you can get a package of 10 sessions for CHF 800, which saves you CHF 100. I also offer partner sessions if you have a friend who wants to join." },
+          { role: 'customer', content: "The 10-session package sounds good. When can we start?" },
+        ]
+      },
+    ];
+
+    // Create conversations between different user pairs
+    const userPairs = [
+      [demoUsers[0], demoUsers[1]], // Maria (customer) - Hans (vendor)
+      [demoUsers[2], demoUsers[3]], // Sophie (customer) - Thomas (vendor)
+      [demoUsers[4], demoUsers[0]], // Petra (customer) - Maria (vendor)
+      [demoUsers[1], demoUsers[4]], // Hans (customer) - Petra (vendor)
+      [demoUsers[3], demoUsers[2]], // Thomas (customer) - Sophie (vendor)
+    ];
+
+    for (let i = 0; i < Math.min(userPairs.length, conversationTemplates.length); i++) {
+      const [customer, vendor] = userPairs[i];
+      const template = conversationTemplates[i];
+      const service = demoServices[i % demoServices.length];
+
+      // Create conversation
+      const [conversation] = await db.insert(chatConversations)
+        .values({
+          customerId: customer.id,
+          vendorId: vendor.id,
+          serviceId: service?.id || null,
+          status: 'active',
+          lastMessageAt: new Date(),
+          lastMessagePreview: template.messages[template.messages.length - 1].content.substring(0, 100),
+          customerUnreadCount: 0,
+          vendorUnreadCount: 1,
+        })
+        .returning();
+
+      console.log(`Created conversation between ${customer.firstName} and ${vendor.firstName}`);
+
+      // Create messages for this conversation
+      const baseTime = new Date();
+      baseTime.setHours(baseTime.getHours() - template.messages.length);
+
+      for (let j = 0; j < template.messages.length; j++) {
+        const msg = template.messages[j];
+        const msgTime = new Date(baseTime.getTime() + j * 30 * 60 * 1000); // 30 min apart
+
+        await db.insert(chatMessages)
+          .values({
+            conversationId: conversation.id,
+            senderId: msg.role === 'customer' ? customer.id : vendor.id,
+            senderRole: msg.role as 'customer' | 'vendor',
+            content: msg.content,
+            messageType: 'text',
+            wasFiltered: false,
+            readAt: j < template.messages.length - 1 ? msgTime : null, // Mark all but last as read
+            createdAt: msgTime,
+          });
+      }
+
+      console.log(`  Added ${template.messages.length} messages to conversation`);
+    }
+
+    console.log("Demo chat conversations seeded successfully!");
+  } catch (error) {
+    console.error("Error seeding demo chats:", error);
   }
 }

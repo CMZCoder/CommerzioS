@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRoute, useLocation, Link } from "wouter";
-import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation } from "lucide-react";
+import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation, MessageSquare, CalendarPlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -418,9 +418,54 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   </div>
 
                   <div className="space-y-3">
+                    {/* Book Now Button */}
+                    <Button 
+                      size="lg" 
+                      className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20 gap-2" 
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          toast({
+                            title: "Sign in required",
+                            description: "Please sign in to book this service",
+                            variant: "destructive"
+                          });
+                          setLocation("/login");
+                          return;
+                        }
+                        // Navigate to booking page or open booking modal
+                        setLocation(`/service/${serviceId}/book`);
+                      }}
+                    >
+                      <CalendarPlus className="w-5 h-5" />
+                      Book Now
+                    </Button>
+                    
+                    {/* Message Button */}
+                    <Button 
+                      size="lg" 
+                      variant="outline"
+                      className="w-full text-lg font-semibold h-12 gap-2" 
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          toast({
+                            title: "Sign in required",
+                            description: "Please sign in to message this provider",
+                            variant: "destructive"
+                          });
+                          setLocation("/login");
+                          return;
+                        }
+                        // Navigate to chat with this vendor
+                        setLocation(`/chat?vendor=${service.ownerId}&service=${serviceId}`);
+                      }}
+                    >
+                      <MessageSquare className="w-5 h-5" />
+                      Message
+                    </Button>
+
                     {!isContactRevealed ? (
-                      <Button size="lg" className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20" onClick={handleContact}>
-                        Contact Provider
+                      <Button size="lg" variant="ghost" className="w-full text-muted-foreground" onClick={handleContact}>
+                        Show Contact Info
                       </Button>
                     ) : (
                       <div className="bg-slate-50 p-4 rounded-lg border border-primary/20 space-y-2 animate-in fade-in zoom-in-95">
