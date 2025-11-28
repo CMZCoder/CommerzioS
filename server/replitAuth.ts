@@ -79,6 +79,13 @@ async function upsertUser(
 }
 
 export async function setupAuth(app: Express) {
+  // In local development (outside Replit), REPL_ID won't be set.
+  // In that case, skip setting up Replit Auth entirely.
+  if (!process.env.REPL_ID) {
+    console.log("Replit Auth disabled: REPL_ID is not set. Skipping auth setup.");
+    return;
+  }
+
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
@@ -155,6 +162,12 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // When Replit Auth is disabled (no REPL_ID), treat all users as authenticated.
+  // This is only for local development.
+  if (!process.env.REPL_ID) {
+    return next();
+  }
+
   const user = req.user as any;
 
   if (!req.isAuthenticated() || !user.expires_at) {

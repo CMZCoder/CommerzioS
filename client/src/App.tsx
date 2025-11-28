@@ -22,6 +22,11 @@ import { AdminPage } from "@/pages/admin";
 import HashtagResults from "@/pages/hashtag-results";
 import UserProfile from "@/pages/user-profile";
 import PlansPage from "@/pages/plans";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
+import ForgotPasswordPage from "@/pages/forgot-password";
+import ResetPasswordPage from "@/pages/reset-password";
+import VerifyEmailPage from "@/pages/verify-email";
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -57,6 +62,12 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin" component={AdminPage} />
+      {/* Authentication routes */}
+      <Route path="/login" component={LoginPage} />
+      <Route path="/register" component={RegisterPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/verify-email" component={VerifyEmailPage} />
       <Route component={NotFound} />
     </Switch>
   );

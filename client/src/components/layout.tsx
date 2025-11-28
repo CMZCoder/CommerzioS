@@ -103,7 +103,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <Heart className="w-4 h-4 mr-2" />
                         Saved
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => window.location.href = "/api/logout"} className="text-destructive" data-testid="menu-item-logout">
+                      <DropdownMenuItem 
+                        onClick={async () => {
+                          await fetch("/api/auth/logout", { method: "POST" });
+                          window.location.href = "/";
+                        }} 
+                        className="text-destructive" 
+                        data-testid="menu-item-logout"
+                      >
                         <LogOut className="w-4 h-4 mr-2" />
                         Log out
                       </DropdownMenuItem>
@@ -112,12 +119,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" onClick={() => window.location.href = "/api/login"} data-testid="button-login">
-                    Log in
-                  </Button>
-                  <Button onClick={() => window.location.href = "/api/login"} data-testid="button-get-started">
-                    Get Started
-                  </Button>
+                  <Link href="/login">
+                    <Button variant="ghost" data-testid="button-login">
+                      Log in
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button data-testid="button-get-started">
+                      Get Started
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -172,7 +183,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <h4 className="font-semibold mb-4">Platform</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><Link href="/"><span className="hover:text-primary cursor-pointer">Browse Services</span></Link></li>
-                <li><a href="/api/login" className="hover:text-primary cursor-pointer">Post a Service</a></li>
+                <li><Link href="/login"><span className="hover:text-primary cursor-pointer">Post a Service</span></Link></li>
                 <li><Link href="/how-it-works"><span className="hover:text-primary cursor-pointer">How it Works</span></Link></li>
               </ul>
             </div>
