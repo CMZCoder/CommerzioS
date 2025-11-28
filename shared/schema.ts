@@ -72,7 +72,7 @@ export const users = pgTable("users", {
   
   // Authentication fields
   passwordHash: varchar("password_hash", { length: 255 }),
-  authProvider: varchar("auth_provider", { enum: ["local", "google", "apple", "twitter", "facebook"] }).default("local").notNull(),
+  authProvider: varchar("auth_provider", { enum: ["local", "google", "twitter", "facebook"] }).default("local").notNull(),
   oauthProviderId: varchar("oauth_provider_id", { length: 255 }),
   
   // Email verification
@@ -128,7 +128,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 export const oauthTokens = pgTable("oauth_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  provider: varchar("provider", { enum: ["google", "apple", "twitter", "facebook"] }).notNull(),
+  provider: varchar("provider", { enum: ["google", "twitter", "facebook"] }).notNull(),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
   expiresAt: timestamp("expires_at"),

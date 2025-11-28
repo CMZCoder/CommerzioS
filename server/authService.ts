@@ -507,7 +507,7 @@ export async function upsertOAuthUser(data: {
   firstName?: string;
   lastName?: string;
   profileImageUrl?: string;
-  authProvider: "google" | "apple" | "twitter" | "facebook";
+  authProvider: "google" | "twitter" | "facebook";
   oauthProviderId: string;
   accessToken?: string;
   refreshToken?: string;

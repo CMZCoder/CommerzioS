@@ -38,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware and routes
   await setupAuth(app);
   
-  // OAuth routes (Google, Apple, Twitter, Facebook)
+  // OAuth routes (Google, Twitter, Facebook)
   setupOAuthRoutes(app);
 
   // Auth routes

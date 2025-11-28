@@ -31,7 +31,6 @@ type LoginFormData = z.infer<typeof loginSchema>;
 // OAuth error messages
 const oauthErrorMessages: Record<string, string> = {
   google_not_configured: "Google login is not configured. Please use email/password.",
-  apple_not_configured: "Apple login is not configured. Please use email/password.",
   twitter_not_configured: "Twitter login is not configured. Please use email/password.",
   facebook_not_configured: "Facebook login is not configured. Please use email/password.",
   invalid_state: "Authentication failed. Please try again.",
@@ -40,7 +39,6 @@ const oauthErrorMessages: Record<string, string> = {
   auth_failed: "Authentication failed. Please try again.",
   session_error: "Session error. Please try again.",
   google_auth_failed: "Google authentication failed. Please try again.",
-  apple_auth_failed: "Apple authentication failed. Please try again.",
   twitter_auth_failed: "Twitter authentication failed. Please try again.",
   facebook_auth_failed: "Facebook authentication failed. Please try again.",
   token_error: "Token exchange failed. Please try again.",

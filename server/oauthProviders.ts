@@ -1,12 +1,11 @@
 /**
  * OAuth Providers Configuration
  * 
- * Handles OAuth authentication for Google, Apple, Twitter, and Facebook.
+ * Handles OAuth authentication for Google, Twitter, and Facebook.
  * Each provider requires specific credentials in environment variables.
  * 
  * Required environment variables:
  * - Google: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
- * - Apple: APPLE_CLIENT_ID, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY
  * - Twitter: TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET
  * - Facebook: FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
  * - APP_URL: The base URL of your application (e.g., http://localhost:5000)
@@ -21,7 +20,6 @@ const APP_URL = process.env.APP_URL || "http://localhost:5000";
 
 // Check which providers are configured
 const isGoogleConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-const isAppleConfigured = !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID);
 const isTwitterConfigured = !!(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET);
 const isFacebookConfigured = !!(process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET);
 
@@ -42,7 +40,6 @@ export function setupOAuthRoutes(app: Express) {
   // Log OAuth configuration status
   console.log("OAuth Configuration Status:");
   console.log(`  - Google: ${isGoogleConfigured ? "✓ Configured" : "✗ Not configured"}`);
-  console.log(`  - Apple: ${isAppleConfigured ? "✓ Configured" : "✗ Not configured"}`);
   console.log(`  - Twitter: ${isTwitterConfigured ? "✓ Configured" : "✗ Not configured"}`);
   console.log(`  - Facebook: ${isFacebookConfigured ? "✓ Configured" : "✗ Not configured"}`);
   
@@ -133,99 +130,6 @@ export function setupOAuthRoutes(app: Express) {
     } catch (error) {
       console.error("Google OAuth callback error:", error);
       res.redirect("/login?error=google_auth_failed");
-    }
-  });
-  
-  // ===================
-  // APPLE OAUTH
-  // ===================
-  
-  /**
-   * Initiate Apple OAuth
-   * GET /api/auth/apple
-   */
-  app.get("/api/auth/apple", (req: Request, res: Response) => {
-    if (!isAppleConfigured) {
-      return res.redirect("/login?error=apple_not_configured");
-    }
-    
-    const state = generateState();
-    req.session.oauthState = state;
-    
-    const params = new URLSearchParams({
-      client_id: process.env.APPLE_CLIENT_ID!,
-      redirect_uri: `${APP_URL}/api/auth/apple/callback`,
-      response_type: "code id_token",
-      response_mode: "form_post",
-      scope: "name email",
-      state,
-    });
-    
-    res.redirect(`https://appleid.apple.com/auth/authorize?${params.toString()}`);
-  });
-  
-  /**
-   * Apple OAuth callback
-   * POST /api/auth/apple/callback
-   */
-  app.post("/api/auth/apple/callback", async (req: Request, res: Response) => {
-    try {
-      const { code, state, id_token, user } = req.body;
-      
-      // Verify state
-      if (!state || state !== req.session.oauthState) {
-        return res.redirect("/login?error=invalid_state");
-      }
-      delete req.session.oauthState;
-      
-      if (!id_token) {
-        return res.redirect("/login?error=missing_token");
-      }
-      
-      // Decode ID token (Note: In production, you should verify the signature)
-      const tokenParts = id_token.split(".");
-      const payload = JSON.parse(Buffer.from(tokenParts[1], "base64").toString());
-      
-      if (!payload.email) {
-        return res.redirect("/login?error=no_email");
-      }
-      
-      // Apple only sends user info on first authorization
-      let firstName, lastName;
-      if (user) {
-        try {
-          const userData = typeof user === "string" ? JSON.parse(user) : user;
-          firstName = userData.name?.firstName;
-          lastName = userData.name?.lastName;
-        } catch (e) {
-          console.error("Error parsing Apple user data:", e);
-        }
-      }
-      
-      // Create or update user
-      const result = await upsertOAuthUser({
-        email: payload.email,
-        firstName,
-        lastName,
-        authProvider: "apple",
-        oauthProviderId: payload.sub,
-      });
-      
-      if (!result.success) {
-        return res.redirect(`/login?error=${encodeURIComponent(result.message || "auth_failed")}`);
-      }
-      
-      // Log the user in
-      req.login(result.user!, (err) => {
-        if (err) {
-          console.error("Apple OAuth login error:", err);
-          return res.redirect("/login?error=session_error");
-        }
-        res.redirect("/");
-      });
-    } catch (error) {
-      console.error("Apple OAuth callback error:", error);
-      res.redirect("/login?error=apple_auth_failed");
     }
   });
   

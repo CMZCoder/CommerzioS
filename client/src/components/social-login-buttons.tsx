@@ -1,7 +1,7 @@
 /**
  * Social Login Buttons Component
  * 
- * Provides buttons for social login with Google, Apple, Twitter, and Facebook.
+ * Provides buttons for social login with Google, Twitter, and Facebook.
  * These will redirect to the respective OAuth flows when OAuth is configured.
  */
 

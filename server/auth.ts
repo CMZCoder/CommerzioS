@@ -4,7 +4,7 @@
  * This module replaces the Replit Auth system with a custom local
  * authentication system supporting:
  * - Email/password registration and login
- * - OAuth providers (Google, Apple, Twitter, Facebook)
+ * - OAuth providers (Google, Twitter, Facebook)
  * - Session management with PostgreSQL store
  * - CSRF protection
  * - Rate limiting

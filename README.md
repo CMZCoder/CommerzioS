@@ -52,11 +52,6 @@ A full-stack TypeScript application for a service marketplace with a React front
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
    
-   APPLE_CLIENT_ID=your-apple-client-id
-   APPLE_TEAM_ID=your-apple-team-id
-   APPLE_KEY_ID=your-apple-key-id
-   APPLE_PRIVATE_KEY=your-apple-private-key
-   
    TWITTER_CLIENT_ID=your-twitter-client-id
    TWITTER_CLIENT_SECRET=your-twitter-client-secret
    
@@ -115,7 +110,6 @@ The platform uses a custom authentication system with the following features:
 ### Social Login (OAuth)
 Supports login with:
 - **Google** - Requires `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
-- **Apple** - Requires `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`
 - **Twitter/X** - Requires `TWITTER_CLIENT_ID` and `TWITTER_CLIENT_SECRET`
 - **Facebook** - Requires `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET`
 
@@ -141,13 +135,6 @@ Supports login with:
 4. Create OAuth 2.0 Client ID (Web application)
 5. Add authorized redirect URI: `http://localhost:5000/api/auth/google/callback`
 6. Copy Client ID and Client Secret to `.env`
-
-### Apple Sign In
-1. Go to [Apple Developer Portal](https://developer.apple.com)
-2. Register your app and enable Sign In with Apple
-3. Create a Services ID and configure redirect URL
-4. Create a key for Sign In with Apple
-5. Add credentials to `.env`
 
 ### Twitter/X OAuth
 1. Go to [Twitter Developer Portal](https://developer.twitter.com)
@@ -235,7 +222,6 @@ If port 5000 is already in use, change the `PORT` environment variable in your `
 - `POST /api/auth/reset-password` - Reset password with token
 - `POST /api/auth/change-password` - Change password (authenticated)
 - `GET /api/auth/google` - Initiate Google OAuth
-- `GET /api/auth/apple` - Initiate Apple OAuth
 - `GET /api/auth/twitter` - Initiate Twitter OAuth
 - `GET /api/auth/facebook` - Initiate Facebook OAuth
 
