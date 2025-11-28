@@ -10,6 +10,7 @@ import {
   integer,
   decimal,
   boolean,
+  unique,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -157,6 +158,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   customerConversations: many(chatConversations, { relationName: "customerConversations" }),
   vendorConversations: many(chatConversations, { relationName: "vendorConversations" }),
   chatMessages: many(chatMessages),
+  // Reports and blocks
+  reportsFiled: many(userReports, { relationName: "reportsFiled" }),
+  reportsReceived: many(userReports, { relationName: "reportsReceived" }),
+  reportsResolved: many(userReports, { relationName: "reportsResolved" }),
+  blocksGiven: many(userBlocks, { relationName: "blocksGiven" }),
+  blocksReceived: many(userBlocks, { relationName: "blocksReceived" }),
 }));
 
 // OAuth tokens table (for storing social login tokens)
@@ -1443,6 +1450,131 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   }),
 }));
 
+/**
+ * User Reports Table
+ * For reporting users in chat conversations
+ */
+export const userReports = pgTable("user_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Reporter
+  reporterId: varchar("reporter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
+  // Reported user
+  reportedUserId: varchar("reported_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
+  // Context
+  conversationId: varchar("conversation_id").references(() => chatConversations.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").references(() => chatMessages.id, { onDelete: "cascade" }),
+
+  // Report details
+  reportType: varchar("report_type", {
+    enum: ["spam", "harassment", "scam", "inappropriate_content", "fake_account", "other"]
+  }).notNull(),
+
+  description: text("description").notNull(),
+
+  // AI moderation results
+  aiSeverity: varchar("ai_severity", {
+    enum: ["low", "medium", "high", "critical"]
+  }),
+
+  aiAnalysis: text("ai_analysis"),
+
+  aiRecommendation: text("ai_recommendation"),
+
+  // Status
+  status: varchar("status", {
+    enum: ["pending", "under_review", "resolved", "dismissed"]
+  }).default("pending").notNull(),
+
+  // Resolution
+  adminDecision: varchar("admin_decision", {
+    enum: ["warning", "suspension", "ban", "no_action"]
+  }),
+
+  adminNotes: text("admin_notes"),
+
+  resolvedBy: varchar("resolved_by").references(() => users.id),
+  resolvedAt: timestamp("resolved_at"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_user_reports_reporter").on(table.reporterId),
+  index("idx_user_reports_reported").on(table.reportedUserId),
+  index("idx_user_reports_conversation").on(table.conversationId),
+  index("idx_user_reports_status").on(table.status),
+  index("idx_user_reports_severity").on(table.aiSeverity),
+]);
+
+export const userReportsRelations = relations(userReports, ({ one }) => ({
+  reporter: one(users, {
+    fields: [userReports.reporterId],
+    references: [users.id],
+    relationName: "reportsFiled",
+  }),
+  reportedUser: one(users, {
+    fields: [userReports.reportedUserId],
+    references: [users.id],
+    relationName: "reportsReceived",
+  }),
+  conversation: one(chatConversations, {
+    fields: [userReports.conversationId],
+    references: [chatConversations.id],
+  }),
+  message: one(chatMessages, {
+    fields: [userReports.messageId],
+    references: [chatMessages.id],
+  }),
+  resolvedByUser: one(users, {
+    fields: [userReports.resolvedBy],
+    references: [users.id],
+    relationName: "reportsResolved",
+  }),
+}));
+
+/**
+ * User Blocks Table
+ * For blocking users in chat
+ */
+export const userBlocks = pgTable("user_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  // Blocker
+  blockerId: varchar("blocker_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
+  // Blocked user
+  blockedUserId: varchar("blocked_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+
+  // Reason
+  reason: text("reason"),
+
+  // Block scope
+  blockType: varchar("block_type", {
+    enum: ["chat_only", "full_block"] // chat_only blocks only messaging, full_block blocks all interaction
+  }).default("chat_only").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_user_blocks_blocker").on(table.blockerId),
+  index("idx_user_blocks_blocked").on(table.blockedUserId),
+  unique("unique_user_block").on(table.blockerId, table.blockedUserId),
+]);
+
+export const userBlocksRelations = relations(userBlocks, ({ one }) => ({
+  blocker: one(users, {
+    fields: [userBlocks.blockerId],
+    references: [users.id],
+    relationName: "blocksGiven",
+  }),
+  blockedUser: one(users, {
+    fields: [userBlocks.blockedUserId],
+    references: [users.id],
+    relationName: "blocksReceived",
+  }),
+}));
+
 // ===========================================
 // STRIPE USER EXTENSIONS (add to users table later via migration)
 // Note: These fields should be added to the users table
@@ -1727,6 +1859,25 @@ export type InsertNotificationPreferences = typeof notificationPreferences.$infe
 
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
+
+// User Reports
+export const insertUserReportSchema = createInsertSchema(userReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UserReport = typeof userReports.$inferSelect;
+export type InsertUserReport = typeof userReports.$inferInsert;
+
+// User Blocks
+export const insertUserBlockSchema = createInsertSchema(userBlocks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type InsertUserBlock = typeof userBlocks.$inferInsert;
 
 // Notification type constants for use throughout the app
 export const NOTIFICATION_TYPES = [
