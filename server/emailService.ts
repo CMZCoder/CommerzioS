@@ -58,9 +58,9 @@ function getTransporter(): nodemailer.Transporter {
 }
 
 /**
- * Send an email
+ * Send an email (generic function for notification emails, etc.)
  */
-async function sendEmail(options: {
+export async function sendEmail(options: {
   to: string;
   subject: string;
   html: string;
