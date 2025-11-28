@@ -110,6 +110,11 @@ export const users = pgTable("users", {
   totalEarnedPoints: integer("total_earned_points").default(0).notNull(),
   totalEarnedCommission: decimal("total_earned_commission", { precision: 12, scale: 2 }).default("0").notNull(),
   
+  // Stripe integration fields
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+  stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 255 }),
+  stripeConnectOnboarded: boolean("stripe_connect_onboarded").default(false).notNull(),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
@@ -141,6 +146,16 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   pointsLog: many(pointsLog),
   referralTransactionsFrom: many(referralTransactions, { relationName: "fromUser" }),
   referralTransactionsTo: many(referralTransactions, { relationName: "toUser" }),
+  // Payment & booking relations
+  customerOrders: many(orders, { relationName: "customerOrders" }),
+  vendorOrders: many(orders, { relationName: "vendorOrders" }),
+  customerBookings: many(bookings, { relationName: "customerBookings" }),
+  vendorBookings: many(bookings, { relationName: "vendorBookings" }),
+  vendorAvailabilitySettings: one(vendorAvailabilitySettings),
+  vendorCalendarBlocks: many(vendorCalendarBlocks),
+  customerConversations: many(chatConversations, { relationName: "customerConversations" }),
+  vendorConversations: many(chatConversations, { relationName: "vendorConversations" }),
+  chatMessages: many(chatMessages),
 }));
 
 // OAuth tokens table (for storing social login tokens)
@@ -581,6 +596,12 @@ export const servicesRelations = relations(services, ({ one, many }) => ({
   reviews: many(reviews),
   favorites: many(favorites),
   serviceContacts: many(serviceContacts),
+  // Payment & booking relations
+  pricingOptions: many(servicePricingOptions),
+  orders: many(orders),
+  bookings: many(bookings),
+  calendarBlocks: many(vendorCalendarBlocks),
+  chatConversations: many(chatConversations),
 }));
 
 // Service contacts table (support multiple phone/email with verification)
@@ -953,3 +974,550 @@ export const updateReferralConfigSchema = z.object({
   maxReferralsPerDay: z.number().min(1).optional(),
   isActive: z.boolean().optional(),
 });
+
+// ===========================================
+// STRIPE PAYMENT SYSTEM
+// ===========================================
+
+/**
+ * Service Pricing Options Table
+ * Allows multiple pricing tiers per service (e.g., basic, premium, enterprise)
+ */
+export const servicePricingOptions = pgTable("service_pricing_options", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  
+  // Pricing option details
+  label: varchar("label", { length: 100 }).notNull(), // e.g., "Basic Cleaning", "Deep Clean"
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("CHF").notNull(),
+  
+  // Billing interval
+  billingInterval: varchar("billing_interval", { 
+    enum: ["one_time", "hourly", "daily", "weekly", "monthly", "yearly"] 
+  }).default("one_time").notNull(),
+  
+  // Duration for the service (in minutes)
+  durationMinutes: integer("duration_minutes"),
+  
+  // Stripe Price ID (created when pricing option is added)
+  stripePriceId: varchar("stripe_price_id", { length: 255 }),
+  
+  // Ordering
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pricing_options_service").on(table.serviceId),
+  index("idx_pricing_options_active").on(table.isActive),
+]);
+
+export const servicePricingOptionsRelations = relations(servicePricingOptions, ({ one }) => ({
+  service: one(services, {
+    fields: [servicePricingOptions.serviceId],
+    references: [services.id],
+  }),
+}));
+
+/**
+ * Orders Table
+ * Tracks all orders/purchases made on the platform
+ */
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderNumber: varchar("order_number", { length: 20 }).unique().notNull(),
+  
+  // Parties involved
+  customerId: varchar("customer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  pricingOptionId: varchar("pricing_option_id").references(() => servicePricingOptions.id, { onDelete: "set null" }),
+  
+  // Pricing at time of order (snapshot)
+  priceLabel: varchar("price_label", { length: 100 }),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").default(1).notNull(),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).default("0").notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("CHF").notNull(),
+  
+  // Order status
+  status: varchar("status", { 
+    enum: ["pending", "confirmed", "in_progress", "completed", "cancelled", "refunded", "disputed"] 
+  }).default("pending").notNull(),
+  
+  // Payment info (Stripe)
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
+  paymentStatus: varchar("payment_status", { 
+    enum: ["pending", "processing", "succeeded", "failed", "refunded", "cancelled"] 
+  }).default("pending").notNull(),
+  paidAt: timestamp("paid_at"),
+  
+  // Vendor payout
+  vendorPayoutAmount: decimal("vendor_payout_amount", { precision: 10, scale: 2 }),
+  vendorPayoutStatus: varchar("vendor_payout_status", { 
+    enum: ["pending", "processing", "paid", "failed"] 
+  }).default("pending").notNull(),
+  vendorPaidAt: timestamp("vendor_paid_at"),
+  stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
+  
+  // Linked booking (if applicable)
+  bookingId: varchar("booking_id"),
+  
+  // Notes
+  customerNotes: text("customer_notes"),
+  vendorNotes: text("vendor_notes"),
+  adminNotes: text("admin_notes"),
+  
+  // Referral tracking (for commission calculation)
+  referralProcessed: boolean("referral_processed").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_orders_customer").on(table.customerId),
+  index("idx_orders_vendor").on(table.vendorId),
+  index("idx_orders_service").on(table.serviceId),
+  index("idx_orders_status").on(table.status),
+  index("idx_orders_payment_status").on(table.paymentStatus),
+  index("idx_orders_created").on(table.createdAt),
+]);
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  customer: one(users, {
+    fields: [orders.customerId],
+    references: [users.id],
+    relationName: "customerOrders",
+  }),
+  vendor: one(users, {
+    fields: [orders.vendorId],
+    references: [users.id],
+    relationName: "vendorOrders",
+  }),
+  service: one(services, {
+    fields: [orders.serviceId],
+    references: [services.id],
+  }),
+  pricingOption: one(servicePricingOptions, {
+    fields: [orders.pricingOptionId],
+    references: [servicePricingOptions.id],
+  }),
+  booking: one(bookings, {
+    fields: [orders.bookingId],
+    references: [bookings.id],
+  }),
+  chatConversation: one(chatConversations),
+}));
+
+// ===========================================
+// BOOKING & CALENDAR SYSTEM
+// ===========================================
+
+/**
+ * Vendor Availability Settings
+ * Stores vendor's general availability preferences
+ */
+export const vendorAvailabilitySettings = pgTable("vendor_availability_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }).unique(),
+  
+  // Default working hours (JSON: { mon: { start: "09:00", end: "17:00" }, ... })
+  defaultWorkingHours: jsonb("default_working_hours").default(sql`'{}'::jsonb`),
+  
+  // Timezone
+  timezone: varchar("timezone", { length: 50 }).default("Europe/Zurich").notNull(),
+  
+  // Booking settings
+  minBookingNoticeHours: integer("min_booking_notice_hours").default(24).notNull(),
+  maxBookingAdvanceDays: integer("max_booking_advance_days").default(90).notNull(),
+  defaultSlotDurationMinutes: integer("default_slot_duration_minutes").default(60).notNull(),
+  bufferBetweenBookingsMinutes: integer("buffer_between_bookings_minutes").default(15).notNull(),
+  
+  // Auto-accept settings
+  autoAcceptBookings: boolean("auto_accept_bookings").default(false).notNull(),
+  requireDeposit: boolean("require_deposit").default(false).notNull(),
+  depositPercentage: integer("deposit_percentage").default(20),
+  
+  // Notifications
+  emailNotifications: boolean("email_notifications").default(true).notNull(),
+  smsNotifications: boolean("sms_notifications").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_vendor_availability_user").on(table.userId),
+]);
+
+export const vendorAvailabilitySettingsRelations = relations(vendorAvailabilitySettings, ({ one }) => ({
+  user: one(users, {
+    fields: [vendorAvailabilitySettings.userId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * Vendor Calendar Blocks
+ * Manual blocks, holidays, unavailable periods
+ */
+export const vendorCalendarBlocks = pgTable("vendor_calendar_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Block period
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time").notNull(),
+  
+  // Block type
+  blockType: varchar("block_type", { 
+    enum: ["manual", "holiday", "personal", "break", "maintenance"] 
+  }).default("manual").notNull(),
+  
+  // Recurrence (null = one-time, else: daily, weekly, monthly)
+  recurrence: varchar("recurrence", { enum: ["daily", "weekly", "monthly"] }),
+  recurrenceEndDate: timestamp("recurrence_end_date"),
+  
+  // Details
+  title: varchar("title", { length: 100 }),
+  notes: text("notes"),
+  
+  // For specific service blocking (null = all services blocked)
+  serviceId: varchar("service_id").references(() => services.id, { onDelete: "cascade" }),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_calendar_blocks_user").on(table.userId),
+  index("idx_calendar_blocks_time").on(table.startTime, table.endTime),
+  index("idx_calendar_blocks_service").on(table.serviceId),
+]);
+
+export const vendorCalendarBlocksRelations = relations(vendorCalendarBlocks, ({ one }) => ({
+  user: one(users, {
+    fields: [vendorCalendarBlocks.userId],
+    references: [users.id],
+  }),
+  service: one(services, {
+    fields: [vendorCalendarBlocks.serviceId],
+    references: [services.id],
+  }),
+}));
+
+/**
+ * Bookings Table
+ * All booking requests and confirmed bookings
+ */
+export const bookings = pgTable("bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingNumber: varchar("booking_number", { length: 20 }).unique().notNull(),
+  
+  // Parties
+  customerId: varchar("customer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  pricingOptionId: varchar("pricing_option_id").references(() => servicePricingOptions.id, { onDelete: "set null" }),
+  
+  // Requested time slot
+  requestedStartTime: timestamp("requested_start_time").notNull(),
+  requestedEndTime: timestamp("requested_end_time").notNull(),
+  
+  // Confirmed time slot (may differ from requested if alternative proposed)
+  confirmedStartTime: timestamp("confirmed_start_time"),
+  confirmedEndTime: timestamp("confirmed_end_time"),
+  
+  // Status workflow: pending → accepted/rejected/alternative_proposed → confirmed/cancelled
+  status: varchar("status", { 
+    enum: [
+      "pending",           // Initial request from customer
+      "accepted",          // Vendor accepted
+      "rejected",          // Vendor rejected
+      "alternative_proposed", // Vendor proposed different time
+      "confirmed",         // Customer confirmed (after alternative or deposit paid)
+      "in_progress",       // Service being delivered
+      "completed",         // Service completed
+      "cancelled",         // Cancelled by either party
+      "no_show"            // Customer didn't show up
+    ] 
+  }).default("pending").notNull(),
+  
+  // Alternative proposal (if vendor proposes different time)
+  alternativeStartTime: timestamp("alternative_start_time"),
+  alternativeEndTime: timestamp("alternative_end_time"),
+  alternativeMessage: text("alternative_message"),
+  alternativeExpiresAt: timestamp("alternative_expires_at"),
+  
+  // Queue position (for waitlist functionality)
+  queuePosition: integer("queue_position"),
+  
+  // Customer details at booking time
+  customerMessage: text("customer_message"),
+  customerPhone: varchar("customer_phone", { length: 50 }),
+  customerAddress: text("customer_address"),
+  
+  // Vendor response
+  vendorMessage: text("vendor_message"),
+  rejectionReason: text("rejection_reason"),
+  
+  // Cancellation
+  cancelledBy: varchar("cancelled_by", { enum: ["customer", "vendor", "system"] }),
+  cancellationReason: text("cancellation_reason"),
+  cancelledAt: timestamp("cancelled_at"),
+  
+  // Reminders sent
+  reminderSentAt: timestamp("reminder_sent_at"),
+  
+  // Timestamps for status changes
+  acceptedAt: timestamp("accepted_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_bookings_customer").on(table.customerId),
+  index("idx_bookings_vendor").on(table.vendorId),
+  index("idx_bookings_service").on(table.serviceId),
+  index("idx_bookings_status").on(table.status),
+  index("idx_bookings_requested_time").on(table.requestedStartTime),
+  index("idx_bookings_confirmed_time").on(table.confirmedStartTime),
+]);
+
+export const bookingsRelations = relations(bookings, ({ one, many }) => ({
+  customer: one(users, {
+    fields: [bookings.customerId],
+    references: [users.id],
+    relationName: "customerBookings",
+  }),
+  vendor: one(users, {
+    fields: [bookings.vendorId],
+    references: [users.id],
+    relationName: "vendorBookings",
+  }),
+  service: one(services, {
+    fields: [bookings.serviceId],
+    references: [services.id],
+  }),
+  pricingOption: one(servicePricingOptions, {
+    fields: [bookings.pricingOptionId],
+    references: [servicePricingOptions.id],
+  }),
+  orders: many(orders),
+  chatConversation: one(chatConversations),
+}));
+
+// ===========================================
+// CHAT SYSTEM
+// ===========================================
+
+/**
+ * Chat Conversations Table
+ * Links conversations to bookings/orders
+ */
+export const chatConversations = pgTable("chat_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Participants
+  customerId: varchar("customer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Context (at least one should be set)
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "cascade" }),
+  orderId: varchar("order_id").references(() => orders.id, { onDelete: "cascade" }),
+  serviceId: varchar("service_id").references(() => services.id, { onDelete: "set null" }),
+  
+  // Conversation status
+  status: varchar("status", { 
+    enum: ["active", "archived", "blocked", "closed"] 
+  }).default("active").notNull(),
+  
+  // Last activity tracking
+  lastMessageAt: timestamp("last_message_at"),
+  lastMessagePreview: varchar("last_message_preview", { length: 100 }),
+  
+  // Unread counts (per participant)
+  customerUnreadCount: integer("customer_unread_count").default(0).notNull(),
+  vendorUnreadCount: integer("vendor_unread_count").default(0).notNull(),
+  
+  // Moderation
+  flaggedForReview: boolean("flagged_for_review").default(false).notNull(),
+  flagReason: text("flag_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_chat_conversations_customer").on(table.customerId),
+  index("idx_chat_conversations_vendor").on(table.vendorId),
+  index("idx_chat_conversations_booking").on(table.bookingId),
+  index("idx_chat_conversations_order").on(table.orderId),
+  index("idx_chat_conversations_last_message").on(table.lastMessageAt),
+]);
+
+export const chatConversationsRelations = relations(chatConversations, ({ one, many }) => ({
+  customer: one(users, {
+    fields: [chatConversations.customerId],
+    references: [users.id],
+    relationName: "customerConversations",
+  }),
+  vendor: one(users, {
+    fields: [chatConversations.vendorId],
+    references: [users.id],
+    relationName: "vendorConversations",
+  }),
+  booking: one(bookings, {
+    fields: [chatConversations.bookingId],
+    references: [bookings.id],
+  }),
+  order: one(orders, {
+    fields: [chatConversations.orderId],
+    references: [orders.id],
+  }),
+  service: one(services, {
+    fields: [chatConversations.serviceId],
+    references: [services.id],
+  }),
+  messages: many(chatMessages),
+}));
+
+/**
+ * Chat Messages Table
+ * Individual messages with moderation tracking
+ */
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  
+  // Sender
+  senderId: varchar("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  senderRole: varchar("sender_role", { enum: ["customer", "vendor", "system"] }).notNull(),
+  
+  // Message content
+  content: text("content").notNull(),
+  originalContent: text("original_content"), // Stored if message was modified by filter
+  
+  // Message type
+  messageType: varchar("message_type", { 
+    enum: ["text", "image", "file", "system", "booking_update", "payment_update"] 
+  }).default("text").notNull(),
+  
+  // Attachments (for images/files)
+  attachments: jsonb("attachments").default(sql`'[]'::jsonb`),
+  
+  // Moderation
+  wasFiltered: boolean("was_filtered").default(false).notNull(),
+  filterReason: varchar("filter_reason", { 
+    enum: ["profanity", "contact_info", "spam", "manual"] 
+  }),
+  blockedContent: text("blocked_content"), // What was blocked (for admin review)
+  
+  // Read status
+  readAt: timestamp("read_at"),
+  
+  // Edit/delete
+  isEdited: boolean("is_edited").default(false).notNull(),
+  editedAt: timestamp("edited_at"),
+  isDeleted: boolean("is_deleted").default(false).notNull(),
+  deletedAt: timestamp("deleted_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_chat_messages_conversation").on(table.conversationId),
+  index("idx_chat_messages_sender").on(table.senderId),
+  index("idx_chat_messages_created").on(table.createdAt),
+]);
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  conversation: one(chatConversations, {
+    fields: [chatMessages.conversationId],
+    references: [chatConversations.id],
+  }),
+  sender: one(users, {
+    fields: [chatMessages.senderId],
+    references: [users.id],
+  }),
+}));
+
+// ===========================================
+// STRIPE USER EXTENSIONS (add to users table later via migration)
+// Note: These fields should be added to the users table
+// stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
+// stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 255 }),
+// stripeConnectOnboarded: boolean("stripe_connect_onboarded").default(false),
+// ===========================================
+
+// ===========================================
+// INSERT SCHEMAS
+// ===========================================
+
+export const insertServicePricingOptionSchema = createInsertSchema(servicePricingOptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  orderNumber: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVendorAvailabilitySettingsSchema = createInsertSchema(vendorAvailabilitySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVendorCalendarBlockSchema = createInsertSchema(vendorCalendarBlocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBookingSchema = createInsertSchema(bookings).omit({
+  id: true,
+  bookingNumber: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+// ===========================================
+// TYPE EXPORTS
+// ===========================================
+
+export type ServicePricingOption = typeof servicePricingOptions.$inferSelect;
+export type InsertServicePricingOption = typeof servicePricingOptions.$inferInsert;
+
+export type Order = typeof orders.$inferSelect;
+export type InsertOrder = typeof orders.$inferInsert;
+
+export type VendorAvailabilitySettings = typeof vendorAvailabilitySettings.$inferSelect;
+export type InsertVendorAvailabilitySettings = typeof vendorAvailabilitySettings.$inferInsert;
+
+export type VendorCalendarBlock = typeof vendorCalendarBlocks.$inferSelect;
+export type InsertVendorCalendarBlock = typeof vendorCalendarBlocks.$inferInsert;
+
+export type Booking = typeof bookings.$inferSelect;
+export type InsertBooking = typeof bookings.$inferInsert;
+
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type InsertChatConversation = typeof chatConversations.$inferInsert;
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = typeof chatMessages.$inferInsert;

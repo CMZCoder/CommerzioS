@@ -1,0 +1,2 @@
+export { StripeConnectOnboarding } from './StripeConnectOnboarding';
+

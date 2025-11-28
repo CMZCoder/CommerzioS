@@ -48,6 +48,59 @@ import {
   getPointsLeaderboard,
   calculateDiscountValue,
 } from "./pointsService";
+import {
+  isStripeConfigured,
+  getStripePublishableKey,
+  getOrCreateStripeCustomer,
+  createConnectAccount,
+  getConnectAccountStatus,
+  createPaymentIntent,
+  createCheckoutSession,
+  constructWebhookEvent,
+  handlePaymentSucceeded,
+  handlePaymentFailed,
+  handleAccountUpdated,
+  createRefund,
+  PLATFORM_FEE_PERCENTAGE,
+} from "./stripeService";
+import {
+  getVendorAvailabilitySettings,
+  upsertVendorAvailabilitySettings,
+  getVendorCalendarBlocks,
+  createCalendarBlock,
+  updateCalendarBlock,
+  deleteCalendarBlock,
+  getAvailableSlots,
+  createBookingRequest,
+  acceptBooking,
+  rejectBooking,
+  proposeAlternative,
+  acceptAlternative,
+  cancelBooking,
+  getCustomerBookings,
+  getVendorBookings,
+  getBookingById,
+  startBooking,
+  completeBooking,
+  getPendingBookingsCount,
+  getQueuePosition,
+} from "./bookingService";
+import {
+  getOrCreateConversation,
+  getUserConversations,
+  getConversationById,
+  sendMessage,
+  getMessages,
+  markMessagesAsRead,
+  getUnreadCount,
+  sendSystemMessage,
+  blockConversation,
+  getFlaggedConversations,
+  clearConversationFlag,
+  deleteMessage,
+  editMessage,
+  moderateMessage,
+} from "./chatService";
 import { categorizeService } from "./aiService";
 import { getAdminAssistance } from "./aiAdminService";
 import { getUserSupport } from "./aiUserSupportService";
@@ -2681,6 +2734,883 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching referral transactions:", error);
       res.status(500).json({ message: "Failed to fetch referral transactions" });
+    }
+  });
+
+  // ===========================================
+  // STRIPE PAYMENT ROUTES
+  // ===========================================
+
+  // Get Stripe configuration (public key, etc.)
+  app.get('/api/payments/config', (req, res) => {
+    res.json({
+      publishableKey: getStripePublishableKey(),
+      isConfigured: isStripeConfigured(),
+      platformFeePercentage: PLATFORM_FEE_PERCENTAGE,
+    });
+  });
+
+  // Create Stripe customer for current user
+  app.post('/api/payments/create-customer', isAuthenticated, async (req: any, res) => {
+    try {
+      const customerId = await getOrCreateStripeCustomer(req.user!.id);
+      res.json({ customerId });
+    } catch (error) {
+      console.error("Error creating Stripe customer:", error);
+      res.status(500).json({ message: "Failed to create payment customer" });
+    }
+  });
+
+  // Create Stripe Connect account for vendor
+  app.post('/api/payments/connect/create', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await createConnectAccount(req.user!.id);
+      if (!result) {
+        return res.status(503).json({ message: "Payment system not configured" });
+      }
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating Connect account:", error);
+      res.status(500).json({ message: "Failed to create vendor payment account" });
+    }
+  });
+
+  // Get Connect account status
+  app.get('/api/payments/connect/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const status = await getConnectAccountStatus(req.user!.id);
+      res.json(status || { hasAccount: false, isOnboarded: false, chargesEnabled: false, payoutsEnabled: false });
+    } catch (error) {
+      console.error("Error getting Connect status:", error);
+      res.status(500).json({ message: "Failed to get payment account status" });
+    }
+  });
+
+  // Create payment intent for an order
+  app.post('/api/payments/create-intent', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId, amount, description } = req.body;
+      
+      if (!orderId || !amount) {
+        return res.status(400).json({ message: "orderId and amount are required" });
+      }
+
+      // Get order to verify ownership and get vendor
+      const order = await storage.getOrderById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      if (order.customerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to pay for this order" });
+      }
+
+      const result = await createPaymentIntent({
+        orderId,
+        customerId: req.user!.id,
+        vendorId: order.vendorId,
+        amount: Math.round(amount * 100), // Convert to cents
+        description,
+      });
+
+      if (!result) {
+        return res.status(503).json({ message: "Payment system not configured" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Failed to create payment" });
+    }
+  });
+
+  // Create checkout session
+  app.post('/api/payments/create-checkout', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId, lineItems, successUrl, cancelUrl } = req.body;
+
+      if (!orderId || !lineItems || !successUrl || !cancelUrl) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const order = await storage.getOrderById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      if (order.customerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const result = await createCheckoutSession({
+        orderId,
+        customerId: req.user!.id,
+        vendorId: order.vendorId,
+        lineItems,
+        successUrl,
+        cancelUrl,
+      });
+
+      if (!result) {
+        return res.status(503).json({ message: "Payment system not configured" });
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ message: "Failed to create checkout" });
+    }
+  });
+
+  // Stripe webhook handler
+  app.post('/api/payments/webhook', async (req, res) => {
+    const signature = req.headers['stripe-signature'] as string;
+
+    if (!signature) {
+      return res.status(400).json({ message: "Missing signature" });
+    }
+
+    try {
+      // Note: For raw body, ensure express.raw() middleware is set up for this route
+      const event = constructWebhookEvent(req.body, signature);
+
+      if (!event) {
+        return res.status(400).json({ message: "Invalid webhook signature" });
+      }
+
+      // Handle the event
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          await handlePaymentSucceeded(event.data.object as any);
+          break;
+        case 'payment_intent.payment_failed':
+          await handlePaymentFailed(event.data.object as any);
+          break;
+        case 'account.updated':
+          await handleAccountUpdated(event.data.object as any);
+          break;
+        default:
+          console.log(`Unhandled webhook event type: ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error) {
+      console.error("Webhook error:", error);
+      res.status(500).json({ message: "Webhook handler failed" });
+    }
+  });
+
+  // Refund an order (admin or vendor)
+  app.post('/api/payments/refund', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId, amount, reason } = req.body;
+      
+      if (!orderId) {
+        return res.status(400).json({ message: "orderId is required" });
+      }
+
+      const order = await storage.getOrderById(orderId);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      // Only vendor or admin can refund
+      const user = await storage.getUser(req.user!.id);
+      if (order.vendorId !== req.user!.id && !user?.isAdmin) {
+        return res.status(403).json({ message: "Not authorized to refund this order" });
+      }
+
+      const success = await createRefund(orderId, amount ? Math.round(amount * 100) : undefined, reason);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error creating refund:", error);
+      res.status(500).json({ message: "Failed to create refund" });
+    }
+  });
+
+  // ===========================================
+  // ORDERS ROUTES
+  // ===========================================
+
+  // Create an order
+  app.post('/api/orders', isAuthenticated, async (req: any, res) => {
+    try {
+      const { serviceId, pricingOptionId, quantity, customerNotes } = req.body;
+
+      if (!serviceId) {
+        return res.status(400).json({ message: "serviceId is required" });
+      }
+
+      const order = await storage.createOrder({
+        customerId: req.user!.id,
+        serviceId,
+        pricingOptionId,
+        quantity: quantity || 1,
+        customerNotes,
+      });
+
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating order:", error);
+      res.status(500).json({ message: "Failed to create order" });
+    }
+  });
+
+  // Get user's orders (as customer)
+  app.get('/api/orders/my', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status, limit = 20, offset = 0 } = req.query;
+      const orders = await storage.getCustomerOrders(
+        req.user!.id,
+        status as string,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  // Get vendor's orders
+  app.get('/api/vendor/orders', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status, limit = 20, offset = 0 } = req.query;
+      const orders = await storage.getVendorOrders(
+        req.user!.id,
+        status as string,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching vendor orders:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  // Get single order
+  app.get('/api/orders/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const order = await storage.getOrderById(req.params.id);
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      // Verify access
+      if (order.customerId !== req.user!.id && order.vendorId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+      res.json(order);
+    } catch (error) {
+      console.error("Error fetching order:", error);
+      res.status(500).json({ message: "Failed to fetch order" });
+    }
+  });
+
+  // Update order status (vendor)
+  app.patch('/api/orders/:id/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status, vendorNotes } = req.body;
+      const order = await storage.getOrderById(req.params.id);
+      
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      if (order.vendorId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const updated = await storage.updateOrderStatus(req.params.id, status, vendorNotes);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating order:", error);
+      res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+
+  // ===========================================
+  // SERVICE PRICING OPTIONS ROUTES
+  // ===========================================
+
+  // Get pricing options for a service
+  app.get('/api/services/:serviceId/pricing-options', async (req, res) => {
+    try {
+      const options = await storage.getServicePricingOptions(req.params.serviceId);
+      res.json(options);
+    } catch (error) {
+      console.error("Error fetching pricing options:", error);
+      res.status(500).json({ message: "Failed to fetch pricing options" });
+    }
+  });
+
+  // Create pricing option (service owner only)
+  app.post('/api/services/:serviceId/pricing-options', isAuthenticated, async (req: any, res) => {
+    try {
+      const service = await storage.getService(req.params.serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      if (service.ownerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const option = await storage.createServicePricingOption({
+        serviceId: req.params.serviceId,
+        ...req.body,
+      });
+      res.status(201).json(option);
+    } catch (error) {
+      console.error("Error creating pricing option:", error);
+      res.status(500).json({ message: "Failed to create pricing option" });
+    }
+  });
+
+  // Update pricing option
+  app.patch('/api/pricing-options/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const option = await storage.getPricingOptionById(req.params.id);
+      if (!option) {
+        return res.status(404).json({ message: "Pricing option not found" });
+      }
+      
+      const service = await storage.getService(option.serviceId);
+      if (!service || service.ownerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const updated = await storage.updateServicePricingOption(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating pricing option:", error);
+      res.status(500).json({ message: "Failed to update pricing option" });
+    }
+  });
+
+  // Delete pricing option
+  app.delete('/api/pricing-options/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const option = await storage.getPricingOptionById(req.params.id);
+      if (!option) {
+        return res.status(404).json({ message: "Pricing option not found" });
+      }
+      
+      const service = await storage.getService(option.serviceId);
+      if (!service || service.ownerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      await storage.deleteServicePricingOption(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting pricing option:", error);
+      res.status(500).json({ message: "Failed to delete pricing option" });
+    }
+  });
+
+  // ===========================================
+  // BOOKING & CALENDAR ROUTES
+  // ===========================================
+
+  // Get vendor availability settings
+  app.get('/api/vendor/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const settings = await getVendorAvailabilitySettings(req.user!.id);
+      res.json(settings || { 
+        defaultWorkingHours: {},
+        timezone: 'Europe/Zurich',
+        minBookingNoticeHours: 24,
+        maxBookingAdvanceDays: 90,
+      });
+    } catch (error) {
+      console.error("Error fetching availability settings:", error);
+      res.status(500).json({ message: "Failed to fetch availability settings" });
+    }
+  });
+
+  // Update vendor availability settings
+  app.put('/api/vendor/availability', isAuthenticated, async (req: any, res) => {
+    try {
+      const settings = await upsertVendorAvailabilitySettings(req.user!.id, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating availability settings:", error);
+      res.status(500).json({ message: "Failed to update availability settings" });
+    }
+  });
+
+  // Get vendor calendar blocks
+  app.get('/api/vendor/calendar/blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const { startDate, endDate, serviceId } = req.query;
+      
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate and endDate are required" });
+      }
+
+      const blocks = await getVendorCalendarBlocks(
+        req.user!.id,
+        new Date(startDate as string),
+        new Date(endDate as string),
+        serviceId as string
+      );
+      res.json(blocks);
+    } catch (error) {
+      console.error("Error fetching calendar blocks:", error);
+      res.status(500).json({ message: "Failed to fetch calendar blocks" });
+    }
+  });
+
+  // Create calendar block
+  app.post('/api/vendor/calendar/blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const block = await createCalendarBlock(req.user!.id, req.body);
+      res.status(201).json(block);
+    } catch (error: any) {
+      console.error("Error creating calendar block:", error);
+      res.status(400).json({ message: error.message || "Failed to create calendar block" });
+    }
+  });
+
+  // Update calendar block
+  app.patch('/api/vendor/calendar/blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const block = await updateCalendarBlock(req.params.id, req.user!.id, req.body);
+      if (!block) {
+        return res.status(404).json({ message: "Block not found" });
+      }
+      res.json(block);
+    } catch (error) {
+      console.error("Error updating calendar block:", error);
+      res.status(500).json({ message: "Failed to update calendar block" });
+    }
+  });
+
+  // Delete calendar block
+  app.delete('/api/vendor/calendar/blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const deleted = await deleteCalendarBlock(req.params.id, req.user!.id);
+      if (!deleted) {
+        return res.status(404).json({ message: "Block not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting calendar block:", error);
+      res.status(500).json({ message: "Failed to delete calendar block" });
+    }
+  });
+
+  // Get available slots for a service
+  app.get('/api/services/:serviceId/available-slots', async (req, res) => {
+    try {
+      const { date, duration } = req.query;
+      
+      if (!date) {
+        return res.status(400).json({ message: "date is required" });
+      }
+
+      const slots = await getAvailableSlots(
+        req.params.serviceId,
+        new Date(date as string),
+        duration ? parseInt(duration as string) : undefined
+      );
+      res.json(slots);
+    } catch (error: any) {
+      console.error("Error fetching available slots:", error);
+      res.status(400).json({ message: error.message || "Failed to fetch available slots" });
+    }
+  });
+
+  // Create booking request
+  app.post('/api/bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await createBookingRequest({
+        customerId: req.user!.id,
+        ...req.body,
+        requestedStartTime: new Date(req.body.requestedStartTime),
+        requestedEndTime: new Date(req.body.requestedEndTime),
+      });
+      res.status(201).json(booking);
+    } catch (error: any) {
+      console.error("Error creating booking:", error);
+      res.status(400).json({ message: error.message || "Failed to create booking" });
+    }
+  });
+
+  // Get customer's bookings
+  app.get('/api/bookings/my', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status, limit = 20, offset = 0 } = req.query;
+      const bookings = await getCustomerBookings(
+        req.user!.id,
+        status as string,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get vendor's bookings
+  app.get('/api/vendor/bookings', isAuthenticated, async (req: any, res) => {
+    try {
+      const { status, startDate, endDate, limit = 20, offset = 0 } = req.query;
+      const bookings = await getVendorBookings(
+        req.user!.id,
+        status as string,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined,
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(bookings);
+    } catch (error) {
+      console.error("Error fetching vendor bookings:", error);
+      res.status(500).json({ message: "Failed to fetch bookings" });
+    }
+  });
+
+  // Get pending bookings count
+  app.get('/api/vendor/bookings/pending-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const count = await getPendingBookingsCount(req.user!.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching pending count:", error);
+      res.status(500).json({ message: "Failed to fetch pending count" });
+    }
+  });
+
+  // Get single booking
+  app.get('/api/bookings/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await getBookingById(req.params.id, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+      
+      // Add queue position if pending
+      let queuePosition = null;
+      if (booking.status === 'pending') {
+        queuePosition = await getQueuePosition(booking.id);
+      }
+      
+      res.json({ ...booking, queuePosition });
+    } catch (error) {
+      console.error("Error fetching booking:", error);
+      res.status(500).json({ message: "Failed to fetch booking" });
+    }
+  });
+
+  // Accept booking (vendor)
+  app.post('/api/bookings/:id/accept', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await acceptBooking(req.params.id, req.user!.id, req.body.message);
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error accepting booking:", error);
+      res.status(400).json({ message: error.message || "Failed to accept booking" });
+    }
+  });
+
+  // Reject booking (vendor)
+  app.post('/api/bookings/:id/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await rejectBooking(req.params.id, req.user!.id, req.body.reason);
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error rejecting booking:", error);
+      res.status(400).json({ message: error.message || "Failed to reject booking" });
+    }
+  });
+
+  // Propose alternative time (vendor)
+  app.post('/api/bookings/:id/propose-alternative', isAuthenticated, async (req: any, res) => {
+    try {
+      const { alternativeStartTime, alternativeEndTime, message, expiryHours } = req.body;
+      
+      if (!alternativeStartTime || !alternativeEndTime) {
+        return res.status(400).json({ message: "Alternative times are required" });
+      }
+
+      const booking = await proposeAlternative(
+        req.params.id,
+        req.user!.id,
+        new Date(alternativeStartTime),
+        new Date(alternativeEndTime),
+        message,
+        expiryHours
+      );
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error proposing alternative:", error);
+      res.status(400).json({ message: error.message || "Failed to propose alternative" });
+    }
+  });
+
+  // Accept alternative (customer)
+  app.post('/api/bookings/:id/accept-alternative', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await acceptAlternative(req.params.id, req.user!.id);
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error accepting alternative:", error);
+      res.status(400).json({ message: error.message || "Failed to accept alternative" });
+    }
+  });
+
+  // Cancel booking (customer or vendor)
+  app.post('/api/bookings/:id/cancel', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await cancelBooking(req.params.id, req.user!.id, req.body.reason);
+      res.json(booking);
+    } catch (error: any) {
+      console.error("Error cancelling booking:", error);
+      res.status(400).json({ message: error.message || "Failed to cancel booking" });
+    }
+  });
+
+  // Start booking (vendor)
+  app.post('/api/bookings/:id/start', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await startBooking(req.params.id, req.user!.id);
+      if (!booking) {
+        return res.status(400).json({ message: "Cannot start this booking" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error starting booking:", error);
+      res.status(500).json({ message: "Failed to start booking" });
+    }
+  });
+
+  // Complete booking (vendor)
+  app.post('/api/bookings/:id/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const booking = await completeBooking(req.params.id, req.user!.id);
+      if (!booking) {
+        return res.status(400).json({ message: "Cannot complete this booking" });
+      }
+      res.json(booking);
+    } catch (error) {
+      console.error("Error completing booking:", error);
+      res.status(500).json({ message: "Failed to complete booking" });
+    }
+  });
+
+  // ===========================================
+  // CHAT ROUTES
+  // ===========================================
+
+  // Get user's conversations
+  app.get('/api/chat/conversations', isAuthenticated, async (req: any, res) => {
+    try {
+      const { role, limit = 20, offset = 0 } = req.query;
+      const conversations = await getUserConversations(
+        req.user!.id,
+        role as 'customer' | 'vendor' | 'both',
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(conversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
+
+  // Get unread message count
+  app.get('/api/chat/unread-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const count = await getUnreadCount(req.user!.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      res.status(500).json({ message: "Failed to fetch unread count" });
+    }
+  });
+
+  // Start or get conversation
+  app.post('/api/chat/conversations', isAuthenticated, async (req: any, res) => {
+    try {
+      const { vendorId, bookingId, orderId, serviceId } = req.body;
+      
+      if (!vendorId) {
+        return res.status(400).json({ message: "vendorId is required" });
+      }
+
+      // Prevent chatting with yourself
+      if (vendorId === req.user!.id) {
+        return res.status(400).json({ message: "Cannot start conversation with yourself" });
+      }
+
+      const conversation = await getOrCreateConversation({
+        customerId: req.user!.id,
+        vendorId,
+        bookingId,
+        orderId,
+        serviceId,
+      });
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  // Get conversation by ID
+  app.get('/api/chat/conversations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const conversation = await getConversationById(req.params.id, req.user!.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      res.json(conversation);
+    } catch (error) {
+      console.error("Error fetching conversation:", error);
+      res.status(500).json({ message: "Failed to fetch conversation" });
+    }
+  });
+
+  // Get messages in conversation
+  app.get('/api/chat/conversations/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const { limit = 50, before } = req.query;
+      const messages = await getMessages(
+        req.params.id,
+        req.user!.id,
+        parseInt(limit as string),
+        before as string
+      );
+      res.json(messages);
+    } catch (error: any) {
+      console.error("Error fetching messages:", error);
+      res.status(400).json({ message: error.message || "Failed to fetch messages" });
+    }
+  });
+
+  // Send message
+  app.post('/api/chat/conversations/:id/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const { content, messageType, attachments } = req.body;
+      
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+
+      const message = await sendMessage({
+        conversationId: req.params.id,
+        senderId: req.user!.id,
+        content: content.trim(),
+        messageType,
+        attachments,
+      });
+      res.status(201).json(message);
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      res.status(400).json({ message: error.message || "Failed to send message" });
+    }
+  });
+
+  // Mark messages as read
+  app.post('/api/chat/conversations/:id/read', isAuthenticated, async (req: any, res) => {
+    try {
+      await markMessagesAsRead(req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error marking messages as read:", error);
+      res.status(400).json({ message: error.message || "Failed to mark as read" });
+    }
+  });
+
+  // Block conversation
+  app.post('/api/chat/conversations/:id/block', isAuthenticated, async (req: any, res) => {
+    try {
+      await blockConversation(req.params.id, req.user!.id, req.body.reason);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error blocking conversation:", error);
+      res.status(400).json({ message: error.message || "Failed to block conversation" });
+    }
+  });
+
+  // Delete message (soft delete)
+  app.delete('/api/chat/messages/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const success = await deleteMessage(req.params.id, req.user!.id);
+      if (!success) {
+        return res.status(404).json({ message: "Message not found or not authorized" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      res.status(500).json({ message: "Failed to delete message" });
+    }
+  });
+
+  // Edit message
+  app.patch('/api/chat/messages/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { content } = req.body;
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      const message = await editMessage(req.params.id, req.user!.id, content.trim());
+      if (!message) {
+        return res.status(404).json({ message: "Message not found or not authorized" });
+      }
+      res.json(message);
+    } catch (error: any) {
+      console.error("Error editing message:", error);
+      res.status(400).json({ message: error.message || "Failed to edit message" });
+    }
+  });
+
+  // Preview message moderation (for UI feedback)
+  app.post('/api/chat/moderate-preview', isAuthenticated, async (req: any, res) => {
+    try {
+      const { content } = req.body;
+      if (!content) {
+        return res.status(400).json({ message: "Content is required" });
+      }
+      
+      const result = moderateMessage(content);
+      res.json({
+        wouldBeFiltered: !result.isClean,
+        previewContent: result.filteredContent,
+        reasons: result.filterReasons,
+      });
+    } catch (error) {
+      console.error("Error previewing moderation:", error);
+      res.status(500).json({ message: "Failed to preview moderation" });
+    }
+  });
+
+  // Admin: Get flagged conversations
+  app.get('/api/admin/chat/flagged', isAdmin, async (req: any, res) => {
+    try {
+      const { limit = 20, offset = 0 } = req.query;
+      const flagged = await getFlaggedConversations(
+        parseInt(limit as string),
+        parseInt(offset as string)
+      );
+      res.json(flagged);
+    } catch (error) {
+      console.error("Error fetching flagged conversations:", error);
+      res.status(500).json({ message: "Failed to fetch flagged conversations" });
+    }
+  });
+
+  // Admin: Clear conversation flag
+  app.post('/api/admin/chat/conversations/:id/clear-flag', isAdmin, async (req: any, res) => {
+    try {
+      await clearConversationFlag(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error clearing flag:", error);
+      res.status(500).json({ message: "Failed to clear flag" });
     }
   });
 

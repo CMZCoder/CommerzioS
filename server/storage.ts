@@ -14,6 +14,8 @@ import {
   addresses,
   userModerationActions,
   bannedIdentifiers,
+  orders,
+  servicePricingOptions,
   type User,
   type UserWithPlan,
   type UpsertUser,
@@ -44,6 +46,10 @@ import {
   type InsertUserModerationAction,
   type BannedIdentifier,
   type InsertBannedIdentifier,
+  type Order,
+  type InsertOrder,
+  type ServicePricingOption,
+  type InsertServicePricingOption,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
@@ -1274,6 +1280,157 @@ export class DatabaseStorage implements IStorage {
 
   async deleteCategory(id: string): Promise<void> {
     await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  // ===========================================
+  // ORDER METHODS
+  // ===========================================
+
+  async createOrder(data: {
+    customerId: string;
+    serviceId: string;
+    pricingOptionId?: string;
+    quantity?: number;
+    customerNotes?: string;
+  }): Promise<Order> {
+    // Get service to find vendor and pricing
+    const [service] = await db.select().from(services).where(eq(services.id, data.serviceId)).limit(1);
+    if (!service) {
+      throw new Error('Service not found');
+    }
+
+    // Get pricing option if specified
+    let unitPrice = service.price ? parseFloat(service.price) : 0;
+    let priceLabel = '';
+    
+    if (data.pricingOptionId) {
+      const [option] = await db.select()
+        .from(servicePricingOptions)
+        .where(eq(servicePricingOptions.id, data.pricingOptionId))
+        .limit(1);
+      
+      if (option) {
+        unitPrice = parseFloat(option.price);
+        priceLabel = option.label;
+      }
+    }
+
+    const quantity = data.quantity || 1;
+    const subtotal = unitPrice * quantity;
+    const platformFee = subtotal * 0.10; // 10% platform fee
+    const total = subtotal;
+
+    // Generate order number
+    const orderNumber = `ORD${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    const [order] = await db.insert(orders)
+      .values({
+        orderNumber,
+        customerId: data.customerId,
+        vendorId: service.ownerId,
+        serviceId: data.serviceId,
+        pricingOptionId: data.pricingOptionId,
+        priceLabel,
+        unitPrice: unitPrice.toString(),
+        quantity,
+        subtotal: subtotal.toString(),
+        platformFee: platformFee.toString(),
+        total: total.toString(),
+        customerNotes: data.customerNotes,
+        status: 'pending',
+        paymentStatus: 'pending',
+      })
+      .returning();
+
+    return order;
+  }
+
+  async getOrderById(id: string): Promise<Order | null> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
+    return order || null;
+  }
+
+  async getCustomerOrders(customerId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
+    let query = db.select().from(orders).where(
+      status 
+        ? and(eq(orders.customerId, customerId), eq(orders.status, status as any))
+        : eq(orders.customerId, customerId)
+    )
+    .orderBy(desc(orders.createdAt))
+    .limit(limit)
+    .offset(offset);
+    
+    return await query;
+  }
+
+  async getVendorOrders(vendorId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
+    let query = db.select().from(orders).where(
+      status 
+        ? and(eq(orders.vendorId, vendorId), eq(orders.status, status as any))
+        : eq(orders.vendorId, vendorId)
+    )
+    .orderBy(desc(orders.createdAt))
+    .limit(limit)
+    .offset(offset);
+    
+    return await query;
+  }
+
+  async updateOrderStatus(id: string, status: string, vendorNotes?: string): Promise<Order | null> {
+    const [updated] = await db.update(orders)
+      .set({ 
+        status: status as any, 
+        vendorNotes,
+        updatedAt: new Date()
+      })
+      .where(eq(orders.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  // ===========================================
+  // SERVICE PRICING OPTIONS METHODS
+  // ===========================================
+
+  async getServicePricingOptions(serviceId: string): Promise<ServicePricingOption[]> {
+    return await db.select()
+      .from(servicePricingOptions)
+      .where(
+        and(
+          eq(servicePricingOptions.serviceId, serviceId),
+          eq(servicePricingOptions.isActive, true)
+        )
+      )
+      .orderBy(servicePricingOptions.sortOrder);
+  }
+
+  async getPricingOptionById(id: string): Promise<ServicePricingOption | null> {
+    const [option] = await db.select()
+      .from(servicePricingOptions)
+      .where(eq(servicePricingOptions.id, id))
+      .limit(1);
+    return option || null;
+  }
+
+  async createServicePricingOption(data: InsertServicePricingOption): Promise<ServicePricingOption> {
+    const [option] = await db.insert(servicePricingOptions)
+      .values(data)
+      .returning();
+    return option;
+  }
+
+  async updateServicePricingOption(id: string, data: Partial<InsertServicePricingOption>): Promise<ServicePricingOption | null> {
+    const [updated] = await db.update(servicePricingOptions)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(servicePricingOptions.id, id))
+      .returning();
+    return updated || null;
+  }
+
+  async deleteServicePricingOption(id: string): Promise<void> {
+    await db.update(servicePricingOptions)
+      .set({ isActive: false })
+      .where(eq(servicePricingOptions.id, id));
   }
 }
 
