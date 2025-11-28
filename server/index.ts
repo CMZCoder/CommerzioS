@@ -51,6 +51,14 @@ app.use((req, res, next) => {
   const { seedDatabase } = await import("./seed");
   await seedDatabase();
   
+  // Seed admin user if needed
+  const { seedAdminIfNeeded } = await import("./adminAuth");
+  await seedAdminIfNeeded();
+  
+  // Verify email service connection
+  const { verifyEmailConnection } = await import("./emailService");
+  await verifyEmailConnection();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -75,11 +83,9 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  // On some platforms (like Windows), reusePort is not supported and causes ENOTSUP.
+  // Bind using a simple host/port configuration for maximum compatibility.
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
 })();

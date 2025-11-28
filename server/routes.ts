@@ -4,8 +4,9 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { users, reviews, services } from "@shared/schema";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
+import { setupOAuthRoutes } from "./oauthProviders";
 import { 
   insertServiceSchema, 
   insertReviewSchema, 
@@ -34,13 +35,16 @@ import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
+  // Auth middleware and routes
   await setupAuth(app);
+  
+  // OAuth routes (Google, Apple, Twitter, Facebook)
+  setupOAuthRoutes(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -52,7 +56,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User profile routes
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const { firstName, lastName, phoneNumber, profileImageUrl, locationLat, locationLng, preferredLocationName } = req.body;
       
       // Validate Swiss phone number if provided
@@ -93,7 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Address routes
   app.get('/api/users/me/addresses', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const addresses = await storage.getAddresses(userId);
       res.json(addresses);
     } catch (error) {
@@ -104,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/users/me/addresses', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const validated = insertAddressSchema.parse(req.body);
       
       // Validate Swiss address
@@ -130,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/users/me/addresses/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const addressId = req.params.id;
       const validated = insertAddressSchema.partial().parse(req.body);
       
@@ -170,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/users/me/addresses/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const addressId = req.params.id;
       await storage.deleteAddress(addressId, userId);
       res.status(204).send();
@@ -211,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "imageURL is required" });
     }
 
-    const userId = req.user.claims.sub;
+    const userId = req.user!.id;
 
     try {
       const objectStorageService = new ObjectStorageService();
@@ -237,7 +241,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Include temporary categories for authenticated users
       if (req.isAuthenticated && req.isAuthenticated()) {
-        const userId = req.user.claims.sub;
+        const userId = req.user!.id;
         const tempCategories = await storage.getTemporaryCategories(userId);
         
         // Format temporary categories to match category structure
@@ -300,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/categories/suggest', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const validated = insertSubmittedCategorySchema.parse({
         ...req.body,
         userId,
@@ -318,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/categories/new-service-counts', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const user = await storage.getUser(userId);
       
       // Capture timestamp BEFORE querying to avoid race conditions
@@ -437,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/services', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Validate request
       const validated = insertServiceSchema.parse(req.body);
@@ -506,7 +510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/services/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Check ownership
       const existing = await storage.getService(req.params.id);
@@ -554,7 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/services/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Check ownership
       const existing = await storage.getService(req.params.id);
@@ -575,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/services/:id/renew', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Check ownership
       const existing = await storage.getService(req.params.id);
@@ -607,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/services/:id/reviews', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const user = await storage.getUser(userId);
 
       if (!user?.isVerified) {
@@ -634,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Favorites routes
   app.get('/api/favorites', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const favorites = await storage.getUserFavorites(userId);
       res.json(favorites);
     } catch (error) {
@@ -645,7 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/favorites/:serviceId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const favorite = await storage.addFavorite(userId, req.params.serviceId);
       res.status(201).json(favorite);
     } catch (error) {
@@ -656,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/favorites/:serviceId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       await storage.removeFavorite(userId, req.params.serviceId);
       res.status(204).send();
     } catch (error) {
@@ -667,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/favorites/:serviceId/status', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const isFavorite = await storage.isFavorite(userId, req.params.serviceId);
       res.json({ isFavorite });
     } catch (error) {
@@ -679,7 +683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User verification routes
   app.post('/api/user/verify', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       // In a real app, this would involve actual verification process
       // For now, we'll simulate it
       const user = await storage.updateUserVerification(userId, true);
@@ -742,7 +746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/users/:id/moderate', isAdmin, async (req: any, res) => {
     try {
       const { action, reason, ipAddress } = req.body;
-      const adminId = req.user?.claims?.sub || req.session?.adminId || 'admin';
+      const adminId = req.user?.id || 'admin';
       
       if (!['warn', 'suspend', 'ban', 'kick', 'reactivate'].includes(action)) {
         return res.status(400).json({ message: "Invalid moderation action" });
@@ -787,7 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/banned-identifiers', isAdmin, async (req: any, res) => {
     try {
       const { identifierType, identifierValue, userId, reason } = req.body;
-      const adminId = req.user?.claims?.sub || req.session?.adminId || 'admin';
+      const adminId = req.user?.id || 'admin';
       
       const banned = await storage.addBannedIdentifier({
         identifierType,
@@ -1058,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Enhance user context if authenticated
       if (req.isAuthenticated && req.isAuthenticated()) {
-        const userId = req.user.claims.sub;
+        const userId = req.user!.id;
         const user = await storage.getUser(userId);
         const userServices = await storage.getServices({ ownerId: userId });
         
@@ -1264,7 +1268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/services/:serviceId/contacts', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Check ownership
       const service = await storage.getService(req.params.serviceId);
@@ -1293,7 +1297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/contacts/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Get contact and check ownership through service
       const contacts = await storage.getServiceContacts('');
@@ -1328,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/contacts/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Get contact and check ownership through service
       const contacts = await storage.getServiceContacts('');
@@ -1403,7 +1407,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Temporary Categories Routes
   app.get('/api/temporary-categories', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const tempCategories = await storage.getTemporaryCategories(userId);
       res.json(tempCategories);
     } catch (error) {
@@ -1414,7 +1418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/temporary-categories', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const categoryName = req.body.name?.trim();
       
       if (!categoryName) {
@@ -1472,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/temporary-categories/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Check ownership
       const tempCategories = await storage.getTemporaryCategories(userId);
@@ -1493,7 +1497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI Conversations Routes
   app.get('/api/ai/conversations', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const { type } = req.query;
       const conversations = await storage.getAiConversations(userId, type as string | undefined);
       res.json(conversations);
@@ -1505,7 +1509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/ai/conversations/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const conversation = await storage.getAiConversation(req.params.id);
       
       if (!conversation) {
@@ -2041,7 +2045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/users/location', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       const schema = z.object({
         locationLat: z.string().optional(),
@@ -2073,7 +2077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Review management routes
   app.get('/api/users/me/reviews-received', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       
       // Get all reviews for services owned by this user
       const receivedReviews = await db
@@ -2110,7 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/reviews/:reviewId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const reviewId = req.params.reviewId;
       const { rating, comment } = req.body;
 
@@ -2160,7 +2164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/reviews/:reviewId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user!.id;
       const reviewId = req.params.reviewId;
 
       // Get the review

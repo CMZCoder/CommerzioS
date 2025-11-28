@@ -60,7 +60,7 @@ export const plansRelations = relations(plans, ({ many }) => ({
   users: many(users),
 }));
 
-// Users table (extended for marketplace)
+// Users table (extended for marketplace with local auth)
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: varchar("email").unique(),
@@ -69,6 +69,26 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   phone: varchar("phone", { length: 50 }),
   phoneNumber: varchar("phone_number", { length: 50 }),
+  
+  // Authentication fields
+  passwordHash: varchar("password_hash", { length: 255 }),
+  authProvider: varchar("auth_provider", { enum: ["local", "google", "apple", "twitter", "facebook"] }).default("local").notNull(),
+  oauthProviderId: varchar("oauth_provider_id", { length: 255 }),
+  
+  // Email verification
+  emailVerificationToken: varchar("email_verification_token", { length: 255 }),
+  emailVerificationExpires: timestamp("email_verification_expires"),
+  
+  // Password reset
+  passwordResetToken: varchar("password_reset_token", { length: 255 }),
+  passwordResetExpires: timestamp("password_reset_expires"),
+  
+  // Login security
+  lastLoginAt: timestamp("last_login_at"),
+  failedLoginAttempts: integer("failed_login_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  
+  // Existing verification flags
   isVerified: boolean("is_verified").default(false).notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   phoneVerified: boolean("phone_verified").default(false).notNull(),
@@ -84,7 +104,10 @@ export const users = pgTable("users", {
   lastHomeVisitAt: timestamp("last_home_visit_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => [
+  index("idx_users_email").on(table.email),
+  index("idx_users_auth_provider").on(table.authProvider),
+]);
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   plan: one(plans, {
@@ -98,6 +121,29 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   aiConversations: many(aiConversations),
   addresses: many(addresses),
   moderationActions: many(userModerationActions),
+  oauthTokens: many(oauthTokens),
+}));
+
+// OAuth tokens table (for storing social login tokens)
+export const oauthTokens = pgTable("oauth_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { enum: ["google", "apple", "twitter", "facebook"] }).notNull(),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_oauth_tokens_user").on(table.userId),
+  index("idx_oauth_tokens_provider").on(table.provider),
+]);
+
+export const oauthTokensRelations = relations(oauthTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [oauthTokens.userId],
+    references: [users.id],
+  }),
 }));
 
 // Addresses table
@@ -592,4 +638,44 @@ export const insertBannedIdentifierSchema = createInsertSchema(bannedIdentifiers
 }).omit({
   id: true,
   createdAt: true,
+});
+
+// OAuth tokens types
+export type OAuthToken = typeof oauthTokens.$inferSelect;
+export type InsertOAuthToken = typeof oauthTokens.$inferInsert;
+
+// Auth validation schemas
+export const registerSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  firstName: z.string().min(1, "First name is required").max(50),
+  lastName: z.string().min(1, "Last name is required").max(50),
+});
+
+export const loginSchema = z.object({
+  email: z.string().email("Valid email is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Valid email is required"),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
 });
