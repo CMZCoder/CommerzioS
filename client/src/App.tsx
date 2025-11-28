@@ -30,6 +30,7 @@ import VerifyEmailPage from "@/pages/verify-email";
 import ReferralsPage from "@/pages/referrals";
 import ChatPage from "@/pages/chat";
 import VendorBookingsPage from "@/pages/vendor-bookings";
+import BookServicePage from "@/pages/book-service";
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -48,6 +49,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/service/:id" component={ServiceDetail} />
+      <Route path="/service/:id/book" component={BookServicePage} />
       <Route path="/users/:userId" component={UserProfile} />
       <Route path="/hashtags/:hashtag" component={HashtagResults} />
       <Route path="/profile" component={Profile} />
