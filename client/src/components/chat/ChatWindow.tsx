@@ -2,6 +2,7 @@
  * ChatWindow Component
  * 
  * Displays messages in a conversation with real-time updates
+ * Features: Emoji support, improved styling, read receipts
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -24,7 +25,10 @@ import {
   Trash2,
   Edit,
   Check,
-  CheckCheck
+  CheckCheck,
+  Phone,
+  Video,
+  Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -197,85 +201,119 @@ export function ChatWindow({
   }
 
   return (
-    <Card className={cn("flex flex-col h-full", className)}>
+    <Card className={cn("flex flex-col h-full overflow-hidden shadow-lg", className)}>
       {/* Header */}
-      <CardHeader className="border-b p-4 flex flex-row items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={otherPartyImage} />
-            <AvatarFallback>
-              {otherPartyName?.slice(0, 2).toUpperCase() || '??'}
-            </AvatarFallback>
-          </Avatar>
+      <CardHeader className="border-b bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 px-6 py-4 flex flex-row items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Avatar className="h-12 w-12 ring-2 ring-white dark:ring-slate-700 shadow-md">
+              <AvatarImage src={otherPartyImage} />
+              <AvatarFallback className="bg-gradient-to-br from-primary to-primary/80 text-white font-semibold">
+                {otherPartyName?.slice(0, 2).toUpperCase() || '??'}
+              </AvatarFallback>
+            </Avatar>
+            {/* Online indicator */}
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-800 rounded-full" />
+          </div>
           <div>
-            <CardTitle className="text-base">{otherPartyName || 'Chat'}</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              {currentUserRole === 'customer' ? 'Vendor' : 'Customer'}
+            <CardTitle className="text-lg font-semibold">{otherPartyName || 'Chat'}</CardTitle>
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Online • {currentUserRole === 'customer' ? 'Vendor' : 'Customer'}
             </p>
           </div>
         </div>
-        {onClose && (
-          <Button size="icon" variant="ghost" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {onClose && (
+            <Button size="icon" variant="ghost" onClick={onClose} className="hover:bg-slate-100 dark:hover:bg-slate-700">
+              <X className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
       </CardHeader>
 
       {/* Messages */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea ref={scrollRef} className="flex-1 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+        <div className="p-6 space-y-4 min-h-full">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-              <MessageSquare className="w-10 h-10 mb-2 opacity-50" />
-              <p>No messages yet</p>
-              <p className="text-sm">Start the conversation!</p>
+            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+              <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/5 rounded-full flex items-center justify-center mb-4">
+                <MessageSquare className="w-10 h-10 text-primary/60" />
+              </div>
+              <p className="font-medium text-lg">No messages yet</p>
+              <p className="text-sm">Say hello and start the conversation! 👋</p>
             </div>
           ) : (
             messages.map((message, index) => {
               const isOwn = message.senderId === currentUserId;
               const isSystem = message.senderRole === 'system';
+              const showAvatar = !isOwn && (index === 0 || messages[index - 1]?.senderId !== message.senderId);
 
               return (
                 <div key={message.id}>
                   {/* Date Separator */}
                   {shouldShowDateSeparator(index) && (
-                    <div className="flex items-center justify-center my-4">
-                      <span className="px-3 py-1 bg-muted rounded-full text-xs text-muted-foreground">
-                        {formatDateSeparator(message.createdAt)}
-                      </span>
+                    <div className="flex items-center justify-center my-6">
+                      <div className="flex items-center gap-3 w-full">
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+                        <span className="px-4 py-1.5 bg-white dark:bg-slate-800 rounded-full text-xs font-medium text-muted-foreground shadow-sm border">
+                          {formatDateSeparator(message.createdAt)}
+                        </span>
+                        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+                      </div>
                     </div>
                   )}
 
                   {/* System Message */}
                   {isSystem ? (
-                    <div className="flex justify-center">
-                      <div className="px-4 py-2 bg-muted rounded-lg text-sm text-muted-foreground flex items-center gap-2">
-                        <Shield className="w-4 h-4" />
+                    <div className="flex justify-center my-4">
+                      <div className="px-5 py-2.5 bg-slate-100 dark:bg-slate-800 rounded-full text-sm text-muted-foreground flex items-center gap-2 shadow-sm">
+                        <Shield className="w-4 h-4 text-primary" />
                         {message.content}
                       </div>
                     </div>
                   ) : (
                     /* Regular Message */
-                    <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
+                    <div className={cn(
+                      "flex items-end gap-2",
+                      isOwn ? "justify-end" : "justify-start"
+                    )}>
+                      {/* Avatar for received messages */}
+                      {!isOwn && (
+                        <div className="w-8 flex-shrink-0">
+                          {showAvatar && (
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={otherPartyImage} />
+                              <AvatarFallback className="text-xs bg-slate-200 dark:bg-slate-700">
+                                {otherPartyName?.slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </div>
+                      )}
+                      
                       <div className={cn(
-                        "max-w-[75%] group relative",
+                        "max-w-[70%] group relative",
                         isOwn ? "order-2" : "order-1"
                       )}>
                         <div className={cn(
-                          "px-4 py-2 rounded-2xl",
+                          "px-4 py-3 rounded-2xl shadow-sm transition-all",
                           isOwn 
-                            ? "bg-primary text-primary-foreground rounded-br-sm" 
-                            : "bg-muted rounded-bl-sm",
+                            ? "bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-br-md" 
+                            : "bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-bl-md",
                           message.isDeleted && "italic opacity-70"
                         )}>
                           {message.wasFiltered && (
-                            <div className="flex items-center gap-1 text-xs opacity-70 mb-1">
-                              <AlertTriangle className="w-3 h-3" />
-                              Message filtered
+                            <div className={cn(
+                              "flex items-center gap-1.5 text-xs mb-2 pb-2 border-b",
+                              isOwn ? "border-white/20 text-white/70" : "border-slate-200 dark:border-slate-600 text-amber-600"
+                            )}>
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              <span>Message filtered</span>
                             </div>
                           )}
                           <p className={cn(
-                            "text-sm break-words",
+                            "text-[15px] leading-relaxed break-words whitespace-pre-wrap",
                             message.isDeleted && "text-muted-foreground"
                           )}>
                             {message.content}
@@ -283,15 +321,21 @@ export function ChatWindow({
                         </div>
                         
                         <div className={cn(
-                          "flex items-center gap-1 mt-1 text-xs text-muted-foreground",
+                          "flex items-center gap-1.5 mt-1.5 px-1 text-[11px] text-muted-foreground",
                           isOwn ? "justify-end" : "justify-start"
                         )}>
                           <span>{formatMessageDate(message.createdAt)}</span>
-                          {message.isEdited && <span>(edited)</span>}
+                          {message.isEdited && <span className="italic">(edited)</span>}
                           {isOwn && (
-                            message.readAt 
-                              ? <CheckCheck className="w-3 h-3 text-primary" />
-                              : <Check className="w-3 h-3" />
+                            <span className={cn(
+                              "flex items-center",
+                              message.readAt ? "text-blue-500" : "text-muted-foreground"
+                            )}>
+                              {message.readAt 
+                                ? <CheckCheck className="w-4 h-4" />
+                                : <Check className="w-4 h-4" />
+                              }
+                            </span>
                           )}
                         </div>
 
@@ -302,13 +346,16 @@ export function ChatWindow({
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                className="absolute -right-8 top-0 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -left-9 top-1/2 -translate-y-1/2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
                               >
-                                <MoreVertical className="w-3 h-3" />
+                                <MoreVertical className="w-4 h-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => deleteMutation.mutate(message.id)}>
+                            <DropdownMenuContent align="start" className="w-32">
+                              <DropdownMenuItem 
+                                onClick={() => deleteMutation.mutate(message.id)}
+                                className="text-red-600 focus:text-red-600"
+                              >
                                 <Trash2 className="w-4 h-4 mr-2" />
                                 Delete
                               </DropdownMenuItem>
@@ -326,11 +373,11 @@ export function ChatWindow({
       </ScrollArea>
 
       {/* Input */}
-      <div className="border-t p-4">
+      <div className="border-t bg-white dark:bg-slate-900 p-4">
         <MessageInput
           onSend={(content) => sendMutation.mutate(content)}
           isLoading={sendMutation.isPending}
-          placeholder="Type a message..."
+          placeholder="Type a message... 💬"
         />
       </div>
     </Card>
