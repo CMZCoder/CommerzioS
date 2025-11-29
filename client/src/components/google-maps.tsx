@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Map, ZoomIn, ZoomOut, X, Navigation, ExternalLink } from "lucide-react";
+import { Map, ZoomIn, ZoomOut, X, Navigation, ExternalLink, AlertTriangle } from "lucide-react";
 import type { ServiceWithDetails } from "@/lib/api";
 import { geocodeLocation } from '@/lib/geocoding';
 
@@ -27,6 +27,7 @@ export function GoogleMaps({
   if (!userLocation) return null;
 
   const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -692,11 +693,30 @@ export function GoogleMaps({
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=directions`;
       script.async = true;
       script.defer = true;
-      script.onload = initializeMap;
+      
+      // Set timeout to detect if script fails to load (e.g., blocked by ad blocker)
+      const timeoutId = setTimeout(() => {
+        if (!win.google) {
+          setMapLoadError('Map failed to load. This may be due to an ad blocker or privacy extension. Please disable it for this site or use the "Get Directions" button to open Google Maps directly.');
+        }
+      }, 10000); // 10 second timeout
+      
+      script.onload = () => {
+        clearTimeout(timeoutId);
+        setMapLoadError(null); // Clear any previous errors
+        initializeMap();
+      };
+      
+      script.onerror = () => {
+        clearTimeout(timeoutId);
+        setMapLoadError('Failed to load Google Maps. This may be due to an ad blocker or network issue. Please disable your ad blocker for this site or use the "Get Directions" button to open Google Maps directly.');
+      };
+      
       document.head.appendChild(script);
     } else {
       // Check if directions library is loaded
       if (win.google.maps && win.google.maps.DirectionsService) {
+        setMapLoadError(null); // Clear any previous errors
         initializeMap();
       } else {
         // Reload with directions library
@@ -704,7 +724,24 @@ export function GoogleMaps({
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=directions&callback=initMap`;
         script.async = true;
         script.defer = true;
-        (window as any).initMap = initializeMap;
+        
+        const timeoutId = setTimeout(() => {
+          if (!win.google?.maps?.DirectionsService) {
+            setMapLoadError('Map failed to load. This may be due to an ad blocker or privacy extension. Please disable it for this site or use the "Get Directions" button to open Google Maps directly.');
+          }
+        }, 10000);
+        
+        (window as any).initMap = () => {
+          clearTimeout(timeoutId);
+          setMapLoadError(null); // Clear any previous errors
+          initializeMap();
+        };
+        
+        script.onerror = () => {
+          clearTimeout(timeoutId);
+          setMapLoadError('Failed to load Google Maps. This may be due to an ad blocker or network issue. Please disable your ad blocker for this site or use the "Get Directions" button to open Google Maps directly.');
+        };
+        
         document.head.appendChild(script);
       }
     }
@@ -786,36 +823,54 @@ export function GoogleMaps({
             transition={{ duration: 0.3 }}
             className="overflow-hidden rounded-lg border border-slate-200"
           >
-            <div className="relative w-full h-full">
-              <div
-                ref={mapContainerRef}
-                className="w-full h-full"
-                data-testid="service-map"
-                style={{ minHeight: "400px" }}
-              />
-
-              {/* Custom zoom controls */}
-              <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-[1000]">
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={handleZoomIn}
-                  className="bg-white hover:bg-slate-50 shadow-lg"
-                  data-testid="button-zoom-in"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  onClick={handleZoomOut}
-                  className="bg-white hover:bg-slate-50 shadow-lg"
-                  data-testid="button-zoom-out"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </Button>
+            {mapLoadError ? (
+              <div className="relative w-full h-full bg-slate-50 flex items-center justify-center p-8" style={{ minHeight: "400px" }}>
+                <div className="text-center max-w-md">
+                  <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Map Could Not Be Loaded</h3>
+                  <p className="text-sm text-slate-600 mb-4">{mapLoadError}</p>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-slate-500">
+                      <strong>Quick Fix:</strong> Disable your ad blocker or privacy extension for this site, then refresh the page.
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      You can still use the "Get Directions" buttons on service cards to open Google Maps directly.
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="relative w-full h-full">
+                <div
+                  ref={mapContainerRef}
+                  className="w-full h-full"
+                  data-testid="service-map"
+                  style={{ minHeight: "400px" }}
+                />
+
+                {/* Custom zoom controls */}
+                <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-[1000]">
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    onClick={handleZoomIn}
+                    className="bg-white hover:bg-slate-50 shadow-lg"
+                    data-testid="button-zoom-in"
+                  >
+                    <ZoomIn className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="secondary"
+                    onClick={handleZoomOut}
+                    className="bg-white hover:bg-slate-50 shadow-lg"
+                    data-testid="button-zoom-out"
+                  >
+                    <ZoomOut className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
