@@ -262,8 +262,13 @@ export function GoogleMaps({
         ? `<img src="${serviceImage}" alt="${service.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />`
         : '';
 
-      // Build Google Maps directions URL
-      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${serviceLat},${serviceLng}`;
+      // Build Google Maps directions URL using address strings
+      // Use user's location name for origin, and service location or title for destination
+      const originAddress = encodeURIComponent(userLocation.name);
+      const destinationAddress = service.locations && service.locations.length > 0
+        ? encodeURIComponent(service.locations[0])
+        : encodeURIComponent(service.title);
+      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${originAddress}&destination=${destinationAddress}`;
 
       // Create unique IDs for buttons to handle clicks
       const infoWindowId = `info-window-${service.id}`;
