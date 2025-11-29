@@ -71,8 +71,9 @@ export function GoogleMaps({
   // Clear directions
   const clearDirections = useCallback(() => {
     if (directionsRendererRef.current && mapRef.current) {
-      // Clear the directions by setting an empty result
-      directionsRendererRef.current.setDirections({ routes: [] });
+      // Remove the renderer from the map to fully clear it
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
       activeDirectionsServiceIdRef.current = null;
     }
   }, []);
@@ -90,17 +91,28 @@ export function GoogleMaps({
   // Show directions for a specific service
   const showDirections = useCallback((service: ServiceWithDetails & { distance?: number }) => {
     const google = (window as GoogleMapsWindow).google;
-    if (!google || !directionsServiceRef.current || !mapRef.current || !userLocation) return;
+    if (!google || !mapRef.current || !userLocation) return;
 
     if (!service.owner?.locationLat || !service.owner?.locationLng) return;
 
-    // Ensure directions renderer is initialized
-    if (!directionsRendererRef.current) {
-      initializeDirections();
+    // Clear previous directions by removing the renderer
+    clearDirections();
+
+    // Initialize directions service if needed
+    if (!directionsServiceRef.current) {
+      directionsServiceRef.current = new google.maps.DirectionsService();
     }
 
-    // Clear previous directions first
-    clearDirections();
+    // Create a new directions renderer for this route
+    directionsRendererRef.current = new google.maps.DirectionsRenderer({
+      map: mapRef.current,
+      suppressMarkers: true, // We'll use our custom markers
+      polylineOptions: {
+        strokeColor: '#3b82f6',
+        strokeOpacity: 0.7,
+        strokeWeight: 4,
+      },
+    });
 
     const serviceLat = parseFloat(service.owner.locationLat as any);
     const serviceLng = parseFloat(service.owner.locationLng as any);
@@ -111,34 +123,29 @@ export function GoogleMaps({
       travelMode: google.maps.TravelMode.DRIVING,
     };
 
-    // Clear directions renderer before requesting new route
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setDirections({ routes: [] });
-    }
-
-    // Use a small delay to ensure the clear is processed before new directions
-    setTimeout(() => {
-      if (!directionsServiceRef.current || !directionsRendererRef.current) return;
-
-      directionsServiceRef.current.route(request, (result: any, status: any) => {
-        if (status === google.maps.DirectionsStatus.OK && directionsRendererRef.current) {
-          directionsRendererRef.current.setDirections(result);
-          activeDirectionsServiceIdRef.current = service.id;
-          
-          // Fit map to show entire route
-          const bounds = new google.maps.LatLngBounds();
-          result.routes[0].legs[0].steps.forEach((step: any) => {
-            bounds.extend(step.start_location);
-            bounds.extend(step.end_location);
-          });
-          mapRef.current?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
-        } else {
-          console.error('Directions request failed:', status);
-          activeDirectionsServiceIdRef.current = null;
+    // Request the route
+    directionsServiceRef.current.route(request, (result: any, status: any) => {
+      if (status === google.maps.DirectionsStatus.OK && directionsRendererRef.current) {
+        directionsRendererRef.current.setDirections(result);
+        activeDirectionsServiceIdRef.current = service.id;
+        
+        // Fit map to show entire route
+        const bounds = new google.maps.LatLngBounds();
+        result.routes[0].legs[0].steps.forEach((step: any) => {
+          bounds.extend(step.start_location);
+          bounds.extend(step.end_location);
+        });
+        mapRef.current?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+      } else {
+        console.error('Directions request failed:', status);
+        activeDirectionsServiceIdRef.current = null;
+        if (directionsRendererRef.current) {
+          directionsRendererRef.current.setMap(null);
+          directionsRendererRef.current = null;
         }
-      });
-    }, 50);
-  }, [userLocation, clearDirections, initializeDirections]);
+      }
+    });
+  }, [userLocation, clearDirections]);
 
   // Update markers when services change
   const updateMarkers = useCallback((shouldFitBounds = false) => {
