@@ -942,14 +942,36 @@ export class DatabaseStorage implements IStorage {
 
     const servicesWithDistance = results
       .map((row) => {
-        const ownerLat = row.owner?.locationLat ? parseFloat(row.owner.locationLat as string) : null;
-        const ownerLng = row.owner?.locationLng ? parseFloat(row.owner.locationLng as string) : null;
+        // Use service's own location first, fallback to owner's location
+        let serviceLat: number | null = null;
+        let serviceLng: number | null = null;
+        
+        // Try service's own location first
+        if (row.service.locationLat) {
+          const parsed = parseFloat(row.service.locationLat as string);
+          if (!isNaN(parsed)) {
+            serviceLat = parsed;
+          }
+        }
+        
+        if (row.service.locationLng) {
+          const parsed = parseFloat(row.service.locationLng as string);
+          if (!isNaN(parsed)) {
+            serviceLng = parsed;
+          }
+        }
+        
+        // Fallback to owner's location if service doesn't have its own
+        if (serviceLat === null || serviceLng === null) {
+          serviceLat = row.owner?.locationLat ? parseFloat(row.owner.locationLat as string) : null;
+          serviceLng = row.owner?.locationLng ? parseFloat(row.owner.locationLng as string) : null;
+        }
 
-        if (ownerLat === null || ownerLng === null || isNaN(ownerLat) || isNaN(ownerLng)) {
+        if (serviceLat === null || serviceLng === null || isNaN(serviceLat) || isNaN(serviceLng)) {
           return null;
         }
 
-        const distance = calculateDistance(lat, lng, ownerLat, ownerLng);
+        const distance = calculateDistance(lat, lng, serviceLat, serviceLng);
 
         if (distance > radiusKm) {
           return null;
