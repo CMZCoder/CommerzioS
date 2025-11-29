@@ -156,7 +156,7 @@ export default function Home() {
     enabled: isAuthenticated,
   });
 
-  const { data: userAddresses = [] } = useQuery<Array<{ id: string; street: string; city: string; postalCode: string; lat: number; lng: number; isPrimary: boolean }>>({
+  const { data: userAddresses = [] } = useQuery<Array<{ id: string; street: string; city: string; postalCode: string; lat?: number; lng?: number; isPrimary: boolean }>>({
     queryKey: ["/api/users/me/addresses"],
     queryFn: () => apiRequest("/api/users/me/addresses"),
     enabled: isAuthenticated,
@@ -358,20 +358,63 @@ export default function Home() {
       return;
     }
 
-    if (!selectedAddress.lat || !selectedAddress.lng) {
-      toast({
-        title: "Invalid address",
-        description: "This address doesn't have valid coordinates",
-        variant: "destructive",
-      });
-      return;
+    let lat = selectedAddress.lat;
+    let lng = selectedAddress.lng;
+
+    // If coordinates are missing, geocode the address with fallback strategies
+    if (!lat || !lng) {
+      try {
+        toast({
+          title: "Geocoding address...",
+          description: "Getting coordinates for this address",
+        });
+
+        let geocodeResult: { lat: number; lng: number } | null = null;
+        const attempts = [
+          // Try 1: Just postal code and city (most reliable for Swiss addresses)
+          `${selectedAddress.postalCode} ${selectedAddress.city}`,
+          // Try 2: Full address with postal code and city
+          `${selectedAddress.street}, ${selectedAddress.postalCode} ${selectedAddress.city}`,
+          // Try 3: Just city name
+          selectedAddress.city,
+        ];
+
+        for (const addressString of attempts) {
+          try {
+            geocodeResult = await geocodeLocation(addressString);
+            if (geocodeResult) {
+              lat = geocodeResult.lat;
+              lng = geocodeResult.lng;
+              break; // Success, exit loop
+            }
+          } catch (err) {
+            // Try next format
+            console.log(`Geocoding attempt failed for: ${addressString}`, err);
+            continue;
+          }
+        }
+
+        if (!geocodeResult || !lat || !lng) {
+          throw new Error("Could not geocode this address. Please try using the location search instead.");
+        }
+
+        // Note: Addresses table doesn't store lat/lng, so we just use the geocoded coordinates
+        // for the current search session. They will be geocoded again next time if needed.
+      } catch (error: any) {
+        toast({
+          title: "Failed to geocode address",
+          description: error.message || "Could not get coordinates for this address. Please try using the location search to find this address, or use a different address.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     const locationName = `${selectedAddress.street}, ${selectedAddress.postalCode} ${selectedAddress.city}`;
     
     setSearchLocation({
-      lat: selectedAddress.lat,
-      lng: selectedAddress.lng,
+      lat: lat,
+      lng: lng,
       name: locationName,
     });
 
@@ -381,8 +424,8 @@ export default function Home() {
         await apiRequest("/api/users/me", {
           method: "PATCH",
           body: JSON.stringify({
-            locationLat: selectedAddress.lat,
-            locationLng: selectedAddress.lng,
+            locationLat: lat,
+            locationLng: lng,
             preferredLocationName: locationName,
           }),
           headers: {

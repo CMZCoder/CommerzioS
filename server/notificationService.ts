@@ -650,38 +650,47 @@ export async function notifyBookingUpdate(
   userId: string,
   bookingId: string,
   status: string,
-  serviceName: string
+  serviceName: string,
+  serviceId?: string,
+  isVendor: boolean = false
 ): Promise<void> {
-  const statusMessages: Record<string, { title: string; message: string }> = {
+  const statusMessages: Record<string, { title: string; message: string; actionUrl: string }> = {
     pending: {
       title: "New Booking Request",
       message: `You have a new booking request for "${serviceName}"`,
+      actionUrl: `/my-bookings?booking=${bookingId}&tab=pending`,
     },
     accepted: {
       title: "Booking Confirmed! 🎉",
       message: `Your booking for "${serviceName}" has been confirmed`,
+      actionUrl: `/bookings?booking=${bookingId}`,
     },
     rejected: {
       title: "Booking Declined",
       message: `Unfortunately, your booking for "${serviceName}" could not be accepted`,
+      actionUrl: `/bookings?booking=${bookingId}`,
     },
     alternative_proposed: {
       title: "Alternative Time Proposed",
       message: `The vendor has proposed an alternative time for "${serviceName}"`,
+      actionUrl: `/bookings?booking=${bookingId}`,
     },
     completed: {
       title: "Booking Completed",
       message: `Your booking for "${serviceName}" has been completed. Leave a review!`,
+      actionUrl: serviceId ? `/service/${serviceId}?review=true` : `/bookings?booking=${bookingId}`,
     },
     cancelled: {
       title: "Booking Cancelled",
       message: `A booking for "${serviceName}" has been cancelled`,
+      actionUrl: isVendor ? `/my-bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
     },
   };
 
   const content = statusMessages[status] || {
     title: "Booking Update",
     message: `Your booking for "${serviceName}" has been updated to ${status}`,
+    actionUrl: isVendor ? `/my-bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
   };
 
   await createNotification({
@@ -692,7 +701,8 @@ export async function notifyBookingUpdate(
     icon: "calendar",
     relatedEntityType: "booking",
     relatedEntityId: bookingId,
-    actionUrl: `/my-bookings`,
+    actionUrl: content.actionUrl,
+    metadata: { status, serviceName, serviceId, isVendor },
   });
 }
 
@@ -825,8 +835,62 @@ export async function notifySystem(
     title,
     message,
     icon: "bell",
-    actionUrl,
+    actionUrl: actionUrl || "/notifications",
     skipAIPrioritization: true, // System messages use default priority
+  });
+}
+
+/**
+ * Creates a new review notification
+ */
+export async function notifyNewReview(
+  userId: string,
+  reviewerName: string,
+  serviceId: string,
+  serviceName: string,
+  rating: number,
+  reviewPreview?: string
+): Promise<void> {
+  const stars = "⭐".repeat(Math.min(rating, 5));
+  
+  await createNotification({
+    userId,
+    type: "review",
+    title: `New ${rating}-Star Review! ${stars}`,
+    message: reviewPreview 
+      ? `${reviewerName} reviewed "${serviceName}": "${reviewPreview.substring(0, 80)}${reviewPreview.length > 80 ? '...' : ''}"`
+      : `${reviewerName} left a ${rating}-star review for "${serviceName}"`,
+    icon: "star",
+    relatedEntityType: "service",
+    relatedEntityId: serviceId,
+    actionUrl: `/service/${serviceId}?review=true`,
+    metadata: { reviewerName, rating, serviceName },
+  });
+}
+
+/**
+ * Creates a promotion notification
+ */
+export async function notifyPromotion(
+  userId: string,
+  title: string,
+  message: string,
+  promoDetails?: {
+    promoCode?: string;
+    discount?: number;
+    expiresAt?: Date;
+    targetUrl?: string;
+  }
+): Promise<void> {
+  await createNotification({
+    userId,
+    type: "promotion",
+    title,
+    message,
+    icon: "gift",
+    actionUrl: promoDetails?.targetUrl || "/",
+    metadata: promoDetails,
+    expiresAt: promoDetails?.expiresAt,
   });
 }
 

@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bell, Check, CheckCheck, X, ExternalLink, Loader2 } from "lucide-react";
+import { Bell, Check, CheckCheck, X, ExternalLink, Loader2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { useLocation } from "wouter";
 
 interface Notification {
   id: string;
@@ -68,17 +69,39 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const bellRef = useRef<HTMLButtonElement>(null);
+  const [, navigate] = useLocation();
 
   // Fetch unread count (polled frequently)
   const { data: unreadData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/unread-count"],
+    queryKey: ["notifications", "unread-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications/unread-count", {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch unread count");
+      return res.json();
+    },
     refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 0, // Always consider stale to ensure fresh data
   });
 
   // Fetch recent notifications
   const { data: notificationsData, isLoading } = useQuery<NotificationsResponse>({
-    queryKey: ["/api/notifications", { limit: 10 }],
+    queryKey: ["notifications", "list", { limit: 10 }],
+    queryFn: async () => {
+      const res = await fetch("/api/notifications?limit=10", {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Failed to fetch notifications" }));
+        throw new Error(error.message || "Failed to fetch notifications");
+      }
+      const data = await res.json();
+      return data;
+    },
     enabled: open, // Only fetch when dropdown is open
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider stale to ensure fresh data
   });
 
   const unreadCount = unreadData?.count || 0;
@@ -95,8 +118,7 @@ export function NotificationBell() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -111,8 +133,7 @@ export function NotificationBell() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -127,12 +148,11 @@ export function NotificationBell() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
-  // Handle notification click
+  // Handle notification click - uses SPA navigation for internal links
   const handleNotificationClick = async (notification: Notification) => {
     if (!notification.isRead) {
       await markReadMutation.mutateAsync(notification.id);
@@ -140,7 +160,12 @@ export function NotificationBell() {
     
     if (notification.actionUrl) {
       setOpen(false);
-      window.location.href = notification.actionUrl;
+      // Use SPA navigation for internal links, external for http/https
+      if (notification.actionUrl.startsWith('/')) {
+        navigate(notification.actionUrl);
+      } else {
+        window.location.href = notification.actionUrl;
+      }
     }
   };
 
@@ -231,7 +256,7 @@ export function NotificationBell() {
                     }
                   }}
                 >
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 items-start">
                     {/* Type Icon */}
                     <div className={cn(
                       "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg border",
@@ -250,16 +275,37 @@ export function NotificationBell() {
                           {notification.title}
                         </p>
                         {!notification.isRead && (
-                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5" />
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5 animate-pulse" />
                         )}
                       </div>
                       <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">
-                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
-                      </p>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-muted-foreground/60">
+                          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+                        </p>
+                        {/* Destination hint with click indicator */}
+                        {notification.actionUrl && (
+                          <span className="text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {notification.type === 'message' && 'Open chat'}
+                            {notification.type === 'booking' && 'View booking'}
+                            {notification.type === 'service' && 'View service'}
+                            {notification.type === 'payment' && 'View details'}
+                            {notification.type === 'review' && 'See review'}
+                            {notification.type === 'referral' && 'View referrals'}
+                            {notification.type === 'promotion' && 'View offer'}
+                            {notification.type === 'system' && 'Learn more'}
+                            <ChevronRight className="w-3 h-3" />
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Arrow indicator */}
+                    {notification.actionUrl && (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
+                    )}
                   </div>
 
                   {/* Actions (visible on hover) */}
@@ -305,7 +351,7 @@ export function NotificationBell() {
             className="w-full justify-center text-sm text-muted-foreground hover:text-foreground"
             onClick={() => {
               setOpen(false);
-              window.location.href = "/notifications";
+              navigate("/notifications");
             }}
           >
             <ExternalLink className="h-3 w-3 mr-2" />

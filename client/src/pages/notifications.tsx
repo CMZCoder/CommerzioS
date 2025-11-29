@@ -17,7 +17,9 @@ import {
   Loader2,
   Trash2,
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  ChevronRight,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow, format } from "date-fns";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 interface Notification {
   id: string;
@@ -80,14 +82,33 @@ export default function NotificationsPage() {
   const [filterType, setFilterType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Fetch notifications
   const { data, isLoading, refetch } = useQuery<NotificationsResponse>({
-    queryKey: ["/api/notifications", { 
-      limit: 50, 
-      unreadOnly: activeTab === "unread",
-      types: filterType !== "all" ? filterType : undefined,
-    }],
+    queryKey: ["notifications", "page", activeTab, filterType],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set('limit', '50');
+      if (activeTab === "unread") {
+        params.set('unreadOnly', 'true');
+      }
+      if (filterType !== "all") {
+        params.set('types', filterType);
+      }
+      
+      const res = await fetch(`/api/notifications?${params.toString()}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({ message: "Failed to fetch notifications" }));
+        throw new Error(error.message || "Failed to fetch notifications");
+      }
+      const data = await res.json();
+      return data;
+    },
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true,
   });
 
   const notifications = data?.notifications || [];
@@ -127,7 +148,7 @@ export default function NotificationsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -141,7 +162,7 @@ export default function NotificationsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -155,7 +176,7 @@ export default function NotificationsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -169,7 +190,7 @@ export default function NotificationsPage() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
     },
   });
 
@@ -178,7 +199,12 @@ export default function NotificationsPage() {
       markReadMutation.mutate(notification.id);
     }
     if (notification.actionUrl) {
-      window.location.href = notification.actionUrl;
+      // Use SPA navigation for internal links, external for http/https
+      if (notification.actionUrl.startsWith('/')) {
+        navigate(notification.actionUrl);
+      } else {
+        window.location.href = notification.actionUrl;
+      }
     }
   };
 
@@ -352,10 +378,27 @@ export default function NotificationsPage() {
                                   <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                                     {notification.message}
                                   </p>
+                                  
+                                  {/* Destination hint */}
+                                  {notification.actionUrl && (
+                                    <div className="flex items-center gap-1 mt-2 text-xs text-indigo-600 dark:text-indigo-400">
+                                      <ExternalLink className="w-3 h-3" />
+                                      <span>
+                                        {notification.type === 'message' && 'Opens chat conversation'}
+                                        {notification.type === 'booking' && 'Opens booking details'}
+                                        {notification.type === 'service' && 'Opens service page'}
+                                        {notification.type === 'payment' && 'Opens payment details'}
+                                        {notification.type === 'review' && 'Opens service reviews'}
+                                        {notification.type === 'referral' && 'Opens referral dashboard'}
+                                        {notification.type === 'promotion' && 'Opens promotion'}
+                                        {notification.type === 'system' && 'Learn more'}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex-shrink-0 flex flex-col gap-1">
+                                <div className="flex-shrink-0 flex flex-col gap-1 items-center">
                                   {!notification.isRead && (
                                     <Button
                                       variant="ghost"
@@ -382,6 +425,11 @@ export default function NotificationsPage() {
                                   >
                                     <X className="h-4 w-4" />
                                   </Button>
+                                  
+                                  {/* Click arrow */}
+                                  {notification.actionUrl && (
+                                    <ChevronRight className="w-5 h-5 text-muted-foreground/40 mt-1" />
+                                  )}
                                 </div>
                               </div>
                             </CardContent>

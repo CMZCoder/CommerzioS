@@ -7,7 +7,7 @@
  * - Schedule management
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -79,6 +79,35 @@ export default function VendorBookingsPage() {
   const [alternativeDate, setAlternativeDate] = useState<Date>();
   const [alternativeTime, setAlternativeTime] = useState({ start: '09:00', end: '10:00' });
   const [alternativeMessage, setAlternativeMessage] = useState('');
+  const [highlightedBookingId, setHighlightedBookingId] = useState<string | null>(null);
+
+  // Handle URL query params for direct navigation from notifications
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get('booking');
+    const tab = params.get('tab');
+    
+    if (tab && ['pending', 'accepted', 'confirmed', 'in_progress', 'completed', 'all'].includes(tab)) {
+      setActiveTab(tab);
+    }
+    
+    if (bookingId) {
+      setHighlightedBookingId(bookingId);
+      // Fetch the specific booking to show in detail
+      fetch(`/api/bookings/${bookingId}`, { credentials: 'include' })
+        .then(res => res.ok ? res.json() : null)
+        .then(booking => {
+          if (booking) {
+            // Set the correct tab based on booking status
+            if (booking.status && booking.status !== activeTab && activeTab !== 'all') {
+              setActiveTab(booking.status);
+            }
+            setSelectedBooking(booking);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
 
   // Fetch bookings
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({

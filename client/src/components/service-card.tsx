@@ -139,6 +139,9 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/favorites", service.id, "status"] });
       
+      // Trigger event for ConversationList to refetch saved tab
+      window.dispatchEvent(new Event('favorites-changed'));
+      
       setShowUnfavoriteDialog(false);
       
       // Show feedback toast

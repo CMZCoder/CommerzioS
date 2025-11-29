@@ -114,7 +114,12 @@ import {
   markMessagesAsRead,
   getUnreadCount as getChatUnreadCount,
   sendSystemMessage,
+  deleteConversation,
   blockConversation,
+  unblockConversation,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
   getFlaggedConversations,
   clearConversationFlag,
   deleteMessage,
@@ -3451,13 +3456,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's conversations
   app.get('/api/chat/conversations', isAuthenticated, async (req: any, res) => {
     try {
-      const { role, limit = 20, offset = 0 } = req.query;
+      const { role, limit = 20, offset = 0, status, savedOnly } = req.query;
+      const userId = req.user!.id;
+      const roleParam = (role as 'customer' | 'vendor' | 'both') || 'both';
+      
+      console.log(`[GET /api/chat/conversations] Fetching for user ${userId} with role ${roleParam}`, {
+        status,
+        savedOnly,
+      });
+      
       const conversations = await getUserConversations(
-        req.user!.id,
-        role as 'customer' | 'vendor' | 'both',
+        userId,
+        roleParam,
         parseInt(limit as string),
-        parseInt(offset as string)
+        parseInt(offset as string),
+        {
+          status: status as 'active' | 'archived' | 'expired' | 'all' | undefined,
+          savedOnly: savedOnly === 'true',
+        }
       );
+      
+      console.log(`[GET /api/chat/conversations] Returning ${conversations.length} conversations`);
       res.json(conversations);
     } catch (error) {
       console.error("Error fetching conversations:", error);
@@ -3569,7 +3588,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Block conversation
+  // Delete conversation
+  app.delete('/api/chat/conversations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const conversationId = req.params.id;
+      const userId = req.user!.id;
+      
+      console.log(`[DELETE] Attempting to delete conversation ${conversationId} for user ${userId}`);
+      
+      const success = await deleteConversation(conversationId, userId);
+      
+      if (!success) {
+        console.log(`[DELETE] Failed to delete conversation ${conversationId}`);
+        return res.status(404).json({ message: "Conversation not found or not authorized" });
+      }
+      
+      console.log(`[DELETE] Successfully deleted conversation ${conversationId}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[DELETE] Error deleting conversation:", error);
+      res.status(400).json({ message: error.message || "Failed to delete conversation" });
+    }
+  });
+
+  // Block user (archives all conversations with that user)
+  app.post('/api/chat/users/:userId/block', isAuthenticated, async (req: any, res) => {
+    try {
+      await blockUser(req.user!.id, req.params.userId, req.body.reason);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error blocking user:", error);
+      res.status(400).json({ message: error.message || "Failed to block user" });
+    }
+  });
+
+  // Unblock user (restores all archived conversations with that user)
+  app.post('/api/chat/users/:userId/unblock', isAuthenticated, async (req: any, res) => {
+    try {
+      await unblockUser(req.user!.id, req.params.userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error unblocking user:", error);
+      res.status(400).json({ message: error.message || "Failed to unblock user" });
+    }
+  });
+
+  // Get blocked users
+  app.get('/api/chat/blocked-users', isAuthenticated, async (req: any, res) => {
+    try {
+      const blockedUsers = await getBlockedUsers(req.user!.id);
+      res.json(blockedUsers);
+    } catch (error: any) {
+      console.error("Error fetching blocked users:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch blocked users" });
+    }
+  });
+
+  // Legacy: Block conversation (now blocks the user instead)
   app.post('/api/chat/conversations/:id/block', isAuthenticated, async (req: any, res) => {
     try {
       await blockConversation(req.params.id, req.user!.id, req.body.reason);
@@ -3577,6 +3652,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error blocking conversation:", error);
       res.status(400).json({ message: error.message || "Failed to block conversation" });
+    }
+  });
+
+  // Legacy: Unblock conversation (now unblocks the user instead)
+  app.post('/api/chat/conversations/:id/unblock', isAuthenticated, async (req: any, res) => {
+    try {
+      await unblockConversation(req.params.id, req.user!.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error unblocking conversation:", error);
+      res.status(400).json({ message: error.message || "Failed to unblock conversation" });
     }
   });
 

@@ -1,15 +1,21 @@
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useRoute, useLocation, Link } from "wouter";
-import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation, MessageSquare, CalendarPlus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useRoute, useLocation, Link, useSearch } from "wouter";
+import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation, MessageSquare, CalendarPlus, Copy, MessageCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails, type ReviewWithUser } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { ServiceMap } from "@/components/service-map";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Route guard wrapper - only mounts content when service ID is available
 export default function ServiceDetail() {
@@ -43,6 +49,7 @@ export default function ServiceDetail() {
 // Content component - hooks only initialize with valid serviceId
 function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const [isContactRevealed, setIsContactRevealed] = useState(false);
   const [reviewText, setReviewText] = useState("");
@@ -51,6 +58,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const [isSaved, setIsSaved] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const reviewFormRef = useRef<HTMLDivElement>(null);
 
   const { data: service, isLoading: serviceLoading, error: serviceError } = useQuery<ServiceWithDetails>({
     queryKey: [`/api/services/${serviceId}`],
@@ -165,6 +173,24 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
     }
   }, []);
 
+  // Handle ?review=true query param - scroll to review form
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    if (params.get('review') === 'true' && reviewFormRef.current && service) {
+      // Wait for reviews section to render, then scroll
+      setTimeout(() => {
+        reviewFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Focus the textarea if user is authenticated
+        if (isAuthenticated && user?.isVerified) {
+          const textarea = reviewFormRef.current?.querySelector('textarea');
+          if (textarea) {
+            setTimeout(() => textarea.focus(), 500);
+          }
+        }
+      }, 300);
+    }
+  }, [searchString, service, isAuthenticated, user]);
+
   const handleContact = () => {
     if (!isAuthenticated) {
       toast({
@@ -198,6 +224,78 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
     }
 
     createReviewMutation.mutate({ rating, comment: reviewText });
+  };
+
+  // Share functionality
+  const serviceUrl = typeof window !== 'undefined' ? `${window.location.origin}/service/${serviceId}` : '';
+  const shareTitle = service?.title || 'Check out this service';
+  const shareText = service 
+    ? `Check out "${service.title}" on Commerzio Services${service.locations?.[0] ? ` in ${service.locations[0]}` : ''}`
+    : 'Check out this service on Commerzio Services';
+
+  const copyServiceLink = async () => {
+    try {
+      await navigator.clipboard.writeText(serviceUrl);
+      toast({
+        title: "Link copied!",
+        description: "Service link copied to clipboard",
+      });
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      toast({
+        title: "Error",
+        description: "Failed to copy link",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const shareService = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: serviceUrl,
+        });
+      } catch (error: any) {
+        // User cancelled or error - fallback to copy
+        if (error.name !== 'AbortError') {
+          copyServiceLink();
+        }
+      }
+    } else {
+      // Fallback to copy if Web Share API not available
+      copyServiceLink();
+    }
+  };
+
+  const shareToWhatsApp = () => {
+    const text = encodeURIComponent(`${shareText}\n\n${serviceUrl}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const shareToFacebook = () => {
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(serviceUrl)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
+
+  const shareToTwitter = () => {
+    const text = encodeURIComponent(shareText);
+    window.open(
+      `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(serviceUrl)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
+  };
+
+  const shareByEmail = () => {
+    const subject = encodeURIComponent(`Check out: ${shareTitle}`);
+    const body = encodeURIComponent(`${shareText}\n\n${serviceUrl}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
   if (serviceLoading) {
@@ -315,7 +413,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   </h3>
                 </div>
                 
-                <div className="mb-8 p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <div ref={reviewFormRef} className="mb-8 p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                   <h4 className="font-semibold mb-2">Write a Review</h4>
                   {isAuthenticated && user ? (
                     <div className="space-y-4">
@@ -493,9 +591,44 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} /> 
                         {isSaved ? 'Saved' : 'Save'}
                       </Button>
-                      <Button variant="outline" className="flex-1 gap-2">
-                        <Share2 className="w-4 h-4" /> Share
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="flex-1 gap-2">
+                            <Share2 className="w-4 h-4" /> Share
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {navigator.share && (
+                            <>
+                              <DropdownMenuItem onClick={shareService}>
+                                <Share2 className="w-4 h-4 mr-2" />
+                                Share via...
+                              </DropdownMenuItem>
+                              <div className="h-px bg-border my-1" />
+                            </>
+                          )}
+                          <DropdownMenuItem onClick={copyServiceLink}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy link
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={shareToWhatsApp}>
+                            <MessageCircle className="w-4 h-4 mr-2 text-green-600" />
+                            Share to WhatsApp
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={shareToFacebook}>
+                            <Share2 className="w-4 h-4 mr-2 text-blue-600" />
+                            Share to Facebook
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={shareToTwitter}>
+                            <Share2 className="w-4 h-4 mr-2 text-sky-500" />
+                            Share to Twitter/X
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={shareByEmail}>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Share via Email
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </div>

@@ -13,10 +13,12 @@ import {
   chatConversations, 
   chatMessages,
   users,
+  userBlocks,
+  favorites,
   InsertChatConversation,
   InsertChatMessage
 } from '../shared/schema';
-import { eq, and, or, desc, sql, isNull, asc } from 'drizzle-orm';
+import { eq, and, or, desc, sql, isNull, asc, inArray } from 'drizzle-orm';
 
 // ===========================================
 // PROFANITY FILTER
@@ -231,11 +233,26 @@ export async function getOrCreateConversation(params: {
   orderId?: string;
   serviceId?: string;
 }): Promise<typeof chatConversations.$inferSelect> {
-  // Try to find existing conversation with same context
+  // Try to find existing ACTIVE conversation with same context (exclude archived/deleted)
+  // IMPORTANT: We check serviceId to ensure each service gets its own conversation
   const conditions = [
     eq(chatConversations.customerId, params.customerId),
     eq(chatConversations.vendorId, params.vendorId),
+    sql`${chatConversations.status} != 'archived'`, // Exclude archived/deleted conversations
   ];
+  
+  // If serviceId is provided, ONLY match conversations with the EXACT same serviceId
+  // This ensures each service gets its own conversation, even if there are existing
+  // conversations with the same vendor but different/no serviceId
+  if (params.serviceId) {
+    // CRITICAL: Only match conversations with this exact serviceId
+    // Do NOT match conversations with NULL serviceId or different serviceId
+    conditions.push(eq(chatConversations.serviceId, params.serviceId));
+  } else {
+    // If no serviceId provided, only match conversations without a serviceId
+    // This is for general inquiries not tied to a specific service
+    conditions.push(sql`${chatConversations.serviceId} IS NULL`);
+  }
   
   if (params.bookingId) {
     conditions.push(eq(chatConversations.bookingId, params.bookingId));
@@ -244,16 +261,52 @@ export async function getOrCreateConversation(params: {
     conditions.push(eq(chatConversations.orderId, params.orderId));
   }
   
+  console.log(`[getOrCreateConversation] Searching for existing conversation:`, {
+    customerId: params.customerId,
+    vendorId: params.vendorId,
+    serviceId: params.serviceId,
+    bookingId: params.bookingId,
+    orderId: params.orderId,
+  });
+  
   const [existing] = await db.select()
     .from(chatConversations)
     .where(and(...conditions))
     .limit(1);
   
   if (existing) {
-    return existing;
+    console.log(`[getOrCreateConversation] Found existing conversation:`, {
+      id: existing.id,
+      serviceId: existing.serviceId,
+      requestedServiceId: params.serviceId,
+      status: existing.status,
+      matches: existing.serviceId === params.serviceId,
+    });
+    
+    // CRITICAL CHECK: If serviceId was provided, ensure the existing conversation has the SAME serviceId
+    // If not, this is a different service and we need a new conversation
+    if (params.serviceId && existing.serviceId !== params.serviceId) {
+      console.log(`[getOrCreateConversation] Existing conversation has different serviceId (${existing.serviceId} vs ${params.serviceId}), creating new conversation`);
+      // Proceed to create new conversation for this different service
+    } else if (existing.status === 'blocked') {
+      console.log(`[getOrCreateConversation] Existing conversation is blocked, creating new one`);
+      // Proceed to create new conversation
+    } else if (existing.status === 'active') {
+      // Return existing active conversation with relations loaded
+      console.log(`[getOrCreateConversation] Returning existing active conversation for serviceId ${existing.serviceId}`);
+      return await getConversationById(existing.id, params.customerId) as typeof chatConversations.$inferSelect;
+    }
+  } else {
+    console.log(`[getOrCreateConversation] No existing conversation found for serviceId ${params.serviceId || 'NULL'}, will create new one`);
   }
   
-  // Create new conversation
+  // Create new conversation (either no existing one, or existing one is blocked/archived)
+  console.log(`[getOrCreateConversation] Creating new conversation:`, {
+    customerId: params.customerId,
+    vendorId: params.vendorId,
+    serviceId: params.serviceId,
+  });
+  
   const [conversation] = await db.insert(chatConversations)
     .values({
       customerId: params.customerId,
@@ -265,7 +318,23 @@ export async function getOrCreateConversation(params: {
     })
     .returning();
   
-  return conversation;
+  console.log(`[getOrCreateConversation] Created conversation:`, {
+    id: conversation.id,
+    customerId: conversation.customerId,
+    vendorId: conversation.vendorId,
+    status: conversation.status,
+  });
+  
+  // Fetch relations for the new conversation
+  const fullConversation = await getConversationById(conversation.id, params.customerId) as typeof chatConversations.$inferSelect;
+  console.log(`[getOrCreateConversation] Returning conversation with relations:`, {
+    id: fullConversation?.id,
+    hasVendor: !!fullConversation?.vendor,
+    hasCustomer: !!fullConversation?.customer,
+    hasService: !!fullConversation?.service,
+  });
+  
+  return fullConversation;
 }
 
 /**
@@ -275,7 +344,11 @@ export async function getUserConversations(
   userId: string,
   role: 'customer' | 'vendor' | 'both' = 'both',
   limit: number = 20,
-  offset: number = 0
+  offset: number = 0,
+  options?: {
+    status?: 'active' | 'archived' | 'expired' | 'all';
+    savedOnly?: boolean; // Only conversations for saved services
+  }
 ) {
   let condition;
   
@@ -289,18 +362,113 @@ export async function getUserConversations(
       eq(chatConversations.vendorId, userId)
     );
   }
+
+  // Get blocked users to exclude their conversations
+  const blockedUsers = await db.select({ blockedUserId: userBlocks.blockedUserId })
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerId, userId));
+  const blockedUserIds = blockedUsers.map(b => b.blockedUserId);
+
+  // Build status condition
+  let statusCondition;
+  if (options?.status === 'active') {
+    statusCondition = eq(chatConversations.status, 'active');
+  } else if (options?.status === 'archived') {
+    statusCondition = eq(chatConversations.status, 'archived');
+  } else if (options?.status === 'expired') {
+    // Expired = conversations with services that are expired/paused
+    // We'll filter this in the application layer after fetching
+    statusCondition = sql`1=1`; // Match all, filter later
+  } else if (options?.status === 'all') {
+    // 'all' - show all conversations except blocked status
+    statusCondition = sql`${chatConversations.status} != 'blocked'`;
+  } else {
+    // undefined - default to active only
+    statusCondition = eq(chatConversations.status, 'active');
+  }
+
+  // If savedOnly, get saved service IDs
+  let savedServiceIds: string[] = [];
+  if (options?.savedOnly) {
+    const saved = await db.select({ serviceId: favorites.serviceId })
+      .from(favorites)
+      .where(eq(favorites.userId, userId));
+    savedServiceIds = saved.map(s => s.serviceId).filter(Boolean); // Filter out any null/undefined
+    
+    console.log(`[getUserConversations] Saved only mode: found ${savedServiceIds.length} saved services`);
+    
+    if (savedServiceIds.length === 0) {
+      // No saved services, return empty array immediately
+      console.log(`[getUserConversations] No saved services found, returning empty array`);
+      return [];
+    }
+  }
   
-  const conversations = await db.select()
-    .from(chatConversations)
-    .where(and(
-      condition,
-      sql`${chatConversations.status} != 'blocked'`
-    ))
-    .orderBy(desc(chatConversations.lastMessageAt))
-    .limit(limit)
-    .offset(offset);
+  // Debug: Log the condition being used
+  console.log(`[getUserConversations] Querying conversations for user ${userId} with role ${role}`, {
+    status: options?.status,
+    savedOnly: options?.savedOnly,
+    savedServiceCount: savedServiceIds.length,
+  });
   
-  return conversations;
+  const whereConditions = [condition, statusCondition];
+  
+  // Exclude conversations with blocked users (unless viewing archived or 'all')
+  // 'All' tab should show everything including archived conversations with blocked users
+  if (blockedUserIds.length > 0 && options?.status !== 'archived' && options?.status !== 'all') {
+    // Don't exclude if viewing archived or 'all' (we want to see all conversations)
+    // But we still want to exclude active conversations with blocked users from active tab
+    if (options?.status === 'active' || !options?.status) {
+      // For each blocked user, exclude conversations where they are the other party
+      for (const blockedId of blockedUserIds) {
+        whereConditions.push(
+          sql`NOT (
+            (${chatConversations.customerId} = ${userId} AND ${chatConversations.vendorId} = ${blockedId})
+            OR
+            (${chatConversations.vendorId} = ${userId} AND ${chatConversations.customerId} = ${blockedId})
+          )`
+        );
+      }
+    }
+  }
+
+  // Filter by saved services if requested
+  if (options?.savedOnly && savedServiceIds.length > 0) {
+    whereConditions.push(inArray(chatConversations.serviceId, savedServiceIds));
+  }
+  
+  const conversations = await db.query.chatConversations.findMany({
+    where: and(...whereConditions),
+    orderBy: [
+      desc(chatConversations.lastMessageAt),
+      desc(chatConversations.updatedAt), // Fallback to updatedAt if lastMessageAt is null
+      desc(chatConversations.createdAt) // Final fallback
+    ],
+    limit: limit,
+    offset: offset,
+    with: {
+      vendor: true,
+      customer: true,
+      service: true,
+    }
+  });
+  
+  // Filter expired conversations if requested
+  let filteredConversations = conversations;
+  if (options?.status === 'expired') {
+    filteredConversations = conversations.filter(conv => {
+      if (!conv.service) return false;
+      // Check if service is expired or paused
+      return conv.service.status === 'expired' || conv.service.status === 'paused';
+    });
+  }
+
+  console.log(`[getUserConversations] Found ${filteredConversations.length} conversations for user ${userId} with role ${role}`, {
+    status: options?.status,
+    savedOnly: options?.savedOnly,
+  });
+  
+  return filteredConversations;
 }
 
 /**
@@ -309,19 +477,21 @@ export async function getUserConversations(
 export async function getConversationById(
   conversationId: string,
   userId: string
-): Promise<typeof chatConversations.$inferSelect | null> {
-  const [conversation] = await db.select()
-    .from(chatConversations)
-    .where(
-      and(
-        eq(chatConversations.id, conversationId),
-        or(
-          eq(chatConversations.customerId, userId),
-          eq(chatConversations.vendorId, userId)
-        )
+) {
+  const conversation = await db.query.chatConversations.findFirst({
+    where: and(
+      eq(chatConversations.id, conversationId),
+      or(
+        eq(chatConversations.customerId, userId),
+        eq(chatConversations.vendorId, userId)
       )
-    )
-    .limit(1);
+    ),
+    with: {
+      vendor: true,
+      customer: true,
+      service: true,
+    }
+  });
   
   return conversation || null;
 }
@@ -546,7 +716,192 @@ export async function sendSystemMessage(
 // ===========================================
 
 /**
+ * Delete a conversation (soft delete - archives it)
+ */
+export async function deleteConversation(
+  conversationId: string,
+  userId: string
+): Promise<boolean> {
+  // First verify the conversation exists and user has access
+  const conversation = await getConversationById(conversationId, userId);
+  
+  if (!conversation) {
+    throw new Error('Conversation not found or access denied');
+  }
+  
+  // Hard delete: Delete all messages first (cascade will handle this, but explicit for clarity)
+  await db.delete(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId));
+  
+  // Hard delete the conversation itself
+  const result = await db.delete(chatConversations)
+    .where(eq(chatConversations.id, conversationId))
+    .returning();
+  
+  if (!result || result.length === 0) {
+    throw new Error('Failed to delete conversation');
+  }
+  
+  return true;
+}
+
+/**
+ * Block a user - archives all conversations with that user
+ */
+export async function blockUser(
+  blockerId: string,
+  blockedUserId: string,
+  reason?: string
+) {
+  // Prevent blocking yourself
+  if (blockerId === blockedUserId) {
+    throw new Error('Cannot block yourself');
+  }
+
+  // Check if already blocked
+  const [existing] = await db.select()
+    .from(userBlocks)
+    .where(
+      and(
+        eq(userBlocks.blockerId, blockerId),
+        eq(userBlocks.blockedUserId, blockedUserId)
+      )
+    )
+    .limit(1);
+
+  if (existing) {
+    throw new Error('User is already blocked');
+  }
+
+  // Create user block record
+  await db.insert(userBlocks)
+    .values({
+      blockerId,
+      blockedUserId,
+      reason: reason || 'Blocked by user',
+      blockType: 'chat_only',
+    });
+
+  // Archive ALL conversations with the blocked user
+  const conversationsToArchive = await db.select()
+    .from(chatConversations)
+    .where(
+      or(
+        and(
+          eq(chatConversations.customerId, blockerId),
+          eq(chatConversations.vendorId, blockedUserId)
+        ),
+        and(
+          eq(chatConversations.customerId, blockedUserId),
+          eq(chatConversations.vendorId, blockerId)
+        )
+      )
+    );
+
+  if (conversationsToArchive.length > 0) {
+    await db.update(chatConversations)
+      .set({
+        status: 'archived',
+        updatedAt: new Date(),
+      })
+      .where(
+        or(
+          and(
+            eq(chatConversations.customerId, blockerId),
+            eq(chatConversations.vendorId, blockedUserId)
+          ),
+          and(
+            eq(chatConversations.customerId, blockedUserId),
+            eq(chatConversations.vendorId, blockerId)
+          )
+        )
+      );
+  }
+
+  console.log(`[blockUser] Blocked user ${blockedUserId} by ${blockerId}, archived ${conversationsToArchive.length} conversations`);
+}
+
+/**
+ * Unblock a user - restores all archived conversations with that user
+ */
+export async function unblockUser(
+  blockerId: string,
+  blockedUserId: string
+) {
+  // Find the block record
+  const [block] = await db.select()
+    .from(userBlocks)
+    .where(
+      and(
+        eq(userBlocks.blockerId, blockerId),
+        eq(userBlocks.blockedUserId, blockedUserId)
+      )
+    )
+    .limit(1);
+
+  if (!block) {
+    throw new Error('User is not blocked');
+  }
+
+  // Delete the block record
+  await db.delete(userBlocks)
+    .where(
+      and(
+        eq(userBlocks.blockerId, blockerId),
+        eq(userBlocks.blockedUserId, blockedUserId)
+      )
+    );
+
+  // Restore ALL archived conversations with the unblocked user
+  const restored = await db.update(chatConversations)
+    .set({
+      status: 'active',
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(chatConversations.status, 'archived'),
+        or(
+          and(
+            eq(chatConversations.customerId, blockerId),
+            eq(chatConversations.vendorId, blockedUserId)
+          ),
+          and(
+            eq(chatConversations.customerId, blockedUserId),
+            eq(chatConversations.vendorId, blockerId)
+          )
+        )
+      )
+    )
+    .returning();
+
+  console.log(`[unblockUser] Unblocked user ${blockedUserId} by ${blockerId}, restored ${restored.length} conversations`);
+}
+
+/**
+ * Get list of blocked users for a user
+ */
+export async function getBlockedUsers(userId: string) {
+  const blocks = await db.select()
+    .from(userBlocks)
+    .where(eq(userBlocks.blockerId, userId));
+
+  if (blocks.length === 0) {
+    return [];
+  }
+
+  // Get user details for blocked users
+  const blockedUserIds = blocks.map(b => b.blockedUserId);
+  const blockedUsers = await db.select()
+    .from(users)
+    .where(inArray(users.id, blockedUserIds));
+
+  return blockedUsers;
+}
+
+/**
  * Block a conversation (admin or either party)
+ * DEPRECATED: Use blockUser instead - this function now calls blockUser internally
  */
 export async function blockConversation(
   conversationId: string,
@@ -558,15 +913,36 @@ export async function blockConversation(
   if (!conversation) {
     throw new Error('Conversation not found or access denied');
   }
+
+  // Get the other party's ID
+  const otherPartyId = conversation.customerId === userId 
+    ? conversation.vendorId 
+    : conversation.customerId;
+
+  // Use the new blockUser function to block the user and archive all conversations
+  return await blockUser(userId, otherPartyId, reason);
+}
+
+/**
+ * Unblock a conversation (admin or the user who blocked it)
+ */
+export async function unblockConversation(
+  conversationId: string,
+  userId: string
+) {
+  const conversation = await getConversationById(conversationId, userId);
   
-  await db.update(chatConversations)
-    .set({
-      status: 'blocked',
-      flaggedForReview: true,
-      flagReason: reason || 'Blocked by user',
-      updatedAt: new Date(),
-    })
-    .where(eq(chatConversations.id, conversationId));
+  if (!conversation) {
+    throw new Error('Conversation not found or access denied');
+  }
+
+  // Get the other party's ID
+  const otherPartyId = conversation.customerId === userId 
+    ? conversation.vendorId 
+    : conversation.customerId;
+
+  // Use the new unblockUser function to unblock the user and restore all conversations
+  return await unblockUser(userId, otherPartyId);
 }
 
 /**

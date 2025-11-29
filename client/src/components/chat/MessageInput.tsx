@@ -4,7 +4,7 @@
  * Chat input with moderation preview, emoji picker, and rich styling
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -86,13 +86,58 @@ export function MessageInput({
     }
   }, [message]);
 
+  // Maintain focus after message is sent (when message becomes empty)
+  // Use useLayoutEffect to restore focus synchronously before paint
+  useLayoutEffect(() => {
+    if (message === '' && textareaRef.current && !isLoading) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      });
+    }
+  }, [message, isLoading]);
+
   const handleSend = () => {
     if (!message.trim() || isLoading) return;
-    onSend(message.trim());
+    const messageToSend = message.trim();
+    
+    // Store reference to textarea before clearing
+    const textarea = textareaRef.current;
+    
+    // Optimistically clear input immediately
     setMessage('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    if (textarea) {
+      textarea.style.height = 'auto';
     }
+    
+    // Send the message
+    onSend(messageToSend);
+    
+    // CRITICAL: Restore focus after React updates - use multiple timeouts to ensure it works
+    // First attempt immediately after state update
+    setTimeout(() => {
+      if (textarea) {
+        textarea.focus();
+      } else if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+    
+    // Second attempt after a slightly longer delay (in case of re-render)
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 50);
+    
+    // Third attempt after mutation completes (if needed)
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 150);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -168,6 +213,13 @@ export function MessageInput({
             "min-h-[52px] max-h-[120px] resize-none border-0 bg-transparent px-4 py-3.5 pr-32 text-[15px] placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0",
             moderationResult?.wouldBeFiltered && "text-amber-700"
           )}
+          onFocus={(e) => {
+            // Ensure cursor is at the end when focused
+            const textarea = e.target as HTMLTextAreaElement;
+            setTimeout(() => {
+              textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }, 0);
+          }}
         />
         
         {/* Action buttons */}
