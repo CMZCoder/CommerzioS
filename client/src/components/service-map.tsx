@@ -356,11 +356,12 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
             if (userLocation) {
               directionsUrl += `&origin=${userLocation.lat},${userLocation.lng}`;
             }
-            if (service.locations && service.locations.length > 0) {
+            // Prioritize exact coordinates over text addresses
+            if (serviceLat && serviceLng) {
+              directionsUrl += `&destination=${serviceLat},${serviceLng}`;
+            } else if (service.locations && service.locations.length > 0) {
               const destinationQuery = encodeURIComponent(service.locations[0]);
               directionsUrl += `&destination=${destinationQuery}`;
-            } else if (serviceLat && serviceLng) {
-              directionsUrl += `&destination=${serviceLat},${serviceLng}`;
             }
             window.open(directionsUrl, '_blank', 'noopener,noreferrer');
           }}
@@ -485,11 +486,12 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
                   let directionsUrl = `https://www.google.com/maps/dir/?api=1`;
                   directionsUrl += `&origin=${userLocation.lat},${userLocation.lng}`;
                   
-                  if (service.locations && service.locations.length > 0) {
+                  // Prioritize exact coordinates over text addresses
+                  if (serviceLat && serviceLng) {
+                    directionsUrl += `&destination=${serviceLat},${serviceLng}`;
+                  } else if (service.locations && service.locations.length > 0) {
                     const destinationQuery = encodeURIComponent(service.locations[0]);
                     directionsUrl += `&destination=${destinationQuery}`;
-                  } else if (serviceLat && serviceLng) {
-                    directionsUrl += `&destination=${serviceLat},${serviceLng}`;
                   } else {
                     const destinationQuery = encodeURIComponent(service.title);
                     directionsUrl += `&destination=${destinationQuery}`;
@@ -509,11 +511,12 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
               onClick={() => {
                 let directionsUrl = `https://www.google.com/maps/dir/?api=1`;
                 
-                if (service.locations && service.locations.length > 0) {
+                // Prioritize exact coordinates over text addresses
+                if (serviceLat && serviceLng) {
+                  directionsUrl += `&destination=${serviceLat},${serviceLng}`;
+                } else if (service.locations && service.locations.length > 0) {
                   const destinationQuery = encodeURIComponent(service.locations[0]);
                   directionsUrl += `&destination=${destinationQuery}`;
-                } else if (serviceLat && serviceLng) {
-                  directionsUrl += `&destination=${serviceLat},${serviceLng}`;
                 } else {
                   const destinationQuery = encodeURIComponent(service.title);
                   directionsUrl += `&destination=${destinationQuery}`;

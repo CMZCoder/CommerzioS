@@ -44,7 +44,10 @@ export function ServiceMapToggle({
   // Memoize closest services to prevent unnecessary re-renders
   const closestServices = useMemo(() => {
     return services
-      .filter(s => s.owner?.locationLat && s.owner?.locationLng)
+      .filter(s => {
+        // Service has its own location OR owner has location
+        return (s.locationLat && s.locationLng) || (s.owner?.locationLat && s.owner?.locationLng);
+      })
       .sort((a, b) => (a.distance || 0) - (b.distance || 0))
       .slice(0, maxServices);
   }, [services, maxServices]);
@@ -90,10 +93,19 @@ export function ServiceMapToggle({
     const positionCounts: Record<string, number> = {};
 
     closestServices.forEach((service, index) => {
-      if (!service.owner?.locationLat || !service.owner?.locationLng) return;
-
-      let serviceLat = parseFloat(service.owner.locationLat as any);
-      let serviceLng = parseFloat(service.owner.locationLng as any);
+      // Priority: service.locationLat/Lng first, then fall back to owner's location
+      let serviceLat: number | null = null;
+      let serviceLng: number | null = null;
+      
+      if (service.locationLat && service.locationLng) {
+        serviceLat = parseFloat(service.locationLat as any);
+        serviceLng = parseFloat(service.locationLng as any);
+      } else if (service.owner?.locationLat && service.owner?.locationLng) {
+        serviceLat = parseFloat(service.owner.locationLat as any);
+        serviceLng = parseFloat(service.owner.locationLng as any);
+      }
+      
+      if (!serviceLat || !serviceLng || isNaN(serviceLat) || isNaN(serviceLng)) return;
 
       // Check for overlapping coordinates and spread markers
       const posKey = `${serviceLat},${serviceLng}`;

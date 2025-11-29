@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { categories, subcategories, users, services, reviews, plans, chatConversations, chatMessages } from "@shared/schema";
+import { categories, subcategories, users, services, reviews, plans, chatConversations, chatMessages, notifications } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const CATEGORIES = [
@@ -197,6 +197,30 @@ const SAMPLE_USERS = [
     locationLng: 8.3093,
     preferredLocationName: "Lucerne, Switzerland",
   },
+  {
+    id: "demo-user-9",
+    email: "nina.brunner@example.ch",
+    firstName: "Nina",
+    lastName: "Brunner",
+    profileImageUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Nina",
+    isVerified: true,
+    marketingPackage: "pro" as const,
+    locationLat: 47.5001,
+    locationLng: 8.7500,
+    preferredLocationName: "Winterthur, Switzerland",
+  },
+  {
+    id: "demo-user-10",
+    email: "florian.roth@example.ch",
+    firstName: "Florian",
+    lastName: "Roth",
+    profileImageUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Florian",
+    isVerified: true,
+    marketingPackage: "premium" as const,
+    locationLat: 46.8065,
+    locationLng: 7.1620,
+    preferredLocationName: "Fribourg, Switzerland",
+  },
 ];
 
 const DEFAULT_PLANS = [
@@ -265,6 +289,49 @@ const DEFAULT_PLANS = [
     sortOrder: 3,
   },
 ];
+
+/**
+ * Reset the database by clearing all data tables
+ * WARNING: This will delete all data! Use with caution.
+ */
+export async function resetDatabase() {
+  try {
+    console.log("Resetting database...");
+    
+    // Delete in reverse order of dependencies
+    console.log("Clearing notifications...");
+    await db.delete(notifications);
+    
+    console.log("Clearing chat messages...");
+    await db.delete(chatMessages);
+    
+    console.log("Clearing chat conversations...");
+    await db.delete(chatConversations);
+    
+    console.log("Clearing reviews...");
+    await db.delete(reviews);
+    
+    console.log("Clearing services...");
+    await db.delete(services);
+    
+    console.log("Clearing subcategories...");
+    await db.delete(subcategories);
+    
+    console.log("Clearing categories...");
+    await db.delete(categories);
+    
+    console.log("Clearing users (except sessions)...");
+    await db.delete(users);
+    
+    console.log("Clearing plans...");
+    await db.delete(plans);
+    
+    console.log("Database reset complete!");
+  } catch (error) {
+    console.error("Error resetting database:", error);
+    throw error;
+  }
+}
 
 export async function seedDatabase() {
   try {
@@ -360,7 +427,7 @@ export async function seedDatabase() {
     }
 
     const SAMPLE_SERVICES = [
-      // Home Services
+      // Home Services (demo-user-1 - Zurich area: 47.3769, 8.5417)
       {
         id: "demo-service-1",
         title: "Professional House Cleaning",
@@ -370,13 +437,15 @@ export async function seedDatabase() {
         priceUnit: "hour" as const,
         contactPhone: "+41 79 123 45 67",
         contactEmail: "maria.mueller@example.ch",
-        locations: ["Zürich", "Winterthur"],
+        locations: ["Bahnhofstrasse 50, 8001 Zürich"],
+        locationLat: "47.3680",
+        locationLng: "8.5395",
         ownerId: "demo-user-1",
         categoryId: homeCategory.id,
         status: "active" as const,
         expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         viewCount: 234,
-        images: ["https://images.unsplash.com/photo-1581578731548-c64695c952952?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8Y2xlYW5pbmd8fHx8fHwxNjk5Njc4Mjcw&ixlib=rb-4.0.3&q=80"],
+        images: ["https://images.unsplash.com/photo-1581578731548-c64695c952952?w=800", "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=800"],
         tags: ["cleaning", "eco-friendly", "home"],
         hashtags: ["cleaning", "ecofriendly", "zurich"],
       },
@@ -386,18 +455,21 @@ export async function seedDatabase() {
         description: "Professional interior and exterior painting. Expert color consultation, high-quality finishes. 15+ years experience. Free quotes.",
         priceType: "text" as const,
         priceText: "Call for quote",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 79 987 65 43",
         contactEmail: "painter.zurich@example.ch",
-        locations: ["Zürich", "Zug"],
+        locations: ["Langstrasse 120, 8004 Zürich"],
+        locationLat: "47.3773",
+        locationLng: "8.5256",
         ownerId: "demo-user-1",
         categoryId: homeCategory.id,
         status: "active" as const,
         expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
         viewCount: 156,
-        images: ["https://images.unsplash.com/photo-1580274455191-1c62238fa333?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: ["https://images.unsplash.com/photo-1580274455191-1c62238fa333?w=800", "https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?w=800"],
         tags: ["painting", "renovation", "interior"],
       },
+      // Home Services (demo-user-2 - Basel area: 47.5596, 7.5886)
       {
         id: "demo-service-8",
         title: "Plumbing & Installation Services",
@@ -407,15 +479,18 @@ export async function seedDatabase() {
         priceUnit: "hour" as const,
         contactPhone: "+41 76 234 56 78",
         contactEmail: "plumber.ch@example.ch",
-        locations: ["Basel", "Solothurn"],
+        locations: ["Freie Strasse 35, 4001 Basel"],
+        locationLat: "47.5565",
+        locationLng: "7.5905",
         ownerId: "demo-user-2",
         categoryId: homeCategory.id,
         status: "active" as const,
         expiresAt: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000),
         viewCount: 198,
-        images: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800"],
         tags: ["plumbing", "repair", "maintenance"],
       },
+      // Home Services (demo-user-4 - Bern area: 46.9480, 7.4474)
       {
         id: "demo-service-9",
         title: "Electrical Installation & Repair",
@@ -425,31 +500,35 @@ export async function seedDatabase() {
         priceUnit: "hour" as const,
         contactPhone: "+41 77 456 78 90",
         contactEmail: "electrician.ch@example.ch",
-        locations: ["Bern", "Thun"],
+        locations: ["Marktgasse 15, 3011 Bern"],
+        locationLat: "46.9494",
+        locationLng: "7.4484",
         ownerId: "demo-user-4",
         categoryId: homeCategory.id,
         status: "active" as const,
         expiresAt: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000),
         viewCount: 167,
-        images: ["https://images.unsplash.com/photo-1581092160562-40fed08a2816?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: ["https://images.unsplash.com/photo-1581092160562-40fed08a2816?w=800"],
         tags: ["electrical", "installation", "repair"],
       },
       {
         id: "demo-service-10",
         title: "Garden Maintenance Service",
-        description: "Complete garden care including mowing, trimming, planting, and seasonal cleanup. Serving Lausanne and surrounding areas. Weekly or monthly plans available.",
+        description: "Complete garden care including mowing, trimming, planting, and seasonal cleanup. Serving Bern and surrounding areas. Weekly or monthly plans available.",
         priceType: "fixed" as const,
         price: "60.00",
         priceUnit: "hour" as const,
         contactPhone: "+41 77 234 56 78",
         contactEmail: "thomas.schneider@example.ch",
-        locations: ["Lausanne", "Vevey", "Montreux"],
+        locations: ["Kramgasse 40, 3011 Bern"],
+        locationLat: "46.9479",
+        locationLng: "7.4516",
         ownerId: "demo-user-4",
         categoryId: homeCategory.id,
         status: "active" as const,
         expiresAt: new Date(Date.now() + 11 * 24 * 60 * 60 * 1000),
         viewCount: 89,
-        images: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?crop=entropy&cs=tinysrgb&fit=max&fm=jpg"],
+        images: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800", "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800"],
         tags: ["gardening", "maintenance", "outdoor"],
       },
 
@@ -479,7 +558,7 @@ export async function seedDatabase() {
         description: "Professional website design and development for businesses. Responsive, SEO-optimized, fast loading. Includes CMS training.",
         priceType: "text" as const,
         priceText: "Starting from CHF 1500",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 78 123 45 67",
         contactEmail: "webdev.ch@example.ch",
         locations: ["Zürich", "Remote"],
@@ -543,7 +622,7 @@ export async function seedDatabase() {
         description: "Professional video production, editing, and animation for businesses. Corporate videos, commercials, social media content.",
         priceType: "text" as const,
         priceText: "Starting from CHF 2000",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 77 987 65 43",
         contactEmail: "video.ch@example.ch",
         locations: ["Bern", "Remote"],
@@ -789,7 +868,7 @@ export async function seedDatabase() {
         description: "Social media management, SEO optimization, content marketing. Increase your online visibility. Transparent reporting.",
         priceType: "text" as const,
         priceText: "Starting from CHF 500/month",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 77 890 12 34",
         contactEmail: "marketing.ch@example.ch",
         locations: ["Basel", "Remote"],
@@ -807,7 +886,7 @@ export async function seedDatabase() {
         description: "HR strategy, recruitment, and employee development. Specialized in tech and creative industries.",
         priceType: "text" as const,
         priceText: "Call for quote",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 78 901 23 45",
         contactEmail: "hr.ch@example.ch",
         locations: ["Lausanne", "Remote"],
@@ -865,7 +944,7 @@ export async function seedDatabase() {
         description: "Interior and exterior detailing. Paint correction, ceramic coating, steam cleaning. Premium products. Your car will look brand new!",
         priceType: "text" as const,
         priceText: "Starting from CHF 150",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 76 678 90 12",
         contactEmail: "cardetail.ch@example.ch",
         locations: ["Basel", "Liestal"],
@@ -939,7 +1018,7 @@ export async function seedDatabase() {
         description: "Professional grooming at your doorstep. Bathing, trimming, nail clipping. Stress-free experience for your pet. All breeds welcome.",
         priceType: "text" as const,
         priceText: "From CHF 60 depending on size",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 76 012 34 56",
         contactEmail: "petgrooming@example.ch",
         locations: ["Basel", "Allschwil", "Muttenz"],
@@ -995,7 +1074,7 @@ export async function seedDatabase() {
         description: "Capture your special day beautifully. Full day coverage, edited photos and video. Multiple packages available. Award-winning photographer.",
         priceType: "text" as const,
         priceText: "Packages from CHF 2500",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 79 345 67 89",
         contactEmail: "weddingphoto@example.ch",
         locations: ["Zürich", "Lucerne", "St. Gallen"],
@@ -1031,7 +1110,7 @@ export async function seedDatabase() {
         description: "Delicious catering for all occasions. Swiss and international cuisine. From intimate dinners to large parties. Custom menus available.",
         priceType: "text" as const,
         priceText: "CHF 45 per person minimum",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 77 567 89 01",
         contactEmail: "catering@example.ch",
         locations: ["Basel", "Zürich", "Bern"],
@@ -1105,7 +1184,7 @@ export async function seedDatabase() {
         description: "Certified notary for contracts, wills, property transactions. Document authentication and legalization. Flexible appointment times.",
         priceType: "text" as const,
         priceText: "Fees according to official tariff",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 77 901 23 45",
         contactEmail: "notary@example.ch",
         locations: ["Bern", "Lausanne"],
@@ -1123,7 +1202,7 @@ export async function seedDatabase() {
         description: "Professional debt collection services for businesses. Legal compliance guaranteed. No cure, no pay. Experienced team with high success rate.",
         priceType: "text" as const,
         priceText: "Commission based - call for details",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 78 012 34 56",
         contactEmail: "debtcollection@example.ch",
         locations: ["Basel", "Zürich", "Remote"],
@@ -1162,7 +1241,7 @@ export async function seedDatabase() {
         description: "Professional network installation for homes and businesses. WiFi optimization, firewall configuration, security audits. Ongoing support available.",
         priceType: "text" as const,
         priceText: "Starting from CHF 500",
-        priceUnit: "custom" as const,
+        priceUnit: "job" as const,
         contactPhone: "+41 76 234 56 78",
         contactEmail: "network.setup@example.ch",
         locations: ["Geneva", "Lausanne", "Remote"],
@@ -1212,11 +1291,36 @@ export async function seedDatabase() {
       },
     ];
 
-    // Auto-generate hashtags from tags for services that don't have them
-    const servicesWithHashtags = SAMPLE_SERVICES.map(service => ({
-      ...service,
-      hashtags: service.hashtags || service.tags.map(tag => tag.toLowerCase().replace(/\s+/g, ''))
-    }));
+    // Mapping of owner IDs to their base coordinates (Swiss cities)
+    const ownerCoordinates: Record<string, { lat: number; lng: number }> = {
+      "demo-user-1": { lat: 47.3769, lng: 8.5417 },   // Zurich
+      "demo-user-2": { lat: 47.5596, lng: 7.5886 },   // Basel
+      "demo-user-3": { lat: 46.2044, lng: 6.1432 },   // Geneva
+      "demo-user-4": { lat: 46.9480, lng: 7.4474 },   // Bern
+      "demo-user-5": { lat: 46.5197, lng: 6.6323 },   // Lausanne
+      "demo-user-6": { lat: 46.0037, lng: 8.9511 },   // Lugano
+      "demo-user-7": { lat: 47.4245, lng: 9.3767 },   // St. Gallen
+      "demo-user-8": { lat: 47.0502, lng: 8.3093 },   // Lucerne
+      "demo-user-9": { lat: 47.5001, lng: 8.7500 },   // Winterthur
+      "demo-user-10": { lat: 46.8065, lng: 7.1620 },  // Fribourg
+    };
+
+    // Auto-generate hashtags and coordinates from tags for services that don't have them
+    let serviceCounter = 0;
+    const servicesWithHashtags = SAMPLE_SERVICES.map(service => {
+      serviceCounter++;
+      const baseCoords = ownerCoordinates[service.ownerId] || { lat: 47.3769, lng: 8.5417 };
+      // Add slight variation to coordinates (within ~500m) for each service
+      const variation = (serviceCounter * 0.001) % 0.01;
+      
+      return {
+        ...service,
+        hashtags: service.hashtags || service.tags.map(tag => tag.toLowerCase().replace(/\s+/g, '')),
+        // Only add coordinates if not already present
+        locationLat: service.locationLat || String(baseCoords.lat + variation),
+        locationLng: service.locationLng || String(baseCoords.lng + variation),
+      };
+    });
 
     for (const service of servicesWithHashtags) {
       const existing = await db.select().from(services).where(eq(services.id, service.id));
@@ -1565,6 +1669,9 @@ export async function seedDatabase() {
       }
     }
 
+    // Seed demo notifications
+    await seedDemoNotifications();
+
     // Seed demo chat conversations
     await seedDemoChats();
 
@@ -1713,5 +1820,146 @@ async function seedDemoChats() {
     console.log("Demo chat conversations seeded successfully!");
   } catch (error) {
     console.error("Error seeding demo chats:", error);
+  }
+}
+
+/**
+ * Seed demo notifications for testing the notification center
+ */
+async function seedDemoNotifications() {
+  try {
+    // Check if notifications already exist
+    const existingNotifications = await db.select().from(notifications).limit(1);
+    if (existingNotifications.length > 0) {
+      console.log("Notifications already seeded, skipping...");
+      return;
+    }
+
+    // Get demo users
+    const demoUsers = await db.select().from(users).where(eq(users.isAdmin, false)).limit(8);
+    if (demoUsers.length === 0) {
+      console.log("No demo users found for notifications, skipping...");
+      return;
+    }
+
+    // Sample notifications for different types
+    const notificationTemplates = [
+      {
+        type: "message" as const,
+        title: "New message from a customer",
+        message: "You have a new inquiry about your cleaning service. Reply to keep your response time low!",
+        icon: "message-circle",
+        relatedEntityType: "conversation",
+        priority: 2,
+      },
+      {
+        type: "booking" as const,
+        title: "New booking request",
+        message: "A customer has requested a booking for your Garden Maintenance Service on December 15th at 10:00 AM.",
+        icon: "calendar",
+        relatedEntityType: "booking",
+        priority: 1,
+      },
+      {
+        type: "referral" as const,
+        title: "You earned referral points!",
+        message: "Congratulations! Your referral code was used by a new user. You've earned 100 points!",
+        icon: "gift",
+        relatedEntityType: "user",
+        priority: 4,
+      },
+      {
+        type: "service" as const,
+        title: "Your service is expiring soon",
+        message: "Your listing 'Professional House Cleaning' will expire in 3 days. Renew now to keep it active.",
+        icon: "alert-triangle",
+        relatedEntityType: "service",
+        priority: 3,
+      },
+      {
+        type: "payment" as const,
+        title: "Payment received",
+        message: "You received a payment of CHF 85.00 for your Plumbing service. The funds will be transferred to your account.",
+        icon: "credit-card",
+        relatedEntityType: "order",
+        priority: 2,
+      },
+      {
+        type: "system" as const,
+        title: "Welcome to Commerzio!",
+        message: "Your account has been verified. Start exploring services or create your first listing today!",
+        icon: "check-circle",
+        priority: 5,
+      },
+      {
+        type: "review" as const,
+        title: "New 5-star review!",
+        message: "A customer left a 5-star review on your Professional House Cleaning service. Great job!",
+        icon: "star",
+        relatedEntityType: "review",
+        priority: 3,
+      },
+      {
+        type: "promotion" as const,
+        title: "Boost your visibility",
+        message: "Upgrade to Premium and get 50% more views on your listings. Limited time offer!",
+        icon: "trending-up",
+        priority: 7,
+      },
+      {
+        type: "booking" as const,
+        title: "Booking confirmed",
+        message: "Your booking for Piano Lessons has been confirmed for December 20th at 2:00 PM.",
+        icon: "calendar-check",
+        relatedEntityType: "booking",
+        priority: 2,
+      },
+      {
+        type: "message" as const,
+        title: "Quick reply reminder",
+        message: "You have 2 unread messages from potential customers. Fast responses lead to more bookings!",
+        icon: "message-square",
+        relatedEntityType: "conversation",
+        priority: 3,
+      },
+    ];
+
+    // Create notifications for each demo user (mix of read and unread)
+    const baseTime = new Date();
+    let notificationCount = 0;
+    
+    for (let userIndex = 0; userIndex < Math.min(demoUsers.length, 6); userIndex++) {
+      const user = demoUsers[userIndex];
+      
+      // Each user gets 2-4 notifications
+      const numNotifications = 2 + (userIndex % 3);
+      
+      for (let i = 0; i < numNotifications; i++) {
+        const templateIndex = (userIndex * 3 + i) % notificationTemplates.length;
+        const template = notificationTemplates[templateIndex];
+        const notificationTime = new Date(baseTime.getTime() - (i + userIndex) * 60 * 60 * 1000); // Hours ago
+        const isRead = i > 0 && Math.random() > 0.5; // First notification unread, others random
+        
+        await db.insert(notifications).values({
+          userId: user.id,
+          type: template.type,
+          title: template.title,
+          message: template.message,
+          icon: template.icon,
+          relatedEntityType: template.relatedEntityType || null,
+          priority: template.priority,
+          isRead: isRead,
+          readAt: isRead ? notificationTime : null,
+          deliveredVia: ["in_app"],
+          createdAt: notificationTime,
+        });
+        
+        notificationCount++;
+      }
+    }
+
+    console.log(`Demo notifications seeded successfully! Created ${notificationCount} notifications.`);
+  } catch (error) {
+    console.error("Error seeding demo notifications:", error);
   }
 }

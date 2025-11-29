@@ -38,6 +38,7 @@ export function GoogleMaps({
   const activeDirectionsServiceIdRef = useRef<string | null>(null);
   const isInitializedRef = useRef(false);
   const hasFitBoundsRef = useRef(false);
+  const isCalculatingDirectionsRef = useRef(false);
   // Store the coordinates used for each service marker to ensure directions use the same coordinates
   const serviceCoordinatesRef = useRef<Record<string, { lat: number; lng: number }>>({});
 
@@ -99,6 +100,13 @@ export function GoogleMaps({
   const showDirections = useCallback(async (service: ServiceWithDetails & { distance?: number }) => {
     const google = (window as GoogleMapsWindow).google;
     if (!google || !mapRef.current || !userLocation) return;
+
+    // Prevent race conditions - only one direction calculation at a time
+    if (isCalculatingDirectionsRef.current) {
+      console.log('Direction calculation already in progress, skipping...');
+      return;
+    }
+    isCalculatingDirectionsRef.current = true;
 
     // FIRST: Check if we have stored coordinates from the marker (this ensures we use the SAME coordinates as the marker)
     let serviceLat: number | null = null;
@@ -176,6 +184,7 @@ export function GoogleMaps({
         ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
         locationsArray: service.locations,
       });
+      isCalculatingDirectionsRef.current = false;
       return;
     }
 
@@ -229,6 +238,9 @@ export function GoogleMaps({
 
     // Request the route first, then create renderer after we get the result
     directionsServiceRef.current.route(request, (result: any, status: any) => {
+      // Reset calculation flag regardless of result
+      isCalculatingDirectionsRef.current = false;
+      
       if (status === google.maps.DirectionsStatus.OK) {
         const endLocation = result.routes[0].legs[0].end_location;
         const endLat = typeof endLocation.lat === 'function' ? endLocation.lat() : endLocation.lat;
