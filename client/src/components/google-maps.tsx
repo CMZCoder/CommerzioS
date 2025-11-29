@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Map, ZoomIn, ZoomOut, X, Navigation, ExternalLink } from "lucide-react";
 import type { ServiceWithDetails } from "@/lib/api";
+import { geocodeLocation } from '@/lib/geocoding';
 
 interface GoogleMapsProps {
   services: (ServiceWithDetails & { distance?: number })[];
@@ -92,25 +93,96 @@ export function GoogleMaps({
   }, []);
 
   // Show directions for a specific service
-  const showDirections = useCallback((service: ServiceWithDetails & { distance?: number }) => {
+  const showDirections = useCallback(async (service: ServiceWithDetails & { distance?: number }) => {
     const google = (window as GoogleMapsWindow).google;
     if (!google || !mapRef.current || !userLocation) return;
 
-    // Use service's own location first, fallback to owner's location
-    const serviceLat = service.locationLat ? parseFloat(service.locationLat as any) : (service.owner?.locationLat ? parseFloat(service.owner.locationLat as any) : null);
-    const serviceLng = service.locationLng ? parseFloat(service.locationLng as any) : (service.owner?.locationLng ? parseFloat(service.owner.locationLng as any) : null);
+    // Parse coordinates - use service.locationLat/lng if they exist and are valid
+    let serviceLat: number | null = null;
+    let serviceLng: number | null = null;
+    
+    if (service.locationLat) {
+      const parsed = parseFloat(service.locationLat as any);
+      if (!isNaN(parsed)) {
+        serviceLat = parsed;
+      }
+    }
+    
+    if (service.locationLng) {
+      const parsed = parseFloat(service.locationLng as any);
+      if (!isNaN(parsed)) {
+        serviceLng = parsed;
+      }
+    }
+    
+    // If service doesn't have coordinates, try to geocode from locations array
+    if ((!serviceLat || !serviceLng) && service.locations && service.locations.length > 0) {
+      console.log('=== GEOCODING SERVICE LOCATION ===', {
+        serviceId: service.id,
+        serviceTitle: service.title,
+        locationAddress: service.locations[0],
+        allLocations: service.locations,
+      });
+      try {
+        const geocoded = await geocodeLocation(service.locations[0]);
+        serviceLat = geocoded.lat;
+        serviceLng = geocoded.lng;
+        console.log('=== GEOCODING RESULT ===', {
+          serviceId: service.id,
+          originalAddress: service.locations[0],
+          geocodedCoords: { lat: serviceLat, lng: serviceLng },
+          displayName: geocoded.displayName,
+        });
+      } catch (error) {
+        console.error('Failed to geocode service location:', error);
+        // Don't return here, fall through to owner location
+      }
+    }
+    
+    // Fallback to owner's location if service doesn't have its own and geocoding failed
+    if (!serviceLat || !serviceLng) {
+      if (service.owner?.locationLat) {
+        const parsed = parseFloat(service.owner.locationLat as any);
+        if (!isNaN(parsed)) {
+          serviceLat = parsed;
+        }
+      }
+      if (service.owner?.locationLng) {
+        const parsed = parseFloat(service.owner.locationLng as any);
+        if (!isNaN(parsed)) {
+          serviceLng = parsed;
+        }
+      }
+    }
 
     if (!serviceLat || !serviceLng || isNaN(serviceLat) || isNaN(serviceLng)) {
       console.error('Service missing location:', service.id, service.title, {
         serviceLocation: { lat: service.locationLat, lng: service.locationLng },
-        ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng }
+        ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
+        locationsArray: service.locations,
       });
       return;
     }
 
-    // Clear previous directions by removing the renderer completely
+    console.log('=== SHOW DIRECTIONS CALLED ===', {
+      serviceId: service.id,
+      serviceTitle: service.title,
+      serviceLat,
+      serviceLng,
+      previousActiveService: activeDirectionsServiceIdRef.current,
+    });
+
+    // Aggressively clear previous directions
     if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null);
+      console.log('Clearing previous directions renderer');
+      try {
+        // Clear directions first
+        directionsRendererRef.current.setDirections({ routes: [] });
+        // Remove from map
+        directionsRendererRef.current.setMap(null);
+      } catch (e) {
+        console.warn('Error clearing renderer:', e);
+      }
       directionsRendererRef.current = null;
     }
     activeDirectionsServiceIdRef.current = null;
@@ -143,22 +215,66 @@ export function GoogleMaps({
     // Request the route first, then create renderer after we get the result
     directionsServiceRef.current.route(request, (result: any, status: any) => {
       if (status === google.maps.DirectionsStatus.OK) {
-        console.log('Directions received for service:', service.id, service.title);
+        const endLocation = result.routes[0].legs[0].end_location;
+        const endLat = typeof endLocation.lat === 'function' ? endLocation.lat() : endLocation.lat;
+        const endLng = typeof endLocation.lng === 'function' ? endLocation.lng() : endLocation.lng;
         
-        // Create a fresh directions renderer for this route
+        console.log('=== DIRECTIONS RECEIVED ===', {
+          serviceId: service.id,
+          serviceTitle: service.title,
+          routeDistance: result.routes[0].legs[0].distance?.text,
+          routeDuration: result.routes[0].legs[0].duration?.text,
+          startAddress: result.routes[0].legs[0].start_address,
+          endAddress: result.routes[0].legs[0].end_address,
+          requestedDestination: { lat: serviceLat, lng: serviceLng },
+          actualDestination: { lat: endLat, lng: endLng },
+          destinationMatch: Math.abs(endLat - serviceLat) < 0.001 && Math.abs(endLng - serviceLng) < 0.001,
+          serviceLocationAddress: service.locations?.[0],
+          routeOverviewPolyline: result.routes[0].overview_polyline?.points?.substring(0, 50) + '...',
+        });
+        
+        // Double-check: clear any existing renderer
+        if (directionsRendererRef.current) {
+          console.log('Removing existing renderer before creating new one');
+          try {
+            directionsRendererRef.current.setDirections({ routes: [] });
+            directionsRendererRef.current.setMap(null);
+          } catch (e) {
+            console.warn('Error clearing renderer:', e);
+          }
+          directionsRendererRef.current = null;
+        }
+        
+        // Generate a unique color based on service ID for debugging
+        const colors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
+        const colorIndex = parseInt(service.id.slice(-1)) % colors.length || 0;
+        const routeColor = colors[colorIndex];
+        
+        // Create a completely fresh directions renderer for this route
+        console.log('Creating new directions renderer for service:', service.id, 'with color:', routeColor);
         directionsRendererRef.current = new google.maps.DirectionsRenderer({
           map: mapRef.current,
           suppressMarkers: true, // We'll use our custom markers
           polylineOptions: {
-            strokeColor: '#3b82f6',
-            strokeOpacity: 0.7,
-            strokeWeight: 4,
+            strokeColor: routeColor, // Use unique color per service for debugging
+            strokeOpacity: 0.8,
+            strokeWeight: 5,
           },
         });
 
         // Set the directions on the new renderer
         directionsRendererRef.current.setDirections(result);
         activeDirectionsServiceIdRef.current = service.id;
+        
+        console.log('=== DIRECTIONS RENDERER SET ===', {
+          serviceId: service.id,
+          rendererAttached: directionsRendererRef.current.getMap() ? 'yes' : 'no',
+          routeSteps: result.routes[0].legs[0].steps.length,
+          routeColor: routeColor,
+          firstStep: result.routes[0].legs[0].steps[0]?.instructions?.substring(0, 50),
+          lastStep: result.routes[0].legs[0].steps[result.routes[0].legs[0].steps.length - 1]?.instructions?.substring(0, 50),
+          overviewPolyline: result.routes[0].overview_polyline?.points?.substring(0, 100) + '...',
+        });
         
         // Fit map to show entire route
         const bounds = new google.maps.LatLngBounds();
@@ -227,12 +343,31 @@ export function GoogleMaps({
     // Track positions to add offset for overlapping markers
     const positionCounts: Record<string, number> = {};
 
+    // Log summary of all services and their locations
+    console.log('=== ALL SERVICES LOCATION SUMMARY ===', closestServices.map(s => ({
+      id: s.id,
+      title: s.title,
+      hasOwnLocation: !!(s.locationLat && s.locationLng),
+      serviceLocation: { lat: s.locationLat, lng: s.locationLng },
+      ownerId: s.owner?.id,
+      ownerLocation: { lat: s.owner?.locationLat, lng: s.owner?.locationLng },
+    })));
+
     closestServices.forEach((service, index) => {
       // Use service's own location first, fallback to owner's location
       const serviceLat = service.locationLat ? parseFloat(service.locationLat as any) : (service.owner?.locationLat ? parseFloat(service.owner.locationLat as any) : null);
       const serviceLng = service.locationLng ? parseFloat(service.locationLng as any) : (service.owner?.locationLng ? parseFloat(service.owner.locationLng as any) : null);
       
       if (!serviceLat || !serviceLng || isNaN(serviceLat) || isNaN(serviceLng)) return;
+
+      // Log coordinates for debugging
+      console.log(`[Marker ${index + 1}] Service: ${service.id} (${service.title})`, {
+        serviceLocation: { lat: service.locationLat, lng: service.locationLng },
+        ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
+        ownerId: service.owner?.id,
+        usingCoords: { lat: serviceLat, lng: serviceLng },
+        source: service.locationLat ? 'service' : 'owner',
+      });
 
       let adjustedLat = serviceLat;
       let adjustedLng = serviceLng;
@@ -293,14 +428,9 @@ export function GoogleMaps({
         ? `<img src="${serviceImage}" alt="${service.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />`
         : '';
 
-      // Build Google Maps directions URL using address strings
-      // Use user's location name for origin, and service location or title for destination
-      const originAddress = encodeURIComponent(userLocation.name);
-      const destinationAddress = service.locations && service.locations.length > 0
-        ? encodeURIComponent(service.locations[0])
-        : encodeURIComponent(service.title);
-      // Also include coordinates as fallback for better accuracy
-      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${originAddress}&destination=${destinationAddress}`;
+      // Build Google Maps directions URL using actual service coordinates (not adjusted for marker offset)
+      // Use actual coordinates for precise point-to-point routing
+      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${serviceLat},${serviceLng}`;
 
       // Create unique IDs for buttons to handle clicks
       const infoWindowId = `info-window-${service.id}`;
@@ -393,34 +523,75 @@ export function GoogleMaps({
         currentInfoWindowRef.current = serviceInfoWindow;
         
         // Set up event listener for directions button after info window opens
-        // Use a closure to capture the correct service
-        setTimeout(() => {
-          const getDirectionsBtn = document.getElementById(`get-directions-${service.id}`);
-          if (getDirectionsBtn) {
-            // Store the service ID in a data attribute to ensure we use the correct service
-            const currentServiceId = service.id;
-            const currentService = service; // Capture service in closure
-            
-            // Remove any existing listeners to avoid duplicates
-            const newBtn = getDirectionsBtn.cloneNode(true);
-            getDirectionsBtn.parentNode?.replaceChild(newBtn, getDirectionsBtn);
-            
-            newBtn.addEventListener('click', (e) => {
-              e.preventDefault();
-              e.stopPropagation();
+        // IMPORTANT: Capture coordinates in the closure to avoid all buttons using the same values
+        // Create a function that captures the specific service's coordinates
+        const setupDirectionsButton = (serviceId: string, serviceTitle: string, capturedLat: number, capturedLng: number, serviceObj: any) => {
+          setTimeout(() => {
+            const getDirectionsBtn = document.getElementById(`get-directions-${serviceId}`);
+            if (getDirectionsBtn) {
+              console.log('Setting up directions button for service:', serviceId, {
+                capturedCoords: { lat: capturedLat, lng: capturedLng },
+                serviceLocation: { lat: serviceObj.locationLat, lng: serviceObj.locationLng },
+                ownerLocation: { lat: serviceObj.owner?.locationLat, lng: serviceObj.owner?.locationLng },
+              });
               
-              // Find the service from the services array to ensure we have the latest data
-              const serviceToUse = closestServices.find(s => s.id === currentServiceId) || currentService;
+              // Remove any existing listeners to avoid duplicates
+              const newBtn = getDirectionsBtn.cloneNode(true);
+              getDirectionsBtn.parentNode?.replaceChild(newBtn, getDirectionsBtn);
               
-              console.log('Get Directions clicked for service:', serviceToUse.id, serviceToUse.title);
-              showDirections(serviceToUse);
-              
-              // Close the info window after showing directions
-              serviceInfoWindow.close();
-              currentInfoWindowRef.current = null;
-            });
-          }
-        }, 100);
+              newBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Create a service object with the CORRECT coordinates we captured in the closure
+                // Include the locations array so geocoding can happen if needed
+                const serviceWithCorrectCoords = {
+                  ...serviceObj,
+                  locationLat: serviceObj.locationLat || null, // Keep original, will be geocoded if null
+                  locationLng: serviceObj.locationLng || null, // Keep original, will be geocoded if null
+                  locations: serviceObj.locations || [], // Ensure locations array is included
+                  owner: {
+                    ...serviceObj.owner,
+                    locationLat: serviceObj.owner?.locationLat || null,
+                    locationLng: serviceObj.owner?.locationLng || null,
+                  },
+                };
+                
+                console.log('=== GET DIRECTIONS CLICKED ===', {
+                  serviceId: serviceWithCorrectCoords.id,
+                  serviceTitle: serviceWithCorrectCoords.title,
+                  capturedCoordinates: { lat: capturedLat, lng: capturedLng },
+                  serviceObject: {
+                    locationLat: serviceWithCorrectCoords.locationLat,
+                    locationLng: serviceWithCorrectCoords.locationLng,
+                    locations: serviceWithCorrectCoords.locations,
+                    ownerLocationLat: serviceWithCorrectCoords.owner?.locationLat,
+                    ownerLocationLng: serviceWithCorrectCoords.owner?.locationLng,
+                  },
+                });
+                
+                // showDirections is now async and will geocode if needed
+                await showDirections(serviceWithCorrectCoords);
+                
+                // Close the info window after showing directions
+                serviceInfoWindow.close();
+                currentInfoWindowRef.current = null;
+              });
+            }
+          }, 100);
+        };
+        
+        // Call the setup function with the specific coordinates for THIS service
+        // Log what we're passing to verify each service has different coordinates
+        console.log(`[Setup Button] Service: ${service.id} (${service.title})`, {
+          serviceLat,
+          serviceLng,
+          serviceHasOwnLocation: !!(service.locationLat && service.locationLng),
+          serviceLocation: { lat: service.locationLat, lng: service.locationLng },
+          ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
+          ownerId: service.owner?.id,
+        });
+        setupDirectionsButton(service.id, service.title, serviceLat, serviceLng, service);
       });
 
       markersRef.current.push(serviceMarker);
