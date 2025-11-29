@@ -851,7 +851,7 @@ export default function Home() {
             <GoogleMaps 
               services={nearbyServices}
               userLocation={searchLocation}
-              maxServices={5}
+              maxServices={10}
               defaultExpanded={false}
               apiKey={mapsConfig?.apiKey || ""}
             />
