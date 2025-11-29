@@ -11,7 +11,8 @@
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "db:push": "dotenv -e .env -- drizzle-kit push",
-    "db:studio": "dotenv -e .env -- drizzle-kit studio"
+    "db:studio": "dotenv -e .env -- drizzle-kit studio",
+    "db:reset": "dotenv -e .env -- cross-env NODE_ENV=development tsx scripts/reset-and-seed.ts"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.17.3",
