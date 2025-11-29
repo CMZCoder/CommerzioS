@@ -705,13 +705,14 @@ export function GoogleMaps({
       script.onload = async () => {
         clearTimeout(timeoutId);
         setMapLoadError(null); // Clear any previous errors
-        // Load directions library dynamically using the newer importLibrary method
+        // Load routes library dynamically using the newer importLibrary method
+        // Note: The "directions" library has been replaced with "routes" in newer API versions
         try {
-          await win.google.maps.importLibrary("directions");
+          await win.google.maps.importLibrary("routes");
           initializeMap();
         } catch (error) {
-          console.error('Failed to load directions library:', error);
-          setMapLoadError('Failed to load directions library. The map will still work, but directions may not be available.');
+          console.error('Failed to load routes library:', error);
+          setMapLoadError('Failed to load routes library. The map will still work, but directions may not be available.');
           // Initialize map anyway - directions will fail gracefully
           initializeMap();
         }

@@ -208,13 +208,14 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
       
       script.onload = async () => {
         clearTimeout(timeoutId);
-        // Load directions library dynamically using the newer importLibrary method
+        // Load routes library dynamically using the newer importLibrary method
+        // Note: The "directions" library has been replaced with "routes" in newer API versions
         try {
-          await win.google.maps.importLibrary("directions");
+          await win.google.maps.importLibrary("routes");
           initializeMap();
         } catch (error) {
-          console.error('Failed to load directions library:', error);
-          setMapLoadError('Failed to load directions library. The map will still work, but directions may not be available.');
+          console.error('Failed to load routes library:', error);
+          setMapLoadError('Failed to load routes library. The map will still work, but directions may not be available.');
           // Initialize map anyway - directions will fail gracefully
           initializeMap();
         }
@@ -228,18 +229,19 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
       document.head.appendChild(script);
     } else {
       // Google Maps is already loaded
-      // Check if directions library is available, if not load it dynamically
+      // Check if routes library is available (DirectionsService should be available from routes library)
       if (win.google.maps.DirectionsService && win.google.maps.DirectionsRenderer) {
         initializeMap();
       } else {
-        // Load directions library dynamically
-        win.google.maps.importLibrary("directions")
+        // Load routes library dynamically
+        // Note: The "directions" library has been replaced with "routes" in newer API versions
+        win.google.maps.importLibrary("routes")
           .then(() => {
             initializeMap();
           })
           .catch((error: any) => {
-            console.error('Failed to load directions library:', error);
-            setMapLoadError('Failed to load directions library. The map will still work, but directions may not be available.');
+            console.error('Failed to load routes library:', error);
+            setMapLoadError('Failed to load routes library. The map will still work, but directions may not be available.');
             // Initialize map anyway - directions will fail gracefully
             initializeMap();
           });
