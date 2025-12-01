@@ -598,7 +598,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                          {navigator.share && (
+                          {'share' in navigator && (
                             <>
                               <DropdownMenuItem onClick={shareService}>
                                 <Share2 className="w-4 h-4 mr-2" />

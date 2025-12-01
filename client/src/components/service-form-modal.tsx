@@ -37,7 +37,7 @@ interface PriceItem {
 }
 
 interface ImageMetadata {
-  rotation?: number;
+  rotation: number;
   crop?: { x: number; y: number; width: number; height: number };
   [key: string]: any;
 }
@@ -186,14 +186,16 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         priceType: service.priceType || "fixed",
         price: service.price || "",
         priceText: service.priceText || "",
-        priceList: service.priceList || [],
+        priceList: Array.isArray(service.priceList) ? service.priceList : [],
         priceUnit: service.priceUnit,
-        locations: service.locations || [],
+        locations: Array.isArray(service.locations) ? service.locations : [],
         contacts: fallbackContacts.length > 0 ? fallbackContacts : [{ contactType: "email", value: "", isPrimary: true }],
-        images: service.images || [],
-        imageMetadata: service.imageMetadata || [],
+        images: Array.isArray(service.images) ? service.images : [],
+        imageMetadata: Array.isArray(service.imageMetadata) 
+          ? (service.imageMetadata as ImageMetadata[]).map(m => ({ ...m, rotation: m.rotation ?? 0 })) 
+          : [],
         mainImageIndex: service.mainImageIndex || 0,
-        hashtags: service.hashtags || [],
+        hashtags: Array.isArray(service.hashtags) ? service.hashtags : [],
         selectedPromotionalPackage: null,
       });
       
@@ -290,7 +292,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   }, [user, open, formData, isEditMode, userAddresses]);
 
   const createServiceMutation = useMutation({
-    mutationFn: async ({ data, status }: { data: typeof formData; status: "draft" | "active" }) => {
+    mutationFn: async ({ data, status }: { data: FormData; status: "draft" | "active" }) => {
       const serviceData = await apiRequest("/api/services", {
         method: "POST",
         body: JSON.stringify({
@@ -604,7 +606,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleAISuggestHashtags = async () => {
-    if (formData.images.length === 0) {
+    if (!formData || formData.images.length === 0) {
       toast({
         title: "No Images",
         description: "Please upload at least one image to get hashtag suggestions",
@@ -668,7 +670,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleGenerateTitle = async () => {
-    if (formData.images.length === 0) {
+    if (!formData || formData.images.length === 0) {
       toast({
         title: "Images Required",
         description: "Please upload at least one image to generate a title suggestion",
@@ -706,7 +708,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       });
 
       if (response.title) {
-        setFormData({ ...formData, title: response.title });
+        setFormData(prev => prev ? { ...prev, title: response.title } : prev);
         toast({
           title: "Title Generated!",
           description: "AI has suggested a title based on your images",
@@ -725,7 +727,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleGenerateDescription = async () => {
-    if (!formData.title.trim()) {
+    if (!formData || !formData.title.trim()) {
       toast({
         title: "Title Required",
         description: "Please enter a service title first",
@@ -869,8 +871,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleSaveDraft = async () => {
-    const validLocations = formData!.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
-    const validContacts = formData!.contacts.filter((c: Contact) => c.value.trim());
+    if (!formData) return;
+    
+    const validLocations = formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
 
     // Basic validation for draft - only require title
     if (!formData.title) {

@@ -329,9 +329,9 @@ export async function getOrCreateConversation(params: {
   const fullConversation = await getConversationById(conversation.id, params.customerId) as typeof chatConversations.$inferSelect;
   console.log(`[getOrCreateConversation] Returning conversation with relations:`, {
     id: fullConversation?.id,
-    hasVendor: !!fullConversation?.vendor,
-    hasCustomer: !!fullConversation?.customer,
-    hasService: !!fullConversation?.service,
+    hasVendor: !!fullConversation?.vendorId,
+    hasCustomer: !!fullConversation?.customerId,
+    hasService: !!fullConversation?.serviceId,
   });
   
   return fullConversation;
@@ -458,8 +458,11 @@ export async function getUserConversations(
   if (options?.status === 'expired') {
     filteredConversations = conversations.filter(conv => {
       if (!conv.service) return false;
-      // Check if service is expired or paused
-      return conv.service.status === 'expired' || conv.service.status === 'paused';
+      // Check if service is expired or paused - handle both array and object cases
+      const serviceStatus = Array.isArray(conv.service) 
+        ? (conv.service[0] as { status?: string })?.status 
+        : (conv.service as { status?: string }).status;
+      return serviceStatus === 'expired' || serviceStatus === 'paused';
     });
   }
 
