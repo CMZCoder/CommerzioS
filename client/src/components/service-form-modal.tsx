@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,12 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus, AlertCircle, Sparkles, Hash } from "lucide-react";
+import { X, Plus, AlertCircle, Sparkles, Hash, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Service, PlatformSettings, ServiceContact } from "@shared/schema";
 import { ImageManager } from "@/components/image-manager";
 import { ContactInput, type Contact } from "@/components/contact-input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LocationAutocomplete } from "@/components/location-autocomplete";
 import { CategorySubcategorySelector } from "@/components/category-subcategory-selector";
 
@@ -901,6 +902,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const verificationEnabled = settings?.requireEmailVerification || settings?.requirePhoneVerification;
 
+  // Compute submit button disabled state
+  const isMutationPending = isEditMode ? updateServiceMutation.isPending : createServiceMutation.isPending;
+  const isEmailNotVerified = !isEditMode && user && !user.emailVerified;
+  const isSubmitDisabled = isMutationPending || validatingAddresses || isEmailNotVerified;
+
   if (!formData) return null;
 
   return (
@@ -912,6 +918,20 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
             {isEditMode ? "Update your service details" : "Create a detailed listing for your service"}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Email verification warning for new services */}
+        {!isEditMode && user && !user.emailVerified && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Email Not Verified</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p>You need to verify your email address before you can create services.</p>
+              <Link href="/profile?tab=profile" className="underline font-medium mt-1 inline-block">
+                Go to Profile → Account Information to resend verification email
+              </Link>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <Tabs defaultValue="main" className="w-full">
@@ -1419,7 +1439,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
             </Button>
             <Button
               type="submit"
-              disabled={(isEditMode ? updateServiceMutation.isPending : createServiceMutation.isPending) || validatingAddresses}
+              disabled={isSubmitDisabled}
               data-testid="button-submit-service"
             >
               {validatingAddresses 
