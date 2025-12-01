@@ -30,8 +30,10 @@ import Stripe from 'stripe';
 import { db } from './db';
 import { users, orders, servicePricingOptions } from '../shared/schema';
 import { eq } from 'drizzle-orm';
+import { createNotification } from './notificationService';
+import { processReferralReward } from './referralService';
 
-// ===========================================
+// ==========================================
 // STRIPE CONFIGURATION
 // ===========================================
 
@@ -432,6 +434,8 @@ export function constructWebhookEvent(
  */
 export async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<void> {
   const orderId = paymentIntent.metadata.orderId;
+  const customerId = paymentIntent.metadata.customerId;
+  const vendorId = paymentIntent.metadata.vendorId;
   
   if (!orderId) {
     console.error('No orderId in payment intent metadata');
@@ -449,11 +453,37 @@ export async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent
 
     console.log(`Payment succeeded for order ${orderId}`);
     
-    // TODO: Trigger referral commission processing here
-    // await processReferralCommission(orderId);
-    
-    // TODO: Send confirmation emails to customer and vendor
-    // await sendPaymentConfirmationEmails(orderId);
+    // Process referral reward
+    if (customerId) {
+      try {
+        await processReferralReward({
+          triggeredByUserId: customerId,
+          triggerType: 'order_completed',
+          triggerId: orderId,
+          triggerAmount: paymentIntent.amount / 100,
+        });
+      } catch (err) {
+        console.error('Failed to process referral:', err);
+      }
+      
+      await createNotification({
+        userId: customerId,
+        type: 'payment',
+        title: 'Payment Successful',
+        message: `Payment of CHF ${(paymentIntent.amount / 100).toFixed(2)} completed`,
+        actionUrl: `/orders/${orderId}`,
+      });
+    }
+
+    if (vendorId) {
+      await createNotification({
+        userId: vendorId,
+        type: 'payment', 
+        title: 'New Order Received',
+        message: `New order worth CHF ${(paymentIntent.amount / 100).toFixed(2)}`,
+        actionUrl: `/vendor/orders/${orderId}`,
+      });
+    }
   } catch (error) {
     console.error('Error handling payment succeeded:', error);
   }
@@ -464,6 +494,7 @@ export async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent
  */
 export async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise<void> {
   const orderId = paymentIntent.metadata.orderId;
+  const customerId = paymentIntent.metadata.customerId;
   
   if (!orderId) {
     console.error('No orderId in payment intent metadata');
@@ -479,8 +510,15 @@ export async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): 
 
     console.log(`Payment failed for order ${orderId}`);
     
-    // TODO: Send failure notification to customer
-    // await sendPaymentFailureEmail(orderId);
+    if (customerId) {
+      await createNotification({
+        userId: customerId,
+        type: 'payment',
+        title: 'Payment Failed',
+        message: 'Payment could not be processed. Please try again.',
+        actionUrl: `/orders/${orderId}`,
+      });
+    }
   } catch (error) {
     console.error('Error handling payment failed:', error);
   }

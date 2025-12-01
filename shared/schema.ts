@@ -707,6 +707,37 @@ export const favoritesRelations = relations(favorites, ({ one }) => ({
   }),
 }));
 
+// Saved Searches table
+export const savedSearches = pgTable("saved_searches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 100 }).notNull(),
+  searchQuery: text("search_query"),
+  categoryId: varchar("category_id").references(() => categories.id, { onDelete: "set null" }),
+  subcategoryId: varchar("subcategory_id").references(() => subcategories.id, { onDelete: "set null" }),
+  priceMin: decimal("price_min", { precision: 10, scale: 2 }),
+  priceMax: decimal("price_max", { precision: 10, scale: 2 }),
+  notifyOnNew: boolean("notify_on_new").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_saved_searches_user").on(table.userId),
+]);
+
+export const savedSearchesRelations = relations(savedSearches, ({ one }) => ({
+  user: one(users, {
+    fields: [savedSearches.userId],
+    references: [users.id],
+  }),
+  category: one(categories, {
+    fields: [savedSearches.categoryId],
+    references: [categories.id],
+  }),
+  subcategory: one(subcategories, {
+    fields: [savedSearches.subcategoryId],
+    references: [subcategories.id],
+  }),
+}));
+
 // Types
 export type Plan = typeof plans.$inferSelect;
 export type InsertPlan = typeof plans.$inferInsert;
@@ -741,6 +772,9 @@ export type InsertReview = typeof reviews.$inferInsert;
 
 export type Favorite = typeof favorites.$inferSelect;
 export type InsertFavorite = typeof favorites.$inferInsert;
+
+export type SavedSearch = typeof savedSearches.$inferSelect;
+export type InsertSavedSearch = typeof savedSearches.$inferInsert;
 
 export type SubmittedCategory = typeof submittedCategories.$inferSelect;
 export type InsertSubmittedCategory = typeof submittedCategories.$inferInsert;
@@ -840,6 +874,15 @@ export const insertServiceContactSchema = createInsertSchema(serviceContacts, {
 export const insertTemporaryCategorySchema = createInsertSchema(temporaryCategories, {
   name: z.string().min(3, "Category name must be at least 3 characters").max(100),
   slug: z.string().min(3, "Slug must be at least 3 characters").max(100),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSavedSearchSchema = createInsertSchema(savedSearches, {
+  name: z.string().min(1, "Name is required").max(100),
+  searchQuery: z.string().optional(),
+  notifyOnNew: z.boolean().default(false),
 }).omit({
   id: true,
   createdAt: true,

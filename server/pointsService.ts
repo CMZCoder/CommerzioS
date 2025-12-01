@@ -16,7 +16,7 @@
  */
 
 import { db } from "./db";
-import { users, pointsLog } from "@shared/schema";
+import { users, pointsLog, referralTransactions } from "@shared/schema";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
 import { getReferralConfig } from "./referralService";
 
@@ -330,12 +330,25 @@ export async function getPointsSummary(userId: string): Promise<{
     .where(eq(pointsLog.userId, userId))
     .orderBy(desc(pointsLog.createdAt))
     .limit(10);
+
+  // Calculate pending points from referrals
+  const [pendingPoints] = await db
+    .select({
+      total: sql<number>`COALESCE(SUM(points_earned), 0)`,
+    })
+    .from(referralTransactions)
+    .where(
+      and(
+        eq(referralTransactions.toUserId, userId),
+        eq(referralTransactions.status, 'pending')
+      )
+    );
   
   return {
     currentBalance: user?.points || 0,
     totalEarned: user?.totalEarned || 0,
     totalRedeemed: Number(redeemed?.total) || 0,
-    pendingFromReferrals: 0, // TODO: Calculate from pending referral transactions
+    pendingFromReferrals: Number(pendingPoints?.total) || 0,
     recentActivity,
   };
 }

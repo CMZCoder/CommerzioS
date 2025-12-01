@@ -141,6 +141,18 @@ import { sendVerificationCode } from "./contactVerificationService";
 import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { z } from "zod";
+import { 
+  getServiceAnalytics, 
+  getVendorAnalyticsSummary,
+  trackServiceView,
+  trackContactClick 
+} from "./analyticsService";
+import {
+  getSavedSearches,
+  createSavedSearch,
+  deleteSavedSearch,
+} from "./savedSearchService";
+import { insertSavedSearchSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware and routes
@@ -785,6 +797,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking favorite status:", error);
       res.status(500).json({ message: "Failed to check favorite status" });
+    }
+  });
+
+  // ===========================================
+  // SAVED SEARCHES ROUTES
+  // ===========================================
+
+  app.get('/api/saved-searches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const searches = await getSavedSearches(userId);
+      res.json(searches);
+    } catch (error) {
+      console.error("Error fetching saved searches:", error);
+      res.status(500).json({ message: "Failed to fetch saved searches" });
+    }
+  });
+
+  app.post('/api/saved-searches', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const validated = insertSavedSearchSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const search = await createSavedSearch(userId, validated);
+      res.status(201).json(search);
+    } catch (error: any) {
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      console.error("Error creating saved search:", error);
+      res.status(500).json({ message: "Failed to create saved search" });
+    }
+  });
+
+  app.delete('/api/saved-searches/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const deleted = await deleteSavedSearch(req.params.id, userId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Saved search not found" });
+      }
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting saved search:", error);
+      res.status(500).json({ message: "Failed to delete saved search" });
+    }
+  });
+
+  // ===========================================
+  // SERVICE ANALYTICS ROUTES
+  // ===========================================
+
+  app.get('/api/services/:id/analytics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      
+      // Verify ownership
+      const service = await storage.getService(req.params.id);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      if (service.ownerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const analytics = await getServiceAnalytics(req.params.id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching service analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get('/api/vendor/analytics/summary', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const summary = await getVendorAnalyticsSummary(userId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error fetching vendor analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.post('/api/services/:id/track-view', async (req, res) => {
+    try {
+      await trackServiceView(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking view:", error);
+      res.status(500).json({ message: "Failed to track view" });
+    }
+  });
+
+  app.post('/api/services/:id/track-contact-click', async (req, res) => {
+    try {
+      await trackContactClick(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking contact click:", error);
+      res.status(500).json({ message: "Failed to track contact click" });
     }
   });
 
