@@ -7,7 +7,7 @@
  */
 
 import { db } from './db';
-import { bookings } from '@shared/schema';
+import { bookings } from '../shared/schema';
 import { eq, and, lt, isNull } from 'drizzle-orm';
 import { createNotification } from './notificationService';
 
