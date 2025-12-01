@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -901,6 +902,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const verificationEnabled = settings?.requireEmailVerification || settings?.requirePhoneVerification;
 
+  // Compute submit button disabled state
+  const isMutationPending = isEditMode ? updateServiceMutation.isPending : createServiceMutation.isPending;
+  const isEmailNotVerified = !isEditMode && user && !user.emailVerified;
+  const isSubmitDisabled = isMutationPending || validatingAddresses || isEmailNotVerified;
+
   if (!formData) return null;
 
   return (
@@ -920,9 +926,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
             <AlertTitle>Email Not Verified</AlertTitle>
             <AlertDescription className="mt-2">
               <p>You need to verify your email address before you can create services.</p>
-              <a href="/profile?tab=profile" className="underline font-medium mt-1 inline-block">
+              <Link href="/profile?tab=profile" className="underline font-medium mt-1 inline-block">
                 Go to Profile → Account Information to resend verification email
-              </a>
+              </Link>
             </AlertDescription>
           </Alert>
         )}
@@ -1433,7 +1439,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
             </Button>
             <Button
               type="submit"
-              disabled={(isEditMode ? updateServiceMutation.isPending : createServiceMutation.isPending) || validatingAddresses || (!isEditMode && user && !user.emailVerified)}
+              disabled={isSubmitDisabled}
               data-testid="button-submit-service"
             >
               {validatingAddresses 
