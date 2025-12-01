@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { X, Plus, AlertCircle, Sparkles, Hash } from "lucide-react";
+import { X, Plus, AlertCircle, Sparkles, Hash, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Service, PlatformSettings, ServiceContact } from "@shared/schema";
 import { ImageManager } from "@/components/image-manager";
@@ -901,7 +901,50 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const verificationEnabled = settings?.requireEmailVerification || settings?.requirePhoneVerification;
 
+  // Resend verification email handler
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: user?.email }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send verification email');
+      }
+      toast({ title: "Verification email sent", description: "Check your inbox" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to send verification email", variant: "destructive" });
+    }
+  };
+
   if (!formData) return null;
+
+  // Show email verification prompt for unverified users (create mode only)
+  if (!isEditMode && user && !user.emailVerified) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Verification Required</DialogTitle>
+            <DialogDescription>
+              Please verify your email address to create services.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-6">
+            <Mail className="w-16 h-16 text-amber-500 mb-4" />
+            <p className="text-center text-muted-foreground mb-4">
+              We sent a verification link to <strong>{user?.email}</strong>
+            </p>
+            <Button onClick={handleResendVerification}>
+              Resend Verification Email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

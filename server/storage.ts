@@ -72,7 +72,7 @@ export interface IStorage {
   updatePlan(id: string, plan: Partial<InsertPlan>): Promise<Plan | undefined>;
   deletePlan(id: string): Promise<void>;
   
-  // User operations (required for Replit Auth)
+  // User operations
   getUser(id: string): Promise<UserWithPlan | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserVerification(id: string, isVerified: boolean): Promise<User | undefined>;

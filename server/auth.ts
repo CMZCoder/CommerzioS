@@ -1,8 +1,7 @@
 /**
  * Authentication Middleware and Routes
  * 
- * This module replaces the Replit Auth system with a custom local
- * authentication system supporting:
+ * This module provides a custom authentication system supporting:
  * - Email/password registration and login
  * - OAuth providers (Google, Twitter, Facebook)
  * - Session management with PostgreSQL store

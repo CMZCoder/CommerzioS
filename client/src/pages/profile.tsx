@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,8 @@ import type { Service, SelectAddress, Plan } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -123,6 +124,15 @@ export default function Profile() {
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Password change states
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordError, setPasswordError] = useState('');
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -317,6 +327,50 @@ export default function Profile() {
       });
     },
   });
+
+  // Password change mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to change password');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Password changed successfully" });
+      setShowChangePasswordDialog(false);
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordError('');
+    },
+    onError: (error: Error) => {
+      setPasswordError(error.message);
+    },
+  });
+
+  // Resend verification email handler
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: user?.email }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to send verification email');
+      }
+      toast({ title: "Verification email sent", description: "Check your inbox" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to send verification email", variant: "destructive" });
+    }
+  };
 
   const handleStatusChange = (id: string, newStatus: Service['status']) => {
     if (newStatus === 'active') {
@@ -804,30 +858,44 @@ export default function Profile() {
               <Card ref={accountInfoRef}>
                 <CardHeader>
                   <CardTitle>Account Information</CardTitle>
-                  <CardDescription>Your account details managed by Replit</CardDescription>
+                  <CardDescription>Manage your email and password</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
+                  {/* Email Section */}
                   <div>
-                    <Label>Email</Label>
+                    <Label>Email Address</Label>
                     <div className="flex items-center gap-2 mt-2">
                       <Input 
                         value={user.email || ""} 
                         disabled 
-                        className="bg-muted"
+                        className="bg-muted flex-1"
                         data-testid="input-email-readonly"
                       />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-email"
-                      >
-                        Manage on Replit
-                      </Button>
+                      {user.emailVerified ? (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-600 border-amber-600">
+                          <AlertCircle className="w-3 h-3 mr-1" /> Not Verified
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Email is managed through your Replit account
-                    </p>
+                    {!user.emailVerified && (
+                      <div className="mt-2">
+                        <Button 
+                          variant="link" 
+                          className="p-0 h-auto text-sm"
+                          onClick={handleResendVerification}
+                          data-testid="button-resend-verification"
+                        >
+                          Resend verification email
+                        </Button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Password Section */}
                   <div>
                     <Label>Password</Label>
                     <div className="flex items-center gap-2 mt-2">
@@ -835,20 +903,17 @@ export default function Profile() {
                         type="password" 
                         value="••••••••" 
                         disabled 
-                        className="bg-muted"
+                        className="bg-muted flex-1"
                         data-testid="input-password-readonly"
                       />
                       <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-password"
+                        variant="outline"
+                        onClick={() => setShowChangePasswordDialog(true)}
+                        data-testid="button-change-password"
                       >
-                        Manage on Replit
+                        Change Password
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Password is managed through your Replit account
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -1590,6 +1655,81 @@ export default function Profile() {
               ) : (
                 "Save Profile Picture"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showChangePasswordDialog} onOpenChange={setShowChangePasswordDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {passwordError && (
+              <Alert variant="destructive">
+                <AlertDescription>{passwordError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                data-testid="input-current-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                data-testid="input-new-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                data-testid="input-confirm-password"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowChangePasswordDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                  setPasswordError("Passwords don't match");
+                  return;
+                }
+                if (passwordForm.newPassword.length < 8) {
+                  setPasswordError("Password must be at least 8 characters");
+                  return;
+                }
+                setPasswordError('');
+                changePasswordMutation.mutate({
+                  currentPassword: passwordForm.currentPassword,
+                  newPassword: passwordForm.newPassword,
+                });
+              }}
+              disabled={changePasswordMutation.isPending}
+              data-testid="button-submit-change-password"
+            >
+              {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
             </Button>
           </DialogFooter>
         </DialogContent>
