@@ -212,7 +212,8 @@ export class DatabaseStorage implements IStorage {
         },
       })
       .returning();
-    return result[0];
+    const [first] = result as any[];
+    return first;
   }
 
   async updateUserVerification(id: string, isVerified: boolean): Promise<User | undefined> {

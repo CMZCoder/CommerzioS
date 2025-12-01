@@ -40,7 +40,7 @@ interface Conversation {
     id: string;
     title: string;
     images?: string[];
-    price?: string;
+    price?: string | number;
     currency?: string;
   };
   vendor?: {

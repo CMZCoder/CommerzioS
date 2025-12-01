@@ -214,7 +214,7 @@ export async function createAdminUser(data: {
         emailVerified: true, // Admin accounts are pre-verified
       })
       .returning();
-    const newUser = result[0];
+    const [newUser] = result as any[];
     
     return {
       success: true,
