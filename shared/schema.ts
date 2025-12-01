@@ -1281,6 +1281,9 @@ export const bookings = pgTable("bookings", {
   // Reminders sent
   reminderSentAt: timestamp("reminder_sent_at"),
   
+  // Review request tracking
+  reviewRequestSentAt: timestamp("review_request_sent_at"),
+  
   // Timestamps for status changes
   acceptedAt: timestamp("accepted_at"),
   confirmedAt: timestamp("confirmed_at"),
