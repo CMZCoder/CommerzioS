@@ -78,7 +78,7 @@ interface ServiceContext {
   id: string;
   title: string;
   images?: string[];
-  price?: string;
+  price?: string | number;
   currency?: string;
 }
 

@@ -11,6 +11,7 @@ import {
   decimal,
   boolean,
   unique,
+  AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -103,7 +104,7 @@ export const users = pgTable("users", {
   
   // Referral system fields
   referralCode: varchar("referral_code", { length: 20 }).unique(),
-  referredBy: varchar("referred_by").references(() => users.id, { onDelete: "set null" }),
+  referredBy: varchar("referred_by").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
   points: integer("points").default(0).notNull(),
   totalEarnedPoints: integer("total_earned_points").default(0).notNull(),
   totalEarnedCommission: decimal("total_earned_commission", { precision: 12, scale: 2 }).default("0").notNull(),

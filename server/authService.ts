@@ -132,7 +132,7 @@ export async function registerUser(data: {
       referredBy,
     })
     .returning();
-  const newUser = insertResult[0];
+  const [newUser] = insertResult as any[];
   
   // Process referral reward if this user was referred
   if (referredBy) {
@@ -646,13 +646,14 @@ export async function upsertOAuthUser(data: {
       })
       .returning();
     
-    existingUser = oauthInsertResult[0];
+    const [insertedUser] = oauthInsertResult as any[];
+    existingUser = insertedUser;
     isNewUser = true;
     
     // Process referral reward if this user was referred
     if (referredBy) {
       await processReferralReward({
-        triggeredByUserId: newUser.id,
+        triggeredByUserId: existingUser.id,
         triggerType: "signup",
       });
     }

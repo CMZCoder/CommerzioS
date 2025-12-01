@@ -186,12 +186,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         priceType: service.priceType || "fixed",
         price: service.price || "",
         priceText: service.priceText || "",
-        priceList: service.priceList || [],
+        priceList: Array.isArray(service.priceList) ? service.priceList : [],
         priceUnit: service.priceUnit,
         locations: service.locations || [],
         contacts: fallbackContacts.length > 0 ? fallbackContacts : [{ contactType: "email", value: "", isPrimary: true }],
         images: service.images || [],
-        imageMetadata: service.imageMetadata || [],
+        imageMetadata: Array.isArray(service.imageMetadata) ? service.imageMetadata : [],
         mainImageIndex: service.mainImageIndex || 0,
         hashtags: service.hashtags || [],
         selectedPromotionalPackage: null,
@@ -291,6 +291,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const createServiceMutation = useMutation({
     mutationFn: async ({ data, status }: { data: typeof formData; status: "draft" | "active" }) => {
+      if (!data) {
+        throw new Error('Form data is required');
+      }
       const serviceData = await apiRequest("/api/services", {
         method: "POST",
         body: JSON.stringify({
@@ -604,6 +607,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleAISuggestHashtags = async () => {
+    if (!formData) return;
     if (formData.images.length === 0) {
       toast({
         title: "No Images",
@@ -668,6 +672,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleGenerateTitle = async () => {
+    if (!formData) return;
     if (formData.images.length === 0) {
       toast({
         title: "Images Required",
@@ -706,7 +711,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       });
 
       if (response.title) {
-        setFormData({ ...formData, title: response.title });
+        setFormData((prev: FormData | null) => prev ? { ...prev, title: response.title } : prev);
         toast({
           title: "Title Generated!",
           description: "AI has suggested a title based on your images",
@@ -725,6 +730,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleGenerateDescription = async () => {
+    if (!formData) return;
     if (!formData.title.trim()) {
       toast({
         title: "Title Required",
@@ -869,8 +875,16 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const handleSaveDraft = async () => {
-    const validLocations = formData!.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
-    const validContacts = formData!.contacts.filter((c: Contact) => c.value.trim());
+    if (!formData) {
+      toast({
+        title: "Error",
+        description: "Form data is missing",
+        variant: "destructive",
+      });
+      return;
+    }
+    const validLocations = formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
+    const validContacts = formData.contacts.filter((c: Contact) => c.value.trim());
 
     // Basic validation for draft - only require title
     if (!formData.title) {
@@ -912,7 +926,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
               {/* Images */}
               <ImageManager
                 images={formData.images}
-                imageMetadata={formData.imageMetadata}
+                imageMetadata={(formData.imageMetadata || []).map(m => ({ ...m, rotation: m.rotation ?? 0 }))}
                 mainImageIndex={formData.mainImageIndex}
                 maxImages={maxImages}
                 onImagesChange={(images: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, images }))}
