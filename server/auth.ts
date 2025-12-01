@@ -1,8 +1,7 @@
 /**
  * Authentication Middleware and Routes
  * 
- * This module replaces the Replit Auth system with a custom local
- * authentication system supporting:
+ * Custom local authentication system supporting:
  * - Email/password registration and login
  * - OAuth providers (Google, Twitter, Facebook)
  * - Session management with PostgreSQL store
@@ -310,7 +309,7 @@ export async function setupAuth(app: Express) {
    * Also handles the legacy /api/login and /api/logout redirects
    */
   app.get("/api/login", (_req: Request, res: Response) => {
-    // Redirect to login page instead of Replit OAuth
+    // Redirect to login page
     res.redirect("/login");
   });
   

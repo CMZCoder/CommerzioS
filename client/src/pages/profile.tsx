@@ -5,7 +5,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,7 @@ import type { Service, SelectAddress, Plan } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -123,6 +123,12 @@ export default function Profile() {
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Change password dialog states
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -318,6 +324,70 @@ export default function Profile() {
     },
   });
 
+  // Change password mutation
+  const changePasswordMutation = useMutation({
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to change password');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setShowChangePasswordDialog(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: "Password changed",
+        description: "Your password has been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Resend verification email mutation
+  const resendVerificationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: user?.email }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to send verification email');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Verification email sent",
+        description: "Please check your inbox and click the verification link.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send verification email. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleStatusChange = (id: string, newStatus: Service['status']) => {
     if (newStatus === 'active') {
       setServiceToActivate(id);
@@ -342,6 +412,30 @@ export default function Profile() {
 
   const handlePause = (id: string) => {
     setServiceToPause(id);
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure your new passwords match.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+    changePasswordMutation.mutate({
+      currentPassword,
+      newPassword,
+    });
   };
 
   // Scroll to top on page load
@@ -804,7 +898,7 @@ export default function Profile() {
               <Card ref={accountInfoRef}>
                 <CardHeader>
                   <CardTitle>Account Information</CardTitle>
-                  <CardDescription>Your account details managed by Replit</CardDescription>
+                  <CardDescription>Manage your email and password</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -816,17 +910,33 @@ export default function Profile() {
                         className="bg-muted"
                         data-testid="input-email-readonly"
                       />
-                      <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-email"
-                      >
-                        Manage on Replit
-                      </Button>
+                      {user.emailVerified ? (
+                        <Badge variant="default" className="flex items-center gap-1 bg-green-600 hover:bg-green-600">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive" className="flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          Not Verified
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Email is managed through your Replit account
-                    </p>
+                    {!user.emailVerified && (
+                      <div className="mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => resendVerificationMutation.mutate()}
+                          disabled={resendVerificationMutation.isPending}
+                          className="gap-2"
+                          data-testid="button-resend-verification"
+                        >
+                          <Mail className="w-4 h-4" />
+                          {resendVerificationMutation.isPending ? "Sending..." : "Resend verification email"}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label>Password</Label>
@@ -839,16 +949,15 @@ export default function Profile() {
                         data-testid="input-password-readonly"
                       />
                       <Button 
-                        variant="outline" 
-                        onClick={() => window.open('https://replit.com/account', '_blank')}
-                        data-testid="button-manage-password"
+                        variant="outline"
+                        onClick={() => setShowChangePasswordDialog(true)}
+                        className="gap-2"
+                        data-testid="button-change-password"
                       >
-                        Manage on Replit
+                        <Key className="w-4 h-4" />
+                        Change Password
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Password is managed through your Replit account
-                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -1592,6 +1701,80 @@ export default function Profile() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={showChangePasswordDialog} onOpenChange={setShowChangePasswordDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new password.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="currentPassword">Current Password</Label>
+              <Input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter your current password"
+                required
+                data-testid="input-current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter your new password"
+                minLength={8}
+                required
+                data-testid="input-new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your new password"
+                minLength={8}
+                required
+                data-testid="input-confirm-password"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowChangePasswordDialog(false);
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+                data-testid="button-cancel-change-password"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={changePasswordMutation.isPending}
+                data-testid="button-submit-change-password"
+              >
+                {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </Layout>
