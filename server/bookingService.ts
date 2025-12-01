@@ -21,6 +21,76 @@ import {
   InsertVendorCalendarBlock
 } from '../shared/schema';
 import { eq, and, or, gte, lte, sql, desc, asc, isNull, ne } from 'drizzle-orm';
+import { notifyBookingUpdate } from './notificationService';
+
+// ===========================================
+// BOOKING NOTIFICATION HELPER
+// ===========================================
+
+/**
+ * Helper function to send booking notifications
+ * Determines the recipient and sends appropriate notification based on status
+ */
+async function sendBookingNotification(
+  booking: typeof bookings.$inferSelect,
+  status: string
+): Promise<void> {
+  try {
+    // Get service name for the notification
+    const [service] = await db.select({ title: services.title, id: services.id })
+      .from(services)
+      .where(eq(services.id, booking.serviceId))
+      .limit(1);
+    
+    const serviceName = service?.title || 'Service';
+    const serviceId = service?.id;
+    
+    // Determine recipient based on status
+    // Customer receives: accepted, rejected, alternative_proposed, confirmed
+    // Vendor receives: pending (new request), cancelled (by customer)
+    // Both may receive: cancelled (depending on who cancelled)
+    
+    switch (status) {
+      case 'pending':
+        // Notify vendor about new booking request
+        await notifyBookingUpdate(booking.vendorId, booking.id, 'pending', serviceName, serviceId, true);
+        break;
+      case 'accepted':
+        // Notify customer about accepted booking
+        await notifyBookingUpdate(booking.customerId, booking.id, 'accepted', serviceName, serviceId, false);
+        break;
+      case 'rejected':
+        // Notify customer about rejected booking
+        await notifyBookingUpdate(booking.customerId, booking.id, 'rejected', serviceName, serviceId, false);
+        break;
+      case 'alternative_proposed':
+        // Notify customer about alternative time proposal
+        await notifyBookingUpdate(booking.customerId, booking.id, 'alternative_proposed', serviceName, serviceId, false);
+        break;
+      case 'confirmed':
+        // Notify vendor about confirmed booking (after customer accepts alternative)
+        await notifyBookingUpdate(booking.vendorId, booking.id, 'confirmed', serviceName, serviceId, true);
+        break;
+      case 'cancelled':
+        // Notify the other party about cancellation
+        if (booking.cancelledBy === 'customer') {
+          // Customer cancelled - notify vendor
+          await notifyBookingUpdate(booking.vendorId, booking.id, 'cancelled', serviceName, serviceId, true);
+        } else if (booking.cancelledBy === 'vendor') {
+          // Vendor cancelled - notify customer
+          await notifyBookingUpdate(booking.customerId, booking.id, 'cancelled', serviceName, serviceId, false);
+        }
+        break;
+      case 'completed':
+        // Notify customer about completed booking (for review)
+        await notifyBookingUpdate(booking.customerId, booking.id, 'completed', serviceName, serviceId, false);
+        break;
+    }
+  } catch (error) {
+    console.error(`[BookingNotification] Failed to send notification for booking ${booking.id}:`, error);
+    // Don't throw - notifications should not break the booking flow
+  }
+}
 
 // ===========================================
 // BOOKING NUMBER GENERATION
@@ -473,8 +543,8 @@ export async function createBookingRequest(data: {
     })
     .returning();
 
-  // TODO: Send notification to vendor about new booking request
-  // await sendBookingNotification(booking, 'new_request');
+  // Send notification to vendor about new booking request
+  await sendBookingNotification(booking, 'pending');
 
   return booking;
 }
@@ -527,8 +597,8 @@ export async function acceptBooking(
     .where(eq(bookings.id, bookingId))
     .returning();
 
-  // TODO: Send notification to customer
-  // await sendBookingNotification(updated, 'accepted');
+  // Send notification to customer
+  await sendBookingNotification(updated, 'accepted');
 
   return updated;
 }
@@ -561,8 +631,8 @@ export async function rejectBooking(
     throw new Error('Booking not found or cannot be rejected');
   }
 
-  // TODO: Send notification to customer
-  // await sendBookingNotification(updated, 'rejected');
+  // Send notification to customer
+  await sendBookingNotification(updated, 'rejected');
 
   return updated;
 }
@@ -614,8 +684,8 @@ export async function proposeAlternative(
     throw new Error('Booking not found or cannot propose alternative');
   }
 
-  // TODO: Send notification to customer
-  // await sendBookingNotification(updated, 'alternative_proposed');
+  // Send notification to customer
+  await sendBookingNotification(updated, 'alternative_proposed');
 
   return updated;
 }
@@ -658,8 +728,8 @@ export async function acceptAlternative(
     .where(eq(bookings.id, bookingId))
     .returning();
 
-  // TODO: Send notification to vendor
-  // await sendBookingNotification(updated, 'confirmed');
+  // Send notification to vendor
+  await sendBookingNotification(updated, 'confirmed');
 
   return updated;
 }
@@ -708,8 +778,8 @@ export async function cancelBooking(
     .where(eq(bookings.id, bookingId))
     .returning();
 
-  // TODO: Send notification to other party
-  // await sendBookingNotification(updated, 'cancelled');
+  // Send notification to other party
+  await sendBookingNotification(updated, 'cancelled');
 
   return updated;
 }

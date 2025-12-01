@@ -28,8 +28,10 @@
 
 import Stripe from 'stripe';
 import { db } from './db';
-import { users, orders, servicePricingOptions } from '../shared/schema';
+import { users, orders, servicePricingOptions, services } from '../shared/schema';
 import { eq } from 'drizzle-orm';
+import { processReferralReward } from './referralService';
+import { notifyPayment } from './notificationService';
 
 // ===========================================
 // STRIPE CONFIGURATION
@@ -439,6 +441,7 @@ export async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent
   }
 
   try {
+    // Update order status
     await db.update(orders)
       .set({
         paymentStatus: 'succeeded',
@@ -449,11 +452,51 @@ export async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent
 
     console.log(`Payment succeeded for order ${orderId}`);
     
-    // TODO: Trigger referral commission processing here
-    // await processReferralCommission(orderId);
-    
-    // TODO: Send confirmation emails to customer and vendor
-    // await sendPaymentConfirmationEmails(orderId);
+    // Get order details for notifications
+    const [order] = await db.select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (order) {
+      const amount = parseFloat(order.total);
+      
+      // Process referral commission if applicable
+      if (!order.referralProcessed) {
+        try {
+          await processReferralReward({
+            triggeredByUserId: order.customerId,
+            triggerType: 'order_completed',
+            triggerId: orderId,
+            triggerAmount: amount,
+          });
+          
+          // Mark referral as processed
+          await db.update(orders)
+            .set({ referralProcessed: true })
+            .where(eq(orders.id, orderId));
+        } catch (error) {
+          console.error('Error processing referral commission:', error);
+        }
+      }
+      
+      // Send payment confirmation to customer
+      try {
+        await notifyPayment(order.customerId, 'payment_received', amount, order.currency);
+      } catch (error) {
+        console.error('Error sending payment notification to customer:', error);
+      }
+      
+      // Send payment notification to vendor
+      try {
+        const vendorAmount = order.vendorPayoutAmount 
+          ? parseFloat(order.vendorPayoutAmount) 
+          : amount - (order.platformFee ? parseFloat(order.platformFee) : 0);
+        await notifyPayment(order.vendorId, 'payment_received', vendorAmount, order.currency);
+      } catch (error) {
+        console.error('Error sending payment notification to vendor:', error);
+      }
+    }
   } catch (error) {
     console.error('Error handling payment succeeded:', error);
   }
@@ -479,8 +522,21 @@ export async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): 
 
     console.log(`Payment failed for order ${orderId}`);
     
-    // TODO: Send failure notification to customer
-    // await sendPaymentFailureEmail(orderId);
+    // Get order details for notification
+    const [order] = await db.select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    // Send failure notification to customer
+    if (order) {
+      try {
+        const amount = parseFloat(order.total);
+        await notifyPayment(order.customerId, 'payment_failed', amount, order.currency);
+      } catch (error) {
+        console.error('Error sending payment failure notification:', error);
+      }
+    }
   } catch (error) {
     console.error('Error handling payment failed:', error);
   }

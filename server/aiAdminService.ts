@@ -61,7 +61,7 @@ Be concise, professional, and action-oriented. Provide specific recommendations 
   }
 }
 
-export async function analyzeplatformData(data: {
+export async function analyzePlatformData(data: {
   totalUsers?: number;
   totalServices?: number;
   activeServices?: number;
