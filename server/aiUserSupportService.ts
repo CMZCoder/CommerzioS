@@ -100,7 +100,7 @@ Platform features:
 - Four plans: Free (2 images, 7 days), Basic (4 images, 14 days), Premium (10 images, 30 days), Enterprise (20 images, 60 days)
 - Services expire automatically but can be renewed
 - Users with identity verification can review service providers
-- Authentication is via Replit Auth
+- Authentication is via email/password or social login (Google, Facebook, Twitter)
 - Services can be saved as drafts
 - Users can suggest new categories for approval
 

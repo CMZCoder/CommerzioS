@@ -551,6 +551,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user!.id;
       
+      // Check if email is verified before allowing service creation
+      const user = await storage.getUser(userId);
+      if (!user?.emailVerified) {
+        return res.status(403).json({
+          message: "Please verify your email address before creating services.",
+          requiresEmailVerification: true,
+        });
+      }
+      
       // Validate request
       const validated = insertServiceSchema.parse(req.body);
 
@@ -3558,6 +3567,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chat/conversations/:id/messages', isAuthenticated, async (req: any, res) => {
     try {
       const { content, messageType, attachments } = req.body;
+      
+      // Check if email is verified before allowing message sending
+      const user = await storage.getUser(req.user!.id);
+      if (!user?.emailVerified) {
+        return res.status(403).json({
+          message: "Please verify your email address before sending messages.",
+          requiresEmailVerification: true,
+        });
+      }
       
       if (!content || content.trim().length === 0) {
         return res.status(400).json({ message: "Message content is required" });
