@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format, addDays, isSameDay, startOfDay, isAfter, isBefore } from 'date-fns';
+import { format, addDays, startOfDay, isAfter, isBefore } from 'date-fns';
 import { Clock, CalendarDays, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
