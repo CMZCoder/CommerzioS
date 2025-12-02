@@ -65,3 +65,8 @@ replit.nix
 
 # Cursor worktrees (managed by IDE)
 .cursor/worktrees/
+
+# Playwright E2E test artifacts
+e2e/playwright-report/
+e2e/test-results/
+e2e/playwright/.cache/
