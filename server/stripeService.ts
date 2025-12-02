@@ -917,6 +917,118 @@ export async function cancelBookingPayment(bookingId: string, reason?: string): 
 }
 
 /**
+ * Transfer funds to vendor's Stripe Connect account
+ * Called when escrow is released
+ */
+export async function transferToVendor(params: {
+  escrowTransactionId: string;
+  vendorId: string;
+  amount: number; // in cents (vendorAmount, already minus platform fee)
+}): Promise<string | null> {
+  if (!stripe) {
+    console.log('Stripe not configured - skipping vendor transfer');
+    return null;
+  }
+
+  const { escrowTransactionId, vendorId, amount } = params;
+
+  try {
+    // Get vendor's Connect account
+    const [vendor] = await db.select()
+      .from(users)
+      .where(eq(users.id, vendorId))
+      .limit(1);
+
+    if (!vendor || !vendor.stripeConnectAccountId) {
+      console.log(`Vendor ${vendorId} has no Connect account - skipping transfer`);
+      return null;
+    }
+
+    if (!vendor.stripeConnectOnboarded) {
+      console.log(`Vendor ${vendorId} Connect account not onboarded - skipping transfer`);
+      return null;
+    }
+
+    // Create Stripe Transfer to connected account
+    const transfer = await stripe.transfers.create({
+      amount,
+      currency: 'chf',
+      destination: vendor.stripeConnectAccountId,
+      metadata: {
+        escrowTransactionId,
+        vendorId,
+      },
+    });
+
+    // Update escrow transaction with transfer ID
+    await db.update(escrowTransactions)
+      .set({
+        stripeTransferId: transfer.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowTransactions.id, escrowTransactionId));
+
+    console.log(`Created transfer ${transfer.id} for escrow ${escrowTransactionId}`);
+    return transfer.id;
+  } catch (error) {
+    console.error('Error transferring to vendor:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a partial refund for a booking
+ */
+export async function createPartialRefund(bookingId: string, amount: number, reason?: string): Promise<{ refundId: string } | null> {
+  if (!stripe) {
+    console.log('Stripe not configured - skipping partial refund');
+    return null;
+  }
+
+  try {
+    const [escrowTx] = await db.select()
+      .from(escrowTransactions)
+      .where(eq(escrowTransactions.bookingId, bookingId))
+      .limit(1);
+
+    if (!escrowTx || !escrowTx.stripePaymentIntentId) {
+      throw new Error('Escrow transaction not found');
+    }
+
+    if (escrowTx.status !== 'released' && escrowTx.status !== 'held') {
+      throw new Error(`Cannot refund payment in status: ${escrowTx.status}`);
+    }
+
+    // Create partial refund via Stripe
+    const refund = await stripe.refunds.create({
+      payment_intent: escrowTx.stripePaymentIntentId,
+      amount, // in cents
+    });
+
+    // Calculate new amounts
+    const currentAmount = parseFloat(escrowTx.amount);
+    const refundAmountChf = amount / 100;
+    const existingRefund = parseFloat(escrowTx.refundAmount || '0');
+    const totalRefunded = existingRefund + refundAmountChf;
+
+    // Update escrow transaction
+    await db.update(escrowTransactions)
+      .set({
+        refundAmount: totalRefunded.toString(),
+        refundReason: reason || escrowTx.refundReason,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowTransactions.bookingId, bookingId));
+
+    console.log(`Created partial refund ${refund.id} of ${amount} cents for booking ${bookingId}`);
+    return { refundId: refund.id };
+  } catch (error) {
+    console.error('Error creating partial refund:', error);
+    throw error;
+  }
+}
+
+/**
  * Process a refund for a TWINT payment (vendor-initiated)
  */
 export async function refundTwintPayment(bookingId: string): Promise<{ refundId: string } | null> {

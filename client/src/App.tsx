@@ -20,6 +20,7 @@ import Contact from "@/pages/contact";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import { AdminPage } from "@/pages/admin";
+import EscrowManagementPage from "@/pages/admin/escrow-management";
 import HashtagResults from "@/pages/hashtag-results";
 import UserProfile from "@/pages/user-profile";
 import PlansPage from "@/pages/plans";
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/admin" component={AdminPage} />
+      <Route path="/admin/escrow" component={EscrowManagementPage} />
       {/* Authentication routes */}
       <Route path="/login" component={LoginPage} />
       <Route path="/register" component={RegisterPage} />
