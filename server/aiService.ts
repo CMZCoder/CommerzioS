@@ -170,7 +170,7 @@ Examples for different services:
     const hashtags = text
       .split('\n')
       .map(line => line.trim().replace(/^#+\s*/, '').replace(/^#+/, '').toLowerCase())
-      .filter(tag => tag.length > 0 && tag.length < 30 && tag.match(/^[a-z0-9\-]+$/))
+      .filter(tag => tag.length > 0 && tag.length < 30 && tag.match(/^[a-z0-9-]+$/))
       .slice(0, 8);
 
     return hashtags.length > 0 ? hashtags : [];

@@ -1374,7 +1374,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCustomerOrders(customerId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
-    let query = db.select().from(orders).where(
+    const query = db.select().from(orders).where(
       status 
         ? and(eq(orders.customerId, customerId), eq(orders.status, status as any))
         : eq(orders.customerId, customerId)
@@ -1387,7 +1387,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getVendorOrders(vendorId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
-    let query = db.select().from(orders).where(
+    const query = db.select().from(orders).where(
       status 
         ? and(eq(orders.vendorId, vendorId), eq(orders.status, status as any))
         : eq(orders.vendorId, vendorId)

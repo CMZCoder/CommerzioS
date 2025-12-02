@@ -10,14 +10,15 @@ export default function HashtagResults() {
   const [match, params] = useRoute("/hashtags/:hashtag");
   const [, setLocation] = useLocation();
 
-  if (!match) return null;
-
-  const hashtag = params.hashtag;
+  const hashtag = params?.hashtag;
 
   const { data: services = [], isLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: [`/api/services/hashtag/${hashtag}`],
     queryFn: () => apiRequest(`/api/services/hashtag/${hashtag}`),
+    enabled: !!hashtag && !!match,
   });
+
+  if (!match) return null;
 
   return (
     <Layout>
