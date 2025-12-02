@@ -507,7 +507,7 @@ export default function Home() {
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         case "most-viewed":
           return b.viewCount - a.viewCount;
-        case "price-low":
+        case "price-low": {
           const priceA = a.priceType === "fixed" && a.price !== null 
             ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price) 
             : 0;
@@ -517,7 +517,8 @@ export default function Home() {
           const safePriceA = isNaN(priceA) ? 0 : priceA;
           const safePriceB = isNaN(priceB) ? 0 : priceB;
           return safePriceA - safePriceB;
-        case "price-high":
+        }
+        case "price-high": {
           const priceA2 = a.priceType === "fixed" && a.price !== null 
             ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price) 
             : 0;
@@ -527,6 +528,7 @@ export default function Home() {
           const safePriceA2 = isNaN(priceA2) ? 0 : priceA2;
           const safePriceB2 = isNaN(priceB2) ? 0 : priceB2;
           return safePriceB2 - safePriceA2;
+        }
         default:
           return 0;
       }

@@ -41,7 +41,7 @@ interface BookingRequestFormProps {
 export function BookingRequestForm({
   serviceId,
   serviceName,
-  _vendorId,
+  vendorId: _vendorId,
   onSuccess,
   onCancel,
 }: BookingRequestFormProps) {

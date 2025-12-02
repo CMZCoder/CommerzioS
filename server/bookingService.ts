@@ -176,7 +176,7 @@ export async function getVendorCalendarBlocks(
   endDate: Date,
   serviceId?: string
 ) {
-  let query = db.select()
+  const query = db.select()
     .from(vendorCalendarBlocks)
     .where(
       and(
@@ -800,7 +800,7 @@ export async function getCustomerBookings(
   limit: number = 20,
   offset: number = 0
 ) {
-  let query = db.select()
+  const query = db.select()
     .from(bookings)
     .where(
       and(
@@ -826,7 +826,7 @@ export async function getVendorBookings(
   limit: number = 20,
   offset: number = 0
 ) {
-  let conditions = [eq(bookings.vendorId, vendorId)];
+  const conditions = [eq(bookings.vendorId, vendorId)];
   
   if (status) {
     conditions.push(eq(bookings.status, status as any));

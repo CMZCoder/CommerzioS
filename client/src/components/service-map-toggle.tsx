@@ -23,9 +23,7 @@ export function ServiceMapToggle({
   maxServices = 5,
   defaultExpanded = false,
 }: ServiceMapToggleProps) {
-  // Early return if no userLocation - must be before any hooks
-  if (!userLocation) return null;
-
+  // All hooks must be called unconditionally at the top
   const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -239,6 +237,9 @@ export function ServiceMapToggle({
       mapRef.current = null;
     };
   }, []);
+
+  // Early return if no userLocation - after all hooks
+  if (!userLocation) return null;
 
   const handleZoomIn = () => {
     if (mapRef.current) {
