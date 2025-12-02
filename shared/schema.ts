@@ -1232,6 +1232,18 @@ export const bookings = pgTable("bookings", {
   serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
   pricingOptionId: varchar("pricing_option_id").references(() => servicePricingOptions.id, { onDelete: "set null" }),
   
+  // Payment method: card (escrow), twint (instant), cash (no payment)
+  paymentMethod: varchar("payment_method", { 
+    enum: ["card", "twint", "cash"] 
+  }).notNull().default("card"),
+  
+  // Stripe payment tracking
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  
+  // TWINT-specific fields
+  twintTransactionId: varchar("twint_transaction_id", { length: 255 }),
+  twintRefundId: varchar("twint_refund_id", { length: 255 }),
+  
   // Requested time slot
   requestedStartTime: timestamp("requested_start_time").notNull(),
   requestedEndTime: timestamp("requested_end_time").notNull(),
@@ -1299,6 +1311,7 @@ export const bookings = pgTable("bookings", {
   index("idx_bookings_status").on(table.status),
   index("idx_bookings_requested_time").on(table.requestedStartTime),
   index("idx_bookings_confirmed_time").on(table.confirmedStartTime),
+  index("idx_bookings_payment_method").on(table.paymentMethod),
 ]);
 
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
@@ -1322,6 +1335,82 @@ export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   }),
   orders: many(orders),
   chatConversation: one(chatConversations),
+  escrowTransaction: one(escrowTransactions),
+}));
+
+// ===========================================
+// ESCROW TRANSACTIONS SYSTEM
+// ===========================================
+
+/**
+ * Escrow Transactions Table
+ * Tracks payment flow for bookings (escrow for card, instant for TWINT)
+ */
+export const escrowTransactions = pgTable("escrow_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }).unique(),
+  
+  // Payment details
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("CHF").notNull(),
+  platformFee: decimal("platform_fee", { precision: 10, scale: 2 }).notNull(),
+  vendorAmount: decimal("vendor_amount", { precision: 10, scale: 2 }).notNull(),
+  
+  // Payment method (mirrors booking for easy querying)
+  paymentMethod: varchar("payment_method", { 
+    enum: ["card", "twint", "cash"] 
+  }).notNull(),
+  
+  // Stripe tracking
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeChargeId: varchar("stripe_charge_id", { length: 255 }),
+  stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
+  
+  // TWINT-specific
+  twintTransactionId: varchar("twint_transaction_id", { length: 255 }),
+  twintRefundId: varchar("twint_refund_id", { length: 255 }),
+  
+  // Escrow status:
+  // - pending: payment initiated but not confirmed
+  // - held: card payment authorized but not captured (escrow)
+  // - released: funds transferred to vendor
+  // - refund_requested: customer requested refund (TWINT only)
+  // - refunded: funds returned to customer
+  // - cancelled: payment cancelled before completion
+  // - failed: payment failed
+  status: varchar("status", { 
+    enum: ["pending", "held", "released", "refund_requested", "refunded", "cancelled", "failed"] 
+  }).default("pending").notNull(),
+  
+  // Refund tracking
+  refundRequestedAt: timestamp("refund_requested_at"),
+  refundReason: text("refund_reason"),
+  refundedAt: timestamp("refunded_at"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  
+  // Auto-release settings (for card escrow)
+  autoReleaseAt: timestamp("auto_release_at"),
+  autoReleaseWarningSentAt: timestamp("auto_release_warning_sent_at"),
+  
+  // Timestamps
+  paidAt: timestamp("paid_at"),
+  heldAt: timestamp("held_at"),
+  releasedAt: timestamp("released_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_escrow_booking").on(table.bookingId),
+  index("idx_escrow_status").on(table.status),
+  index("idx_escrow_payment_method").on(table.paymentMethod),
+  index("idx_escrow_auto_release").on(table.autoReleaseAt),
+]);
+
+export const escrowTransactionsRelations = relations(escrowTransactions, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [escrowTransactions.bookingId],
+    references: [bookings.id],
+  }),
 }));
 
 // ===========================================
@@ -1785,6 +1874,12 @@ export const insertBookingSchema = createInsertSchema(bookings).omit({
   updatedAt: true,
 });
 
+export const insertEscrowTransactionSchema = createInsertSchema(escrowTransactions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({
   id: true,
   createdAt: true,
@@ -1850,6 +1945,9 @@ export type InsertVendorCalendarBlock = typeof vendorCalendarBlocks.$inferInsert
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = typeof bookings.$inferInsert;
 
+export type EscrowTransaction = typeof escrowTransactions.$inferSelect;
+export type InsertEscrowTransaction = typeof escrowTransactions.$inferInsert;
+
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type InsertChatConversation = typeof chatConversations.$inferInsert;
 
@@ -1883,6 +1981,22 @@ export const insertUserBlockSchema = createInsertSchema(userBlocks).omit({
 
 export type UserBlock = typeof userBlocks.$inferSelect;
 export type InsertUserBlock = typeof userBlocks.$inferInsert;
+
+// Payment method constants
+export const PAYMENT_METHODS = ["card", "twint", "cash"] as const;
+export type PaymentMethod = typeof PAYMENT_METHODS[number];
+
+// Escrow status constants
+export const ESCROW_STATUSES = [
+  "pending",
+  "held",
+  "released",
+  "refund_requested",
+  "refunded",
+  "cancelled",
+  "failed",
+] as const;
+export type EscrowStatus = typeof ESCROW_STATUSES[number];
 
 // Notification type constants for use throughout the app
 export const NOTIFICATION_TYPES = [

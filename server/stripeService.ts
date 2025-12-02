@@ -662,6 +662,372 @@ export async function createRefund(orderId: string, amount?: number, reason?: st
 }
 
 // ===========================================
+// BOOKING PAYMENT PROCESSING
+// ===========================================
+
+import { bookings, escrowTransactions, type PaymentMethod } from '../shared/schema';
+
+interface CreateBookingPaymentParams {
+  bookingId: string;
+  customerId: string;
+  vendorId: string;
+  amount: number; // in cents
+  paymentMethod: PaymentMethod;
+  description?: string;
+}
+
+interface BookingPaymentResult {
+  clientSecret: string;
+  paymentIntentId: string;
+  escrowTransactionId: string;
+}
+
+/**
+ * Create a payment intent for a booking
+ * - Card payments use manual capture (escrow)
+ * - TWINT payments use automatic capture (instant)
+ * - Cash payments don't create payment intents
+ */
+export async function createBookingPayment(params: CreateBookingPaymentParams): Promise<BookingPaymentResult | null> {
+  if (!stripe) {
+    console.log('Stripe not configured - returning stub booking payment');
+    return { 
+      clientSecret: 'stub_client_secret', 
+      paymentIntentId: 'stub_payment_intent',
+      escrowTransactionId: 'stub_escrow_id',
+    };
+  }
+
+  const { bookingId, customerId, vendorId, amount, paymentMethod, description } = params;
+
+  // Cash payments don't need Stripe processing
+  if (paymentMethod === 'cash') {
+    // Create escrow transaction record without Stripe
+    const platformFee = Math.round(amount * PLATFORM_FEE_PERCENTAGE);
+    const vendorAmount = amount - platformFee;
+
+    const [escrowTx] = await db.insert(escrowTransactions)
+      .values({
+        bookingId,
+        amount: (amount / 100).toString(),
+        currency: 'CHF',
+        platformFee: (platformFee / 100).toString(),
+        vendorAmount: (vendorAmount / 100).toString(),
+        paymentMethod: 'cash',
+        status: 'pending', // Will be 'released' when vendor confirms cash received
+      })
+      .returning();
+
+    return {
+      clientSecret: '',
+      paymentIntentId: '',
+      escrowTransactionId: escrowTx.id,
+    };
+  }
+
+  try {
+    // Get or create Stripe customer
+    const stripeCustomerId = await getOrCreateStripeCustomer(customerId);
+    if (!stripeCustomerId) {
+      throw new Error('Could not create Stripe customer');
+    }
+
+    // Get vendor's Connect account
+    const [vendor] = await db.select().from(users).where(eq(users.id, vendorId)).limit(1);
+    
+    // Calculate platform fee
+    const platformFee = Math.round(amount * PLATFORM_FEE_PERCENTAGE);
+    const vendorAmount = amount - platformFee;
+
+    // Create payment intent with different capture methods based on payment type
+    const paymentIntentData: Stripe.PaymentIntentCreateParams = {
+      amount,
+      currency: 'chf',
+      customer: stripeCustomerId,
+      description: description || `Booking ${bookingId}`,
+      metadata: {
+        bookingId,
+        customerId,
+        vendorId,
+        paymentMethod,
+      },
+    };
+
+    // Configure based on payment method
+    if (paymentMethod === 'card') {
+      // Card: Manual capture for escrow (hold funds)
+      paymentIntentData.capture_method = 'manual';
+      paymentIntentData.payment_method_types = ['card'];
+    } else if (paymentMethod === 'twint') {
+      // TWINT: Automatic capture (instant transfer)
+      paymentIntentData.capture_method = 'automatic';
+      paymentIntentData.payment_method_types = ['twint'];
+    }
+
+    // Add transfer data if vendor has Connect account
+    if (vendor?.stripeConnectAccountId && vendor.stripeConnectOnboarded) {
+      paymentIntentData.application_fee_amount = platformFee;
+      paymentIntentData.transfer_data = {
+        destination: vendor.stripeConnectAccountId,
+      };
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentData);
+
+    // Update booking with payment intent ID
+    await db.update(bookings)
+      .set({ 
+        stripePaymentIntentId: paymentIntent.id,
+        paymentMethod,
+      })
+      .where(eq(bookings.id, bookingId));
+
+    // Create escrow transaction record
+    const escrowStatus = paymentMethod === 'twint' ? 'pending' : 'pending';
+    // For card, it will be updated to 'held' when payment is authorized
+    // For TWINT, it will be updated to 'released' when payment succeeds
+
+    // Calculate auto-release time (48 hours from now for card escrow)
+    const autoReleaseAt = paymentMethod === 'card' 
+      ? new Date(Date.now() + 48 * 60 * 60 * 1000) 
+      : null;
+
+    const [escrowTx] = await db.insert(escrowTransactions)
+      .values({
+        bookingId,
+        amount: (amount / 100).toString(),
+        currency: 'CHF',
+        platformFee: (platformFee / 100).toString(),
+        vendorAmount: (vendorAmount / 100).toString(),
+        paymentMethod,
+        stripePaymentIntentId: paymentIntent.id,
+        status: escrowStatus,
+        autoReleaseAt,
+      })
+      .returning();
+
+    console.log(`Created booking payment intent ${paymentIntent.id} for booking ${bookingId} (${paymentMethod})`);
+    
+    return {
+      clientSecret: paymentIntent.client_secret!,
+      paymentIntentId: paymentIntent.id,
+      escrowTransactionId: escrowTx.id,
+    };
+  } catch (error) {
+    console.error('Error creating booking payment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Capture a held card payment (release escrow to vendor)
+ */
+export async function captureBookingPayment(bookingId: string): Promise<boolean> {
+  if (!stripe) {
+    console.log('Stripe not configured - skipping capture');
+    return false;
+  }
+
+  try {
+    const [escrowTx] = await db.select()
+      .from(escrowTransactions)
+      .where(eq(escrowTransactions.bookingId, bookingId))
+      .limit(1);
+
+    if (!escrowTx || !escrowTx.stripePaymentIntentId) {
+      throw new Error('Escrow transaction not found');
+    }
+
+    if (escrowTx.paymentMethod !== 'card') {
+      throw new Error('Can only capture card payments');
+    }
+
+    if (escrowTx.status !== 'held') {
+      throw new Error(`Cannot capture payment in status: ${escrowTx.status}`);
+    }
+
+    // Capture the payment intent
+    const paymentIntent = await stripe.paymentIntents.capture(escrowTx.stripePaymentIntentId);
+
+    // Update escrow transaction
+    await db.update(escrowTransactions)
+      .set({
+        status: 'released',
+        releasedAt: new Date(),
+        stripeChargeId: paymentIntent.latest_charge as string,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowTransactions.bookingId, bookingId));
+
+    console.log(`Captured payment for booking ${bookingId}`);
+    return true;
+  } catch (error) {
+    console.error('Error capturing booking payment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cancel a held card payment (refund escrow to customer)
+ */
+export async function cancelBookingPayment(bookingId: string, reason?: string): Promise<boolean> {
+  if (!stripe) {
+    console.log('Stripe not configured - skipping cancel');
+    return false;
+  }
+
+  try {
+    const [escrowTx] = await db.select()
+      .from(escrowTransactions)
+      .where(eq(escrowTransactions.bookingId, bookingId))
+      .limit(1);
+
+    if (!escrowTx || !escrowTx.stripePaymentIntentId) {
+      throw new Error('Escrow transaction not found');
+    }
+
+    if (escrowTx.status === 'released' || escrowTx.status === 'refunded') {
+      throw new Error(`Cannot cancel payment in status: ${escrowTx.status}`);
+    }
+
+    // Cancel or refund based on current status
+    if (escrowTx.status === 'held') {
+      // Payment was authorized but not captured - cancel the payment intent
+      await stripe.paymentIntents.cancel(escrowTx.stripePaymentIntentId);
+    } else if (escrowTx.status === 'pending') {
+      // Payment not yet processed - just cancel
+      await stripe.paymentIntents.cancel(escrowTx.stripePaymentIntentId);
+    }
+
+    // Update escrow transaction
+    await db.update(escrowTransactions)
+      .set({
+        status: 'cancelled',
+        refundReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowTransactions.bookingId, bookingId));
+
+    console.log(`Cancelled payment for booking ${bookingId}`);
+    return true;
+  } catch (error) {
+    console.error('Error cancelling booking payment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Process a refund for a TWINT payment (vendor-initiated)
+ */
+export async function refundTwintPayment(bookingId: string): Promise<{ refundId: string } | null> {
+  if (!stripe) {
+    console.log('Stripe not configured - skipping TWINT refund');
+    return null;
+  }
+
+  try {
+    const [escrowTx] = await db.select()
+      .from(escrowTransactions)
+      .where(eq(escrowTransactions.bookingId, bookingId))
+      .limit(1);
+
+    if (!escrowTx || !escrowTx.stripePaymentIntentId) {
+      throw new Error('Escrow transaction not found');
+    }
+
+    if (escrowTx.paymentMethod !== 'twint') {
+      throw new Error('Can only refund TWINT payments through this method');
+    }
+
+    if (escrowTx.status !== 'released' && escrowTx.status !== 'refund_requested') {
+      throw new Error(`Cannot refund payment in status: ${escrowTx.status}`);
+    }
+
+    // Create refund via Stripe
+    const refund = await stripe.refunds.create({
+      payment_intent: escrowTx.stripePaymentIntentId,
+    });
+
+    // Update escrow transaction
+    await db.update(escrowTransactions)
+      .set({
+        status: 'refunded',
+        refundedAt: new Date(),
+        twintRefundId: refund.id,
+        refundAmount: escrowTx.amount,
+        updatedAt: new Date(),
+      })
+      .where(eq(escrowTransactions.bookingId, bookingId));
+
+    // Update booking with refund ID
+    await db.update(bookings)
+      .set({
+        twintRefundId: refund.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(bookings.id, bookingId));
+
+    console.log(`Created TWINT refund ${refund.id} for booking ${bookingId}`);
+    return { refundId: refund.id };
+  } catch (error) {
+    console.error('Error refunding TWINT payment:', error);
+    throw error;
+  }
+}
+
+/**
+ * Handle payment_intent events for bookings
+ */
+export async function handleBookingPaymentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<void> {
+  const bookingId = paymentIntent.metadata.bookingId;
+  const paymentMethod = paymentIntent.metadata.paymentMethod as PaymentMethod;
+
+  if (!bookingId) {
+    console.log('No bookingId in payment intent metadata');
+    return;
+  }
+
+  try {
+    if (paymentMethod === 'card') {
+      // Card payment authorized (held in escrow)
+      await db.update(escrowTransactions)
+        .set({
+          status: 'held',
+          heldAt: new Date(),
+          stripeChargeId: paymentIntent.latest_charge as string,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowTransactions.bookingId, bookingId));
+
+      console.log(`Card payment held for booking ${bookingId}`);
+    } else if (paymentMethod === 'twint') {
+      // TWINT payment completed (instant release)
+      await db.update(escrowTransactions)
+        .set({
+          status: 'released',
+          paidAt: new Date(),
+          releasedAt: new Date(),
+          twintTransactionId: paymentIntent.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowTransactions.bookingId, bookingId));
+
+      // Update booking with TWINT transaction ID
+      await db.update(bookings)
+        .set({
+          twintTransactionId: paymentIntent.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(bookings.id, bookingId));
+
+      console.log(`TWINT payment released for booking ${bookingId}`);
+    }
+  } catch (error) {
+    console.error('Error handling booking payment succeeded:', error);
+  }
+}
+
+// ===========================================
 // EXPORTS
 // ===========================================
 

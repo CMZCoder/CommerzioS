@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
-import { users, reviews, services, notifications, pushSubscriptions } from "@shared/schema";
+import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, bookings as bookingsTable } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
 import { setupOAuthRoutes } from "./oauthProviders";
@@ -81,8 +81,18 @@ import {
   handlePaymentFailed,
   handleAccountUpdated,
   createRefund,
+  createBookingPayment,
+  captureBookingPayment,
+  cancelBookingPayment,
+  refundTwintPayment,
+  handleBookingPaymentSucceeded,
   PLATFORM_FEE_PERCENTAGE,
 } from "./stripeService";
+import {
+  checkTwintEligibility,
+  getTwintEligibilityStatus,
+  TWINT_ELIGIBILITY,
+} from "./twintEligibilityService";
 import {
   getVendorAvailabilitySettings,
   upsertVendorAvailabilitySettings,
@@ -2957,6 +2967,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating refund:", error);
       res.status(500).json({ message: "Failed to create refund" });
+    }
+  });
+
+  // ===========================================
+  // TWINT PAYMENT ROUTES
+  // ===========================================
+
+  // Check TWINT eligibility for a booking
+  app.get('/api/payments/twint-eligibility', isAuthenticated, async (req: any, res) => {
+    try {
+      const { vendorId, amount } = req.query;
+      
+      if (!vendorId) {
+        return res.status(400).json({ message: "vendorId is required" });
+      }
+
+      const amountInCents = amount ? parseInt(amount as string) : 0;
+      const eligibility = await checkTwintEligibility(
+        req.user!.id,
+        vendorId as string,
+        amountInCents
+      );
+      
+      res.json(eligibility);
+    } catch (error) {
+      console.error("Error checking TWINT eligibility:", error);
+      res.status(500).json({ message: "Failed to check TWINT eligibility" });
+    }
+  });
+
+  // Get TWINT eligibility thresholds (public info)
+  app.get('/api/payments/twint-thresholds', (req, res) => {
+    res.json({
+      minVendorTrustScore: TWINT_ELIGIBILITY.minVendorTrustScore,
+      maxBookingAmountCHF: TWINT_ELIGIBILITY.maxBookingAmount / 100,
+      minVendorCompletedBookings: TWINT_ELIGIBILITY.minVendorCompletedBookings,
+      minVendorAccountAgeDays: TWINT_ELIGIBILITY.minVendorAccountAgeDays,
+      requiresPreviousCardBooking: TWINT_ELIGIBILITY.requirePreviousCardBooking,
+    });
+  });
+
+  // Request TWINT refund (customer)
+  app.post('/api/bookings/:id/request-twint-refund', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      const { reason } = req.body;
+      
+      if (!reason) {
+        return res.status(400).json({ message: "Refund reason is required" });
+      }
+
+      // Get booking and verify ownership
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.customerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to request refund for this booking" });
+      }
+
+      if (booking.paymentMethod !== 'twint') {
+        return res.status(400).json({ message: "This is not a TWINT booking" });
+      }
+
+      // Check escrow status
+      const [escrowTx] = await db.select()
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.bookingId, bookingId))
+        .limit(1);
+
+      if (!escrowTx || escrowTx.status !== 'released') {
+        return res.status(400).json({ message: "Cannot request refund for this payment status" });
+      }
+
+      // Update escrow transaction to refund_requested
+      await db.update(escrowTransactions)
+        .set({
+          status: 'refund_requested',
+          refundRequestedAt: new Date(),
+          refundReason: reason,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowTransactions.bookingId, bookingId));
+
+      // Notify vendor about refund request
+      await createNotification({
+        userId: booking.vendorId,
+        type: 'payment',
+        title: 'Refund Requested',
+        message: `A customer has requested a refund for their TWINT payment. Reason: ${reason}`,
+        actionUrl: `/vendor/bookings/${bookingId}`,
+        relatedEntityId: bookingId,
+        relatedEntityType: 'booking',
+      });
+
+      res.json({ success: true, message: "Refund request submitted" });
+    } catch (error) {
+      console.error("Error requesting TWINT refund:", error);
+      res.status(500).json({ message: "Failed to request refund" });
+    }
+  });
+
+  // Process TWINT refund (vendor)
+  app.post('/api/bookings/:id/process-twint-refund', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      const userId = req.user!.id;
+      
+      // Get booking - first verify it exists and user has access as vendor
+      const booking = await getBookingById(bookingId, userId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Extra check: only the vendor can process refunds
+      if (booking.vendorId !== userId) {
+        return res.status(403).json({ message: "Not authorized to process refund for this booking" });
+      }
+
+      if (booking.paymentMethod !== 'twint') {
+        return res.status(400).json({ message: "This is not a TWINT booking" });
+      }
+
+      // Process the refund
+      const result = await refundTwintPayment(bookingId);
+      
+      if (!result) {
+        return res.status(503).json({ message: "Payment system not configured" });
+      }
+
+      // Notify customer about refund
+      await createNotification({
+        userId: booking.customerId,
+        type: 'payment',
+        title: 'Refund Processed',
+        message: 'The vendor has processed your TWINT refund request. The funds will be returned to your account.',
+        actionUrl: `/bookings/${bookingId}`,
+        relatedEntityId: bookingId,
+        relatedEntityType: 'booking',
+      });
+
+      res.json({ success: true, refundId: result.refundId });
+    } catch (error) {
+      console.error("Error processing TWINT refund:", error);
+      res.status(500).json({ message: "Failed to process refund" });
+    }
+  });
+
+  // Decline TWINT refund (vendor)
+  app.post('/api/bookings/:id/decline-twint-refund', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      const userId = req.user!.id;
+      const { reason } = req.body;
+      
+      // Get booking - first verify it exists and user has access as vendor
+      const booking = await getBookingById(bookingId, userId);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Extra check: only the vendor can decline refunds
+      if (booking.vendorId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Update escrow transaction back to released
+      await db.update(escrowTransactions)
+        .set({
+          status: 'released',
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowTransactions.bookingId, bookingId));
+
+      // Notify customer about declined refund
+      await createNotification({
+        userId: booking.customerId,
+        type: 'payment',
+        title: 'Refund Request Declined',
+        message: `Your refund request was declined by the vendor.${reason ? ` Reason: ${reason}` : ''}`,
+        actionUrl: `/bookings/${bookingId}`,
+        relatedEntityId: bookingId,
+        relatedEntityType: 'booking',
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error declining TWINT refund:", error);
+      res.status(500).json({ message: "Failed to decline refund" });
+    }
+  });
+
+  // Get escrow transaction status for a booking
+  app.get('/api/bookings/:id/escrow-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      
+      // Get booking and verify access
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Get escrow transaction
+      const [escrowTx] = await db.select()
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.bookingId, bookingId))
+        .limit(1);
+
+      if (!escrowTx) {
+        return res.json({ hasEscrow: false });
+      }
+
+      res.json({
+        hasEscrow: true,
+        status: escrowTx.status,
+        paymentMethod: escrowTx.paymentMethod,
+        amount: escrowTx.amount,
+        currency: escrowTx.currency,
+        vendorAmount: escrowTx.vendorAmount,
+        platformFee: escrowTx.platformFee,
+        autoReleaseAt: escrowTx.autoReleaseAt,
+        refundRequestedAt: escrowTx.refundRequestedAt,
+        refundReason: escrowTx.refundReason,
+        paidAt: escrowTx.paidAt,
+        releasedAt: escrowTx.releasedAt,
+        refundedAt: escrowTx.refundedAt,
+      });
+    } catch (error) {
+      console.error("Error fetching escrow status:", error);
+      res.status(500).json({ message: "Failed to fetch escrow status" });
     }
   });
 

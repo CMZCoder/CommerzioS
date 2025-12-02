@@ -94,7 +94,25 @@ vi.mock("./stripeService", () => ({
   handlePaymentFailed: vi.fn(),
   handleAccountUpdated: vi.fn(),
   createRefund: vi.fn(),
+  createBookingPayment: vi.fn(),
+  captureBookingPayment: vi.fn(),
+  cancelBookingPayment: vi.fn(),
+  refundTwintPayment: vi.fn(),
+  handleBookingPaymentSucceeded: vi.fn(),
   PLATFORM_FEE_PERCENTAGE: 10,
+}));
+
+vi.mock("./twintEligibilityService", () => ({
+  checkTwintEligibility: vi.fn(() => Promise.resolve({ allowed: false, reason: "Not eligible" })),
+  getTwintEligibilityStatus: vi.fn(() => Promise.resolve({ eligible: false })),
+  TWINT_ELIGIBILITY: {
+    minVendorTrustScore: 4.0,
+    maxBookingAmount: 20000,
+    minVendorCompletedBookings: 5,
+    minVendorAccountAgeDays: 30,
+    maxVendorDisputeRate: 0.10,
+    requirePreviousCardBooking: true,
+  },
 }));
 
 vi.mock("./bookingService", () => ({
