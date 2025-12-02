@@ -1404,6 +1404,10 @@ export const bookings = pgTable("bookings", {
     ] 
   }).default("pending").notNull(),
   
+  // Customer confirmation for escrow release
+  confirmedByCustomer: boolean("confirmed_by_customer").default(false),
+  customerConfirmedAt: timestamp("customer_confirmed_at"),
+  
   // Alternative proposal (if vendor proposes different time)
   alternativeStartTime: timestamp("alternative_start_time"),
   alternativeEndTime: timestamp("alternative_end_time"),
@@ -1515,8 +1519,9 @@ export const escrowTransactions = pgTable("escrow_transactions", {
   // - refunded: funds returned to customer
   // - cancelled: payment cancelled before completion
   // - failed: payment failed
+  // - disputed: dispute raised, auto-release paused
   status: varchar("status", { 
-    enum: ["pending", "held", "released", "refund_requested", "refunded", "cancelled", "failed"] 
+    enum: ["pending", "held", "released", "refund_requested", "refunded", "cancelled", "failed", "disputed"] 
   }).default("pending").notNull(),
   
   // Refund tracking
@@ -1547,6 +1552,68 @@ export const escrowTransactionsRelations = relations(escrowTransactions, ({ one 
   booking: one(bookings, {
     fields: [escrowTransactions.bookingId],
     references: [bookings.id],
+  }),
+}));
+
+// ===========================================
+// ESCROW DISPUTES SYSTEM
+// ===========================================
+
+/**
+ * Escrow Disputes Table
+ * Tracks disputes raised by customers or vendors for escrow transactions
+ */
+export const escrowDisputes = pgTable("escrow_disputes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  escrowTransactionId: varchar("escrow_transaction_id").notNull().references(() => escrowTransactions.id, { onDelete: "cascade" }),
+  bookingId: varchar("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+  
+  // Who raised the dispute
+  raisedBy: varchar("raised_by", { enum: ["customer", "vendor"] }).notNull(),
+  raisedByUserId: varchar("raised_by_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Dispute details
+  reason: varchar("reason", { 
+    enum: ["service_not_provided", "poor_quality", "wrong_service", "overcharged", "no_show", "other"] 
+  }).notNull(),
+  description: text("description").notNull(),
+  evidenceUrls: jsonb("evidence_urls").$type<string[]>(),
+  
+  // Resolution
+  status: varchar("status", { 
+    enum: ["open", "under_review", "resolved_customer", "resolved_vendor", "resolved_split", "closed"] 
+  }).default("open").notNull(),
+  
+  resolvedBy: varchar("resolved_by").references(() => users.id), // Admin who resolved
+  resolution: text("resolution"),
+  refundAmount: decimal("refund_amount", { precision: 10, scale: 2 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => [
+  index("idx_escrow_disputes_escrow").on(table.escrowTransactionId),
+  index("idx_escrow_disputes_booking").on(table.bookingId),
+  index("idx_escrow_disputes_status").on(table.status),
+  index("idx_escrow_disputes_raised_by").on(table.raisedByUserId),
+]);
+
+export const escrowDisputesRelations = relations(escrowDisputes, ({ one }) => ({
+  escrowTransaction: one(escrowTransactions, {
+    fields: [escrowDisputes.escrowTransactionId],
+    references: [escrowTransactions.id],
+  }),
+  booking: one(bookings, {
+    fields: [escrowDisputes.bookingId],
+    references: [bookings.id],
+  }),
+  raisedByUser: one(users, {
+    fields: [escrowDisputes.raisedByUserId],
+    references: [users.id],
+  }),
+  resolvedByUser: one(users, {
+    fields: [escrowDisputes.resolvedBy],
+    references: [users.id],
   }),
 }));
 
@@ -2034,6 +2101,13 @@ export const insertEscrowTransactionSchema = createInsertSchema(escrowTransactio
   updatedAt: true,
 });
 
+export const insertEscrowDisputeSchema = createInsertSchema(escrowDisputes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+});
+
 export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({
   id: true,
   createdAt: true,
@@ -2111,6 +2185,9 @@ export type InsertBooking = typeof bookings.$inferInsert;
 export type EscrowTransaction = typeof escrowTransactions.$inferSelect;
 export type InsertEscrowTransaction = typeof escrowTransactions.$inferInsert;
 
+export type EscrowDispute = typeof escrowDisputes.$inferSelect;
+export type InsertEscrowDispute = typeof escrowDisputes.$inferInsert;
+
 export type ChatConversation = typeof chatConversations.$inferSelect;
 export type InsertChatConversation = typeof chatConversations.$inferInsert;
 
@@ -2158,6 +2235,7 @@ export const ESCROW_STATUSES = [
   "refunded",
   "cancelled",
   "failed",
+  "disputed",
 ] as const;
 export type EscrowStatus = typeof ESCROW_STATUSES[number];
 

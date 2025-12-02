@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import cron from "node-cron";
+import { runEscrowAutoReleaseTasks } from "./services/escrowAutoReleaseService";
 
 const app = express();
 
@@ -87,5 +89,12 @@ app.use((req, res, next) => {
   // Bind using a simple host/port configuration for maximum compatibility.
   server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
+    
+    // Register escrow auto-release cron job (runs every hour)
+    cron.schedule('0 * * * *', async () => {
+      log('[Cron] Running escrow auto-release tasks...');
+      await runEscrowAutoReleaseTasks();
+    });
+    log('✓ Escrow auto-release cron job registered (hourly)');
   });
 })();

@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
-import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, bookings as bookingsTable } from "@shared/schema";
+import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
 import { setupOAuthRoutes } from "./oauthProviders";
@@ -92,8 +92,19 @@ import {
   cancelBookingPayment,
   refundTwintPayment,
   handleBookingPaymentSucceeded,
+  createPartialRefund,
+  transferToVendor,
   PLATFORM_FEE_PERCENTAGE,
 } from "./stripeService";
+import {
+  createDispute,
+  getDisputeByBookingId,
+  getDisputeById,
+  getAllDisputes,
+  resolveDispute,
+  markDisputeUnderReview,
+  closeDispute,
+} from "./services/disputeService";
 import {
   checkTwintEligibility,
   getTwintEligibilityStatus,
@@ -3205,6 +3216,559 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching escrow status:", error);
       res.status(500).json({ message: "Failed to fetch escrow status" });
+    }
+  });
+
+  // ===========================================
+  // CUSTOMER SERVICE CONFIRMATION
+  // ===========================================
+
+  /**
+   * Customer confirms service was completed satisfactorily
+   * This releases the escrow payment to the vendor
+   */
+  app.post('/api/bookings/:id/confirm-complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      
+      // Get booking and verify ownership
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Verify customer owns booking
+      if (booking.customerId !== req.user!.id) {
+        return res.status(403).json({ message: "Not authorized to confirm this booking" });
+      }
+
+      // Verify booking status
+      if (booking.status !== 'completed' && booking.status !== 'in_progress') {
+        return res.status(400).json({ message: `Cannot confirm booking in status: ${booking.status}` });
+      }
+
+      // Get escrow transaction
+      const [escrowTx] = await db.select()
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.bookingId, bookingId))
+        .limit(1);
+
+      if (!escrowTx) {
+        return res.status(400).json({ message: "No escrow transaction found" });
+      }
+
+      // Can only confirm if escrow is held (card payment)
+      if (escrowTx.status !== 'held') {
+        return res.status(400).json({ message: `Cannot confirm payment in status: ${escrowTx.status}` });
+      }
+
+      // Capture payment (release to vendor)
+      const captured = await captureBookingPayment(bookingId);
+      if (!captured) {
+        return res.status(500).json({ message: "Failed to release payment" });
+      }
+
+      // Transfer to vendor if Connect account available
+      const [vendor] = await db.select()
+        .from(users)
+        .where(eq(users.id, booking.vendorId))
+        .limit(1);
+
+      if (vendor?.stripeConnectAccountId && vendor.stripeConnectOnboarded) {
+        await transferToVendor({
+          escrowTransactionId: escrowTx.id,
+          vendorId: vendor.id,
+          amount: Math.round(parseFloat(escrowTx.vendorAmount) * 100),
+        });
+      }
+
+      // Update booking
+      await db.update(bookingsTable)
+        .set({
+          confirmedByCustomer: true,
+          customerConfirmedAt: new Date(),
+          status: 'completed',
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(bookingsTable.id, bookingId));
+
+      // Notify vendor
+      await createNotification({
+        userId: booking.vendorId,
+        type: 'payment',
+        title: 'Payment Released!',
+        message: `Customer has confirmed service completion. Payment of CHF ${escrowTx.vendorAmount} has been released to your account.`,
+        actionUrl: `/vendor/bookings/${bookingId}`,
+        relatedEntityId: bookingId,
+        relatedEntityType: 'booking',
+      });
+
+      res.json({ success: true, message: "Service confirmed and payment released" });
+    } catch (error) {
+      console.error("Error confirming booking:", error);
+      res.status(500).json({ message: "Failed to confirm booking" });
+    }
+  });
+
+  // ===========================================
+  // DISPUTE ROUTES
+  // ===========================================
+
+  /**
+   * Customer or vendor raises a dispute
+   */
+  app.post('/api/bookings/:id/dispute', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      const { reason, description, evidenceUrls } = req.body;
+      
+      if (!reason || !description) {
+        return res.status(400).json({ message: "Reason and description are required" });
+      }
+
+      // Get booking and verify access
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      // Determine user role
+      const isCustomer = booking.customerId === req.user!.id;
+      const isVendor = booking.vendorId === req.user!.id;
+      
+      if (!isCustomer && !isVendor) {
+        return res.status(403).json({ message: "Not authorized to dispute this booking" });
+      }
+
+      const userRole = isCustomer ? "customer" : "vendor";
+
+      const dispute = await createDispute({
+        bookingId,
+        userId: req.user!.id,
+        userRole,
+        reason,
+        description,
+        evidenceUrls,
+      });
+
+      res.json({ success: true, dispute });
+    } catch (error: any) {
+      console.error("Error creating dispute:", error);
+      res.status(400).json({ message: error.message || "Failed to create dispute" });
+    }
+  });
+
+  /**
+   * Get dispute status for a booking
+   */
+  app.get('/api/bookings/:id/dispute', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      
+      // Get booking and verify access
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const dispute = await getDisputeByBookingId(bookingId);
+      
+      if (!dispute) {
+        return res.json({ hasDispute: false });
+      }
+
+      res.json({
+        hasDispute: true,
+        dispute,
+      });
+    } catch (error) {
+      console.error("Error fetching dispute:", error);
+      res.status(500).json({ message: "Failed to fetch dispute" });
+    }
+  });
+
+  /**
+   * Partial refund (vendor-initiated)
+   */
+  app.post('/api/bookings/:id/partial-refund', isAuthenticated, async (req: any, res) => {
+    try {
+      const bookingId = req.params.id;
+      const { amount, reason } = req.body;
+      
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ message: "Valid refund amount is required" });
+      }
+
+      // Get booking and verify vendor ownership
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      if (booking.vendorId !== req.user!.id) {
+        return res.status(403).json({ message: "Only vendors can issue refunds" });
+      }
+
+      // Create partial refund (amount in cents)
+      const result = await createPartialRefund(bookingId, Math.round(amount * 100), reason);
+      
+      if (!result) {
+        return res.status(500).json({ message: "Failed to create refund" });
+      }
+
+      // Notify customer
+      await createNotification({
+        userId: booking.customerId,
+        type: 'payment',
+        title: 'Partial Refund Issued',
+        message: `You have received a partial refund of CHF ${amount.toFixed(2)}. ${reason || ''}`,
+        actionUrl: `/bookings/${bookingId}`,
+        relatedEntityId: bookingId,
+        relatedEntityType: 'booking',
+      });
+
+      res.json({ success: true, refundId: result.refundId });
+    } catch (error: any) {
+      console.error("Error creating partial refund:", error);
+      res.status(400).json({ message: error.message || "Failed to create refund" });
+    }
+  });
+
+  // ===========================================
+  // ADMIN ESCROW ROUTES
+  // ===========================================
+
+  /**
+   * Admin: Get all escrow transactions
+   */
+  app.get('/api/admin/escrow', isAdmin, async (req: any, res) => {
+    try {
+      const { status, paymentMethod, page = 1, limit = 20 } = req.query;
+      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+      let query = db.select({
+        escrowTx: escrowTransactions,
+        booking: {
+          id: bookingsTable.id,
+          bookingNumber: bookingsTable.bookingNumber,
+          customerId: bookingsTable.customerId,
+          vendorId: bookingsTable.vendorId,
+          status: bookingsTable.status,
+        },
+      })
+        .from(escrowTransactions)
+        .innerJoin(bookingsTable, eq(escrowTransactions.bookingId, bookingsTable.id))
+        .orderBy(sql`${escrowTransactions.createdAt} DESC`)
+        .limit(parseInt(limit as string))
+        .offset(offset);
+
+      const transactions = await query;
+
+      // Get total count
+      const [countResult] = await db.select({ count: sql<number>`count(*)::int` })
+        .from(escrowTransactions);
+
+      res.json({
+        transactions,
+        pagination: {
+          total: countResult?.count || 0,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching escrow transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  /**
+   * Admin: Get all disputes
+   */
+  app.get('/api/admin/disputes', isAdmin, async (req: any, res) => {
+    try {
+      const { status, page = 1, limit = 20 } = req.query;
+      
+      const disputes = await getAllDisputes({
+        status: status as string,
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+      });
+
+      res.json({ disputes });
+    } catch (error) {
+      console.error("Error fetching disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  /**
+   * Admin: Get single dispute details
+   */
+  app.get('/api/admin/disputes/:id', isAdmin, async (req: any, res) => {
+    try {
+      const dispute = await getDisputeById(req.params.id);
+      
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      res.json(dispute);
+    } catch (error) {
+      console.error("Error fetching dispute:", error);
+      res.status(500).json({ message: "Failed to fetch dispute" });
+    }
+  });
+
+  /**
+   * Admin: Resolve a dispute
+   */
+  app.post('/api/admin/disputes/:id/resolve', isAdmin, async (req: any, res) => {
+    try {
+      const { resolution, refundPercentage, notes } = req.body;
+      
+      if (!resolution || !['customer', 'vendor', 'split'].includes(resolution)) {
+        return res.status(400).json({ message: "Valid resolution required (customer, vendor, or split)" });
+      }
+
+      if (resolution === 'split' && (!refundPercentage || refundPercentage < 0 || refundPercentage > 100)) {
+        return res.status(400).json({ message: "Valid refund percentage required for split resolution" });
+      }
+
+      const dispute = await resolveDispute({
+        disputeId: req.params.id,
+        adminId: req.user!.id,
+        resolution,
+        refundPercentage,
+        notes,
+      });
+
+      res.json({ success: true, dispute });
+    } catch (error: any) {
+      console.error("Error resolving dispute:", error);
+      res.status(400).json({ message: error.message || "Failed to resolve dispute" });
+    }
+  });
+
+  /**
+   * Admin: Mark dispute as under review
+   */
+  app.post('/api/admin/disputes/:id/review', isAdmin, async (req: any, res) => {
+    try {
+      const dispute = await markDisputeUnderReview(req.params.id, req.user!.id);
+      res.json({ success: true, dispute });
+    } catch (error) {
+      console.error("Error updating dispute:", error);
+      res.status(500).json({ message: "Failed to update dispute" });
+    }
+  });
+
+  /**
+   * Admin: Close dispute without resolution
+   */
+  app.post('/api/admin/disputes/:id/close', isAdmin, async (req: any, res) => {
+    try {
+      const { reason } = req.body;
+      const dispute = await closeDispute(req.params.id, req.user!.id, reason);
+      res.json({ success: true, dispute });
+    } catch (error: any) {
+      console.error("Error closing dispute:", error);
+      res.status(400).json({ message: error.message || "Failed to close dispute" });
+    }
+  });
+
+  /**
+   * Admin: Manual escrow release (override)
+   */
+  app.post('/api/admin/escrow/:id/release', isAdmin, async (req: any, res) => {
+    try {
+      const escrowId = req.params.id;
+      
+      // Get escrow transaction
+      const [escrowTx] = await db.select()
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.id, escrowId))
+        .limit(1);
+
+      if (!escrowTx) {
+        return res.status(404).json({ message: "Escrow transaction not found" });
+      }
+
+      if (escrowTx.status !== 'held' && escrowTx.status !== 'disputed') {
+        return res.status(400).json({ message: `Cannot release escrow in status: ${escrowTx.status}` });
+      }
+
+      // Capture payment
+      const captured = await captureBookingPayment(escrowTx.bookingId);
+      if (!captured) {
+        return res.status(500).json({ message: "Failed to capture payment" });
+      }
+
+      res.json({ success: true, message: "Escrow released" });
+    } catch (error) {
+      console.error("Error releasing escrow:", error);
+      res.status(500).json({ message: "Failed to release escrow" });
+    }
+  });
+
+  /**
+   * Admin: Manual escrow refund (override)
+   * Body params:
+   * - amount (optional): Refund amount in CHF. If not provided, defaults to full escrow amount
+   * - reason (optional): Reason for refund
+   */
+  app.post('/api/admin/escrow/:id/refund', isAdmin, async (req: any, res) => {
+    try {
+      const escrowId = req.params.id;
+      const { amount, reason } = req.body;
+      
+      // Get escrow transaction
+      const [escrowTx] = await db.select()
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.id, escrowId))
+        .limit(1);
+
+      if (!escrowTx) {
+        return res.status(404).json({ message: "Escrow transaction not found" });
+      }
+
+      // Cancel/refund based on status
+      if (escrowTx.status === 'held' || escrowTx.status === 'disputed') {
+        await cancelBookingPayment(escrowTx.bookingId, reason || "Admin refund");
+      } else if (escrowTx.status === 'released') {
+        // Create refund for released payment
+        // If no amount specified, refund the full escrow amount
+        const amountCents = amount 
+          ? Math.round(amount * 100) 
+          : Math.round(parseFloat(escrowTx.amount) * 100);
+        await createPartialRefund(escrowTx.bookingId, amountCents, reason || "Admin refund");
+      } else {
+        return res.status(400).json({ message: `Cannot refund escrow in status: ${escrowTx.status}` });
+      }
+
+      res.json({ success: true, message: "Escrow refunded" });
+    } catch (error) {
+      console.error("Error refunding escrow:", error);
+      res.status(500).json({ message: "Failed to refund escrow" });
+    }
+  });
+
+  /**
+   * Admin: Get escrow metrics
+   */
+  app.get('/api/admin/escrow/metrics', isAdmin, async (req: any, res) => {
+    try {
+      // Get counts by status
+      const statusCounts = await db.select({
+        status: escrowTransactions.status,
+        count: sql<number>`count(*)::int`,
+        total: sql<string>`sum(${escrowTransactions.amount})`,
+      })
+        .from(escrowTransactions)
+        .groupBy(escrowTransactions.status);
+
+      // Get total held amount
+      const [heldTotal] = await db.select({
+        total: sql<string>`COALESCE(sum(${escrowTransactions.amount}), 0)`,
+      })
+        .from(escrowTransactions)
+        .where(eq(escrowTransactions.status, 'held'));
+
+      // Get open disputes count
+      const [openDisputes] = await db.select({
+        count: sql<number>`count(*)::int`,
+      })
+        .from(escrowDisputes)
+        .where(eq(escrowDisputes.status, 'open'));
+
+      res.json({
+        byStatus: statusCounts.reduce((acc, item) => ({
+          ...acc,
+          [item.status]: { count: item.count, total: parseFloat(item.total || '0') },
+        }), {}),
+        totalHeld: parseFloat(heldTotal?.total || '0'),
+        openDisputes: openDisputes?.count || 0,
+      });
+    } catch (error) {
+      console.error("Error fetching escrow metrics:", error);
+      res.status(500).json({ message: "Failed to fetch metrics" });
+    }
+  });
+
+  // ===========================================
+  // VENDOR ESCROW ROUTES
+  // ===========================================
+
+  /**
+   * Vendor: Get escrow transactions for their bookings
+   */
+  app.get('/api/vendor/escrow', isAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.user!.id;
+      const { status, page = 1, limit = 20 } = req.query;
+      const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
+
+      const transactions = await db.select({
+        escrowTx: escrowTransactions,
+        booking: {
+          id: bookingsTable.id,
+          bookingNumber: bookingsTable.bookingNumber,
+          customerId: bookingsTable.customerId,
+          status: bookingsTable.status,
+          requestedStartTime: bookingsTable.requestedStartTime,
+        },
+      })
+        .from(escrowTransactions)
+        .innerJoin(bookingsTable, eq(escrowTransactions.bookingId, bookingsTable.id))
+        .where(eq(bookingsTable.vendorId, vendorId))
+        .orderBy(sql`${escrowTransactions.createdAt} DESC`)
+        .limit(parseInt(limit as string))
+        .offset(offset);
+
+      // Get summary stats
+      const [held] = await db.select({
+        count: sql<number>`count(*)::int`,
+        total: sql<string>`COALESCE(sum(${escrowTransactions.vendorAmount}), 0)`,
+      })
+        .from(escrowTransactions)
+        .innerJoin(bookingsTable, eq(escrowTransactions.bookingId, bookingsTable.id))
+        .where(
+          sql`${bookingsTable.vendorId} = ${vendorId} AND ${escrowTransactions.status} = 'held'`
+        );
+
+      const [released] = await db.select({
+        count: sql<number>`count(*)::int`,
+        total: sql<string>`COALESCE(sum(${escrowTransactions.vendorAmount}), 0)`,
+      })
+        .from(escrowTransactions)
+        .innerJoin(bookingsTable, eq(escrowTransactions.bookingId, bookingsTable.id))
+        .where(
+          sql`${bookingsTable.vendorId} = ${vendorId} AND ${escrowTransactions.status} = 'released'`
+        );
+
+      const [disputed] = await db.select({
+        count: sql<number>`count(*)::int`,
+      })
+        .from(escrowTransactions)
+        .innerJoin(bookingsTable, eq(escrowTransactions.bookingId, bookingsTable.id))
+        .where(
+          sql`${bookingsTable.vendorId} = ${vendorId} AND ${escrowTransactions.status} = 'disputed'`
+        );
+
+      res.json({
+        transactions,
+        summary: {
+          heldCount: held?.count || 0,
+          heldTotal: parseFloat(held?.total || '0'),
+          releasedCount: released?.count || 0,
+          releasedTotal: parseFloat(released?.total || '0'),
+          disputedCount: disputed?.count || 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching vendor escrow:", error);
+      res.status(500).json({ message: "Failed to fetch escrow transactions" });
     }
   });
 
