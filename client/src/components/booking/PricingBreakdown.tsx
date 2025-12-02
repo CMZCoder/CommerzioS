@@ -8,7 +8,6 @@
  * - Total cost
  */
 
-import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -142,7 +141,7 @@ export function PricingBreakdown({
   }
 
   const hasSurcharges = breakdown.surcharges.length > 0;
-  const hasDiscount = breakdown.discount > 0;
+  const _hasDiscount = breakdown.discount > 0;
   const isBestValue = breakdown.calculationMethod === 'mixed';
 
   return (

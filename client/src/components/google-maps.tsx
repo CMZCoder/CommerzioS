@@ -24,8 +24,7 @@ export function GoogleMaps({
   defaultExpanded = false,
   apiKey,
 }: GoogleMapsProps) {
-  if (!userLocation) return null;
-
+  // All hooks must be called at the top, before any conditional returns
   const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -494,7 +493,7 @@ export function GoogleMaps({
       // Create unique IDs for buttons to handle clicks
       const infoWindowId = `info-window-${service.id}`;
       const getDirectionsBtnId = `get-directions-${service.id}`;
-      const googleMapsBtnId = `google-maps-${service.id}`;
+      const _googleMapsBtnId = `google-maps-${service.id}`;
 
       const serviceInfoWindow = new google.maps.InfoWindow({
         content: `
@@ -667,7 +666,7 @@ export function GoogleMaps({
       mapRef.current?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
       hasFitBoundsRef.current = true;
     }
-  }, [userLocation, closestServices, initializeDirections, clearDirections, closeAllInfoWindows]);
+  }, [userLocation, closestServices, initializeDirections, clearDirections, closeAllInfoWindows, showDirections]);
 
   // Initialize map only once when it becomes visible
   useEffect(() => {
@@ -758,14 +757,14 @@ export function GoogleMaps({
           });
       }
     }
-  }, [isMapVisible, apiKey]);
+  }, [isMapVisible, apiKey, closeAllInfoWindows, updateMarkers, userLocation]);
 
   // Update markers when services change (without refitting bounds)
   useEffect(() => {
     if (isMapVisible && isInitializedRef.current && hasFitBoundsRef.current) {
       updateMarkers(false);
     }
-  }, [closestServices]);
+  }, [closestServices, isMapVisible, updateMarkers]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -774,6 +773,9 @@ export function GoogleMaps({
       markersRef.current = [];
     };
   }, []);
+
+  // Early return after all hooks have been called
+  if (!userLocation) return null;
 
   const handleZoomIn = () => {
     if (mapRef.current) {

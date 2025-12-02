@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { format, addDays, isSameDay, isWithinInterval, isBefore, isAfter, differenceInHours, differenceInDays } from 'date-fns';
+import { format, isSameDay, isWithinInterval, isBefore, isAfter, differenceInHours, differenceInDays } from 'date-fns';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -73,8 +73,8 @@ export function DateTimeRangePicker({
   blockedPeriods = [],
   minDate = new Date(),
   maxDate,
-  minDuration = 60,
-  maxDuration,
+  minDuration: _minDuration = 60,
+  maxDuration: _maxDuration,
   timeStep = 30,
   workingHours = { start: '08:00', end: '18:00' },
   className,
@@ -112,7 +112,7 @@ export function DateTimeRangePicker({
         onChange({ start, end });
       }
     }
-  }, [selectedStartDate, selectedEndDate, startTime, endTime]);
+  }, [selectedStartDate, selectedEndDate, startTime, endTime, onChange, value.start, value.end]);
 
   // Check if a date has blocked periods
   const isDateBlocked = (date: Date): boolean => {
@@ -146,8 +146,8 @@ export function DateTimeRangePicker({
     return `${hours} hour${hours > 1 ? 's' : ''}`;
   };
 
-  // Custom day render for calendar
-  const DayContent = ({ date }: { date: Date }) => {
+  // Custom day render for calendar (currently unused, kept for future reference)
+  const _DayContent = ({ date }: { date: Date }) => {
     const isBlocked = isDateBlocked(date);
     const isSelected = selectedStartDate && isSameDay(date, selectedStartDate);
     const isEndSelected = selectedEndDate && isSameDay(date, selectedEndDate);

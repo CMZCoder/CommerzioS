@@ -666,10 +666,11 @@ function ConversationItem({
             {isCustomer ? '🏪' : '👤'}
           </AvatarFallback>
         </Avatar>
-        {/* Online indicator - only on main items (commented out until real-time status is implemented) */}
-        {false && !compact && (
+        {/* Online indicator - commented out until real-time status is implemented
+        {!compact && (
           <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full" />
         )}
+        */}
       </div>
       
       <div className="flex-1 min-w-0">

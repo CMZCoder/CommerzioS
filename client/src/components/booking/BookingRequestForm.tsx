@@ -34,14 +34,14 @@ interface BookingRequestFormProps {
   serviceId: string;
   serviceName: string;
   vendorId: string;
-  onSuccess?: (booking: any) => void;
+  onSuccess?: (booking: unknown) => void;
   onCancel?: () => void;
 }
 
 export function BookingRequestForm({
   serviceId,
   serviceName,
-  vendorId,
+  _vendorId,
   onSuccess,
   onCancel,
 }: BookingRequestFormProps) {
