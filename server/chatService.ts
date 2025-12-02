@@ -90,27 +90,27 @@ const CONTACT_PATTERNS = {
   // Email addresses
   email: [
     /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi,
-    /[a-zA-Z0-9._%+-]+\s*[\[\(]?at[\]\)]?\s*[a-zA-Z0-9.-]+\s*[\[\(]?dot[\]\)]?\s*[a-zA-Z]{2,}/gi, // "at" and "dot" variants
+    /[a-zA-Z0-9._%+-]+\s*[[(]?at[\])]?\s*[a-zA-Z0-9.-]+\s*[[(]?dot[\])]?\s*[a-zA-Z]{2,}/gi, // "at" and "dot" variants
     /[a-zA-Z0-9._%+-]+\s*@\s*[a-zA-Z0-9.-]+\s*\.\s*[a-zA-Z]{2,}/gi, // Spaced variants
   ],
   
   // Social media handles and URLs
   social: [
-    /(?:instagram|ig|insta)\s*[:\-@]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:facebook|fb)\s*[:\-@\/]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:twitter|x\.com)\s*[:\-@\/]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:telegram|tg)\s*[:\-@]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:whatsapp|wa)\s*[:\-]?\s*[\+]?[0-9\s]+/gi,
-    /(?:snapchat|snap)\s*[:\-@]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:tiktok|tt)\s*[:\-@]?\s*[a-zA-Z0-9._]+/gi,
-    /(?:linkedin)\s*[:\-@\/]?\s*[a-zA-Z0-9._-]+/gi,
+    /(?:instagram|ig|insta)\s*[:@-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:facebook|fb)\s*[:@/-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:twitter|x\.com)\s*[:@/-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:telegram|tg)\s*[:@-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:whatsapp|wa)\s*[:-]?\s*[+]?[0-9\s]+/gi,
+    /(?:snapchat|snap)\s*[:@-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:tiktok|tt)\s*[:@-]?\s*[a-zA-Z0-9._]+/gi,
+    /(?:linkedin)\s*[:@/-]?\s*[a-zA-Z0-9._-]+/gi,
   ],
   
   // URLs
   url: [
-    /https?:\/\/[^\s<>"\[\]{}|\\^`]+/gi,
-    /www\.[^\s<>"\[\]{}|\\^`]+/gi,
-    /[a-zA-Z0-9.-]+\.(?:com|ch|de|fr|it|org|net|io|co)[^\s<>"\[\]{}|\\^`]*/gi,
+    /https?:\/\/[^\s<>"[\]{}|\\^`]+/gi,
+    /www\.[^\s<>"[\]{}|\\^`]+/gi,
+    /[a-zA-Z0-9.-]+\.(?:com|ch|de|fr|it|org|net|io|co)[^\s<>"[\]{}|\\^`]*/gi,
   ],
 };
 
@@ -583,7 +583,7 @@ export async function getMessages(
     throw new Error('Conversation not found or access denied');
   }
   
-  let conditions = [eq(chatMessages.conversationId, conversationId)];
+  const conditions = [eq(chatMessages.conversationId, conversationId)];
   
   if (beforeMessageId) {
     const [beforeMessage] = await db.select()

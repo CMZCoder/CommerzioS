@@ -41,6 +41,7 @@ import { fromZodError } from "zod-validation-error";
 
 // Extend Express Request to include our user type
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface User {
       id: string;

@@ -649,7 +649,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Geocode first location if locations are being updated
-      let updateData = { ...req.body };
+      const updateData = { ...req.body };
       
       if (req.body.locations && req.body.locations.length > 0) {
         const firstLocation = req.body.locations[0];
