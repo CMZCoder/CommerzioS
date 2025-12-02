@@ -24,6 +24,12 @@ import {
   referralTransactions,
   pointsLog,
 } from "@shared/schema";
+// Security middleware imports
+import { pricingLimiter } from "./middleware/rateLimiter";
+import { idempotencyMiddleware } from "./middleware/idempotency";
+import { verifyReauthPassword } from "./middleware/reauth";
+import { logPricingOptionCreate, logPricingOptionUpdate, logPricingOptionDelete } from "./services/auditService";
+import { validatePricingOption, ALLOWED_CURRENCY } from "./validators/pricingValidator";
 import {
   validateReferralCode,
   getOrCreateReferralCode,
@@ -3318,8 +3324,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create pricing option (service owner only)
-  app.post('/api/services/:serviceId/pricing-options', isAuthenticated, async (req: any, res) => {
+  // Create pricing option (service owner only) - with rate limiting, idempotency, and audit logging
+  app.post('/api/services/:serviceId/pricing-options', isAuthenticated, pricingLimiter, idempotencyMiddleware, async (req: any, res) => {
     try {
       const service = await storage.getService(req.params.serviceId);
       if (!service) {
@@ -3329,10 +3335,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized" });
       }
 
+      // Validate currency is CHF for Swiss marketplace
+      if (req.body.currency && req.body.currency !== ALLOWED_CURRENCY) {
+        return res.status(400).json({ message: `Currency must be ${ALLOWED_CURRENCY} for Swiss marketplace` });
+      }
+
       const option = await storage.createServicePricingOption({
         serviceId: req.params.serviceId,
         ...req.body,
+        currency: ALLOWED_CURRENCY, // Force CHF
       });
+      
+      // Audit log the creation
+      await logPricingOptionCreate(req.user!.id, option.id, option, req);
+      
       res.status(201).json(option);
     } catch (error) {
       console.error("Error creating pricing option:", error);
@@ -3340,8 +3356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update pricing option
-  app.patch('/api/pricing-options/:id', isAuthenticated, async (req: any, res) => {
+  // Update pricing option - with rate limiting, idempotency, and audit logging
+  app.patch('/api/pricing-options/:id', isAuthenticated, pricingLimiter, idempotencyMiddleware, async (req: any, res) => {
     try {
       const option = await storage.getPricingOptionById(req.params.id);
       if (!option) {
@@ -3353,7 +3369,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized" });
       }
 
+      // Validate currency is CHF for Swiss marketplace
+      if (req.body.currency && req.body.currency !== ALLOWED_CURRENCY) {
+        return res.status(400).json({ message: `Currency must be ${ALLOWED_CURRENCY} for Swiss marketplace` });
+      }
+
+      // Store previous value for audit
+      const previousValue = { ...option };
+      
       const updated = await storage.updateServicePricingOption(req.params.id, req.body);
+      
+      // Audit log the update
+      await logPricingOptionUpdate(req.user!.id, req.params.id, previousValue, updated, req);
+      
       res.json(updated);
     } catch (error) {
       console.error("Error updating pricing option:", error);
@@ -3361,8 +3389,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete pricing option
-  app.delete('/api/pricing-options/:id', isAuthenticated, async (req: any, res) => {
+  // Delete pricing option - with rate limiting, idempotency, and audit logging
+  app.delete('/api/pricing-options/:id', isAuthenticated, pricingLimiter, idempotencyMiddleware, async (req: any, res) => {
     try {
       const option = await storage.getPricingOptionById(req.params.id);
       if (!option) {
@@ -3374,11 +3402,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized" });
       }
 
+      // Store for audit before deletion
+      const deletedValue = { ...option };
+
       await storage.deleteServicePricingOption(req.params.id);
+      
+      // Audit log the deletion
+      await logPricingOptionDelete(req.user!.id, req.params.id, deletedValue, req);
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting pricing option:", error);
       res.status(500).json({ message: "Failed to delete pricing option" });
+    }
+  });
+
+  // Re-authentication endpoint for sensitive operations
+  app.post('/api/auth/reauth', isAuthenticated, async (req: any, res) => {
+    try {
+      const { password } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ message: "Password is required" });
+      }
+      
+      const isValid = await verifyReauthPassword(req.user!.id, password);
+      
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid password" });
+      }
+      
+      res.json({ success: true, message: "Re-authentication successful" });
+    } catch (error) {
+      console.error("Re-authentication error:", error);
+      res.status(500).json({ message: "Re-authentication failed" });
     }
   });
 
@@ -3477,7 +3534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available slots for a service
   app.get('/api/services/:serviceId/available-slots', async (req, res) => {
     try {
-      const { date, duration } = req.query;
+      const { date, duration, pricingOptionId } = req.query;
       
       if (!date) {
         return res.status(400).json({ message: "date is required" });
@@ -3486,7 +3543,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const slots = await getAvailableSlots(
         req.params.serviceId,
         new Date(date as string),
-        duration ? parseInt(duration as string) : undefined
+        duration ? parseInt(duration as string) : undefined,
+        pricingOptionId as string | undefined
       );
       res.json(slots);
     } catch (error: any) {
@@ -3498,7 +3556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Calculate booking price
   app.post('/api/bookings/calculate-price', async (req, res) => {
     try {
-      const { serviceId, pricingOptionId, startTime, endTime } = req.body;
+      const { serviceId, pricingOptionId, startTime, endTime, context } = req.body;
       
       if (!serviceId || !startTime || !endTime) {
         return res.status(400).json({ message: "serviceId, startTime, and endTime are required" });
@@ -3511,6 +3569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pricingOptionId,
         startTime: new Date(startTime),
         endTime: new Date(endTime),
+        context,
       });
       
       res.json(breakdown);

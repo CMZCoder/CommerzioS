@@ -7,6 +7,10 @@
  * - Mixed pricing (daily rate + hourly overflow)
  * - Weekend/holiday surcharges
  * - Smart calculation (choose cheapest option)
+ * - Unit multipliers (extra dogs/children)
+ * - Tier adjustments (pet size)
+ * - Express (same-day) surcharge
+ * - Travel fees
  */
 
 import { db } from './db';
@@ -17,6 +21,32 @@ import { eq, and, gte, lte } from 'drizzle-orm';
 // TYPES
 // ===========================================
 
+export interface IncludedUnit {
+  type: string;
+  label: string;
+  quantity: number;
+  extraPrice: number; // in cents
+  maxAllowed: number;
+}
+
+export interface TierOption {
+  label: string;
+  priceAdjustment: number; // in cents
+}
+
+export interface Tier {
+  type: string;
+  options: TierOption[];
+}
+
+export interface PricingModifiers {
+  weekendSurcharge?: { type: 'percentage' | 'fixed'; value: number };
+  eveningSurcharge?: { afterHour: number; beforeHour?: number; value: number; type?: 'fixed' | 'percentage' };
+  holidaySurcharge?: { type: 'percentage' | 'fixed'; value: number };
+  expressSurcharge?: { type: 'percentage' | 'fixed'; value: number };
+  travelFee?: { baseFee: number; perKmFee: number; freeKm: number };
+}
+
 export interface PricingOption {
   id: string;
   label: string;
@@ -24,6 +54,9 @@ export interface PricingOption {
   currency: string;
   billingInterval: 'one_time' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
   durationMinutes: number | null;
+  includedUnits?: IncludedUnit[];
+  tiers?: Tier[];
+  modifiers?: PricingModifiers;
 }
 
 export interface DateTimeRange {
@@ -42,6 +75,8 @@ export interface PricingBreakdown {
   baseCost: number;
   dailyCost: number;
   hourlyCost: number;
+  unitMultiplierCost: number;
+  tierAdjustment: number;
   surcharges: SurchargeItem[];
   discount: number;
   
@@ -63,11 +98,11 @@ export interface LineItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  type: 'base' | 'hourly' | 'daily' | 'surcharge' | 'discount';
+  type: 'base' | 'hourly' | 'daily' | 'surcharge' | 'discount' | 'unit_multiplier' | 'tier_adjustment' | 'travel';
 }
 
 export interface SurchargeItem {
-  type: 'weekend' | 'holiday' | 'rush' | 'custom';
+  type: 'weekend' | 'holiday' | 'rush' | 'evening' | 'express' | 'travel' | 'custom';
   description: string;
   amount: number;
   percentage?: number;
@@ -82,6 +117,13 @@ export interface ServicePricing {
   minimumDays: number;
   weekendSurchargePercent: number;
   holidaySurchargePercent: number;
+  modifiers?: PricingModifiers;
+}
+
+export interface BookingContext {
+  unitSelections?: Array<{ type: string; quantity: number }>;
+  tierSelections?: Array<{ type: string; selectedOption: string }>;
+  travelDistanceKm?: number;
 }
 
 // ===========================================
@@ -118,8 +160,9 @@ export async function calculateBookingPrice(params: {
   pricingOptionId?: string;
   startTime: Date;
   endTime: Date;
+  context?: BookingContext;
 }): Promise<PricingBreakdown> {
-  const { serviceId, pricingOptionId, startTime, endTime } = params;
+  const { serviceId, pricingOptionId, startTime, endTime, context } = params;
 
   // Get service details
   const [service] = await db.select()
@@ -147,6 +190,9 @@ export async function calculateBookingPrice(params: {
         currency: option.currency,
         billingInterval: option.billingInterval as PricingOption['billingInterval'],
         durationMinutes: option.durationMinutes,
+        includedUnits: option.includedUnits as IncludedUnit[] | undefined,
+        tiers: option.tiers as Tier[] | undefined,
+        modifiers: option.modifiers as PricingModifiers | undefined,
       };
     }
   }
@@ -188,7 +234,169 @@ export async function calculateBookingPrice(params: {
     );
   }
 
+  // Apply flexible pricing adjustments if pricing option has them
+  if (pricingOption && context) {
+    breakdown = applyFlexiblePricing(breakdown, pricingOption, context, startTime);
+  }
+
   return breakdown;
+}
+
+/**
+ * Apply flexible pricing adjustments (units, tiers, advanced surcharges)
+ */
+function applyFlexiblePricing(
+  breakdown: PricingBreakdown,
+  pricingOption: PricingOption,
+  context: BookingContext,
+  startTime: Date
+): PricingBreakdown {
+  const lineItems = [...breakdown.lineItems];
+  const surcharges = [...breakdown.surcharges];
+  let unitMultiplierCost = 0;
+  let tierAdjustment = 0;
+  
+  // Apply unit multipliers (e.g., extra dogs, extra children)
+  if (pricingOption.includedUnits && context.unitSelections) {
+    for (const unit of pricingOption.includedUnits) {
+      const selection = context.unitSelections.find(s => s.type === unit.type);
+      if (selection && selection.quantity > unit.quantity) {
+        const extraUnits = Math.min(selection.quantity - unit.quantity, unit.maxAllowed - unit.quantity);
+        if (extraUnits > 0) {
+          const extraCost = (extraUnits * unit.extraPrice) / 100; // Convert cents to CHF
+          unitMultiplierCost += extraCost;
+          lineItems.push({
+            description: `Extra ${unit.label} (${extraUnits})`,
+            quantity: extraUnits,
+            unitPrice: unit.extraPrice / 100,
+            total: extraCost,
+            type: 'unit_multiplier',
+          });
+        }
+      }
+    }
+  }
+  
+  // Apply tier adjustments (e.g., pet size)
+  if (pricingOption.tiers && context.tierSelections) {
+    for (const tier of pricingOption.tiers) {
+      const selection = context.tierSelections.find(s => s.type === tier.type);
+      if (selection) {
+        const option = tier.options.find(o => o.label === selection.selectedOption);
+        if (option && option.priceAdjustment !== 0) {
+          const adjustment = option.priceAdjustment / 100; // Convert cents to CHF
+          tierAdjustment += adjustment;
+          lineItems.push({
+            description: `${tier.type}: ${option.label}`,
+            quantity: 1,
+            unitPrice: adjustment,
+            total: adjustment,
+            type: 'tier_adjustment',
+          });
+        }
+      }
+    }
+  }
+  
+  // Apply advanced surcharges from modifiers
+  if (pricingOption.modifiers) {
+    const modifiers = pricingOption.modifiers;
+    const baseCost = breakdown.baseCost + breakdown.dailyCost + breakdown.hourlyCost;
+    
+    // Evening surcharge
+    if (modifiers.eveningSurcharge) {
+      const hour = startTime.getHours();
+      const afterHour = modifiers.eveningSurcharge.afterHour;
+      const beforeHour = modifiers.eveningSurcharge.beforeHour ?? 24;
+      
+      if (hour >= afterHour || hour < beforeHour) {
+        const surchargeType = modifiers.eveningSurcharge.type || 'fixed';
+        const amount = surchargeType === 'percentage'
+          ? baseCost * (modifiers.eveningSurcharge.value / 100)
+          : modifiers.eveningSurcharge.value / 100;
+        
+        surcharges.push({
+          type: 'evening',
+          description: `Evening surcharge (after ${afterHour}:00)`,
+          amount,
+          percentage: surchargeType === 'percentage' ? modifiers.eveningSurcharge.value : undefined,
+        });
+        lineItems.push({
+          description: `Evening surcharge`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount,
+          type: 'surcharge',
+        });
+      }
+    }
+    
+    // Express (same-day) surcharge
+    if (modifiers.expressSurcharge) {
+      const now = new Date();
+      const isSameDay = startTime.toDateString() === now.toDateString();
+      
+      if (isSameDay) {
+        const surchargeType = modifiers.expressSurcharge.type;
+        const amount = surchargeType === 'percentage'
+          ? baseCost * (modifiers.expressSurcharge.value / 100)
+          : modifiers.expressSurcharge.value / 100;
+        
+        surcharges.push({
+          type: 'express',
+          description: 'Same-day booking surcharge',
+          amount,
+          percentage: surchargeType === 'percentage' ? modifiers.expressSurcharge.value : undefined,
+        });
+        lineItems.push({
+          description: `Express booking`,
+          quantity: 1,
+          unitPrice: amount,
+          total: amount,
+          type: 'surcharge',
+        });
+      }
+    }
+    
+    // Travel fee
+    if (modifiers.travelFee && context.travelDistanceKm) {
+      const chargeableKm = Math.max(0, context.travelDistanceKm - modifiers.travelFee.freeKm);
+      const travelFee = (modifiers.travelFee.baseFee + chargeableKm * modifiers.travelFee.perKmFee) / 100;
+      
+      if (travelFee > 0) {
+        surcharges.push({
+          type: 'travel',
+          description: `Travel fee (${context.travelDistanceKm}km)`,
+          amount: travelFee,
+        });
+        lineItems.push({
+          description: `Travel fee (${chargeableKm}km billable)`,
+          quantity: 1,
+          unitPrice: travelFee,
+          total: travelFee,
+          type: 'travel',
+        });
+      }
+    }
+  }
+  
+  // Recalculate totals
+  const surchargeTotal = surcharges.reduce((sum, s) => sum + s.amount, 0);
+  const subtotal = breakdown.baseCost + breakdown.dailyCost + breakdown.hourlyCost + 
+                   unitMultiplierCost + tierAdjustment + surchargeTotal;
+  const platformFee = subtotal * PLATFORM_FEE_PERCENTAGE;
+  const total = subtotal + platformFee;
+  
+  return {
+    ...breakdown,
+    lineItems,
+    surcharges,
+    unitMultiplierCost,
+    tierAdjustment,
+    subtotal,
+    platformFee,
+    total,
+  };
 }
 
 /**
@@ -238,6 +446,8 @@ function calculateFixedPrice(
     baseCost: option.price,
     dailyCost: 0,
     hourlyCost: 0,
+    unitMultiplierCost: 0,
+    tierAdjustment: 0,
     surcharges,
     discount: 0,
     subtotal,
@@ -296,6 +506,8 @@ function calculateHourlyPrice(
     baseCost: 0,
     dailyCost: 0,
     hourlyCost,
+    unitMultiplierCost: 0,
+    tierAdjustment: 0,
     surcharges,
     discount: 0,
     subtotal,
@@ -355,6 +567,8 @@ function calculateDailyPrice(
     baseCost: 0,
     dailyCost,
     hourlyCost: 0,
+    unitMultiplierCost: 0,
+    tierAdjustment: 0,
     surcharges,
     discount: 0,
     subtotal,
@@ -502,6 +716,8 @@ function calculateMixedPrice(
     baseCost: 0,
     dailyCost: dailyCostFinal,
     hourlyCost: hourlyCostFinal,
+    unitMultiplierCost: 0,
+    tierAdjustment: 0,
     surcharges,
     discount: 0,
     subtotal,

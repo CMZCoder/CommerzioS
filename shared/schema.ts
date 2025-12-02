@@ -1014,6 +1014,16 @@ export const servicePricingOptions = pgTable("service_pricing_options", {
   // Stripe Price ID (created when pricing option is added)
   stripePriceId: varchar("stripe_price_id", { length: 255 }),
   
+  // === NEW: Flexible Pricing Fields ===
+  // Unit multipliers: e.g., { type: "pet", label: "dogs", quantity: 2, extraPrice: 1000, maxAllowed: 5 }
+  includedUnits: jsonb("included_units").default(sql`'[]'::jsonb`),
+  
+  // Size pricing tiers: e.g., { type: "pet_size", options: [{label: "Small", priceAdjustment: 0}, {label: "Large", priceAdjustment: 2000}] }
+  tiers: jsonb("tiers").default(sql`'[]'::jsonb`),
+  
+  // Surcharge modifiers: e.g., { weekendSurcharge: {type: "percentage", value: 20}, eveningSurcharge: {afterHour: 18, value: 1000} }
+  modifiers: jsonb("modifiers").default(sql`'{}'::jsonb`),
+  
   // Ordering
   sortOrder: integer("sort_order").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
@@ -1029,6 +1039,133 @@ export const servicePricingOptionsRelations = relations(servicePricingOptions, (
   service: one(services, {
     fields: [servicePricingOptions.serviceId],
     references: [services.id],
+  }),
+}));
+
+/**
+ * Service Availability Settings Table
+ * Service-specific availability settings that override vendor defaults
+ */
+export const serviceAvailabilitySettings = pgTable("service_availability_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }).unique(),
+  
+  // Working hours override: { mon: { start: "09:00", end: "17:00", enabled: true }, ... }
+  workingHours: jsonb("working_hours").default(sql`'{}'::jsonb`),
+  
+  // Slot generation settings
+  defaultSlotDurationMinutes: integer("default_slot_duration_minutes").default(60).notNull(),
+  bufferBetweenBookingsMinutes: integer("buffer_between_bookings_minutes").default(15).notNull(),
+  
+  // Booking preferences
+  instantBooking: boolean("instant_booking").default(false).notNull(),
+  minBookingNoticeHours: integer("min_booking_notice_hours").default(24),
+  maxBookingAdvanceDays: integer("max_booking_advance_days").default(90),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_service_availability_service").on(table.serviceId),
+]);
+
+export const serviceAvailabilitySettingsRelations = relations(serviceAvailabilitySettings, ({ one }) => ({
+  service: one(services, {
+    fields: [serviceAvailabilitySettings.serviceId],
+    references: [services.id],
+  }),
+}));
+
+/**
+ * Pricing Audit Log Table
+ * Tracks all pricing changes for security and accountability
+ */
+export const pricingAuditLog = pgTable("pricing_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Who made the change
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // What was changed
+  entityType: varchar("entity_type", { enum: ["service", "pricing_option"] }).notNull(),
+  entityId: varchar("entity_id").notNull(),
+  
+  // Action performed
+  action: varchar("action", { enum: ["create", "update", "delete", "activate", "deactivate"] }).notNull(),
+  
+  // Values
+  previousValue: jsonb("previous_value"),
+  newValue: jsonb("new_value"),
+  
+  // Request metadata for security
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_pricing_audit_user").on(table.userId),
+  index("idx_pricing_audit_entity").on(table.entityType, table.entityId),
+  index("idx_pricing_audit_created").on(table.createdAt),
+]);
+
+export const pricingAuditLogRelations = relations(pricingAuditLog, ({ one }) => ({
+  user: one(users, {
+    fields: [pricingAuditLog.userId],
+    references: [users.id],
+  }),
+}));
+
+/**
+ * Booking Sessions Table
+ * Stores temporary booking sessions with locked pricing to prevent price manipulation
+ */
+export const bookingSessions = pgTable("booking_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Session owner
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  
+  // Session token for anonymous users
+  sessionToken: varchar("session_token", { length: 255 }),
+  
+  // Booking details
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  pricingOptionId: varchar("pricing_option_id").references(() => servicePricingOptions.id, { onDelete: "set null" }),
+  
+  // Locked pricing at session creation time (prevents price manipulation during checkout)
+  lockedPricing: jsonb("locked_pricing").notNull(),
+  
+  // Requested time slot
+  requestedStartTime: timestamp("requested_start_time"),
+  requestedEndTime: timestamp("requested_end_time"),
+  
+  // Session status
+  status: varchar("status", { enum: ["active", "completed", "expired", "abandoned"] }).default("active").notNull(),
+  
+  // Session expiry (default 5 minutes)
+  expiresAt: timestamp("expires_at").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_booking_sessions_user").on(table.userId),
+  index("idx_booking_sessions_token").on(table.sessionToken),
+  index("idx_booking_sessions_service").on(table.serviceId),
+  index("idx_booking_sessions_status").on(table.status),
+  index("idx_booking_sessions_expires").on(table.expiresAt),
+]);
+
+export const bookingSessionsRelations = relations(bookingSessions, ({ one }) => ({
+  user: one(users, {
+    fields: [bookingSessions.userId],
+    references: [users.id],
+  }),
+  service: one(services, {
+    fields: [bookingSessions.serviceId],
+    references: [services.id],
+  }),
+  pricingOption: one(servicePricingOptions, {
+    fields: [bookingSessions.pricingOptionId],
+    references: [servicePricingOptions.id],
   }),
 }));
 
@@ -1848,6 +1985,23 @@ export const insertServicePricingOptionSchema = createInsertSchema(servicePricin
   updatedAt: true,
 });
 
+export const insertServiceAvailabilitySettingsSchema = createInsertSchema(serviceAvailabilitySettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPricingAuditLogSchema = createInsertSchema(pricingAuditLog).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertBookingSessionSchema = createInsertSchema(bookingSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   orderNumber: true,
@@ -1932,6 +2086,15 @@ export const updateNotificationPreferencesSchema = z.object({
 
 export type ServicePricingOption = typeof servicePricingOptions.$inferSelect;
 export type InsertServicePricingOption = typeof servicePricingOptions.$inferInsert;
+
+export type ServiceAvailabilitySettings = typeof serviceAvailabilitySettings.$inferSelect;
+export type InsertServiceAvailabilitySettings = typeof serviceAvailabilitySettings.$inferInsert;
+
+export type PricingAuditLog = typeof pricingAuditLog.$inferSelect;
+export type InsertPricingAuditLog = typeof pricingAuditLog.$inferInsert;
+
+export type BookingSession = typeof bookingSessions.$inferSelect;
+export type InsertBookingSession = typeof bookingSessions.$inferInsert;
 
 export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;

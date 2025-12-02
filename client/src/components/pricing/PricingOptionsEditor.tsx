@@ -3,6 +3,7 @@
  * 
  * Allows vendors to manage multiple pricing options for a service
  * Supports: label, price, currency, billing interval, duration
+ * Enhanced with: includedUnits, tiers, modifiers for flexible pricing
  */
 
 import { useState } from 'react';
@@ -14,9 +15,37 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Edit2, Trash2, GripVertical, Clock, DollarSign } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Plus, Edit2, Trash2, GripVertical, Clock, DollarSign, Settings2, Users, Layers } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface IncludedUnit {
+  type: string;
+  label: string;
+  quantity: number;
+  extraPrice: number;
+  maxAllowed: number;
+}
+
+interface TierOption {
+  label: string;
+  priceAdjustment: number;
+}
+
+interface Tier {
+  type: string;
+  options: TierOption[];
+}
+
+interface PricingModifiers {
+  weekendSurcharge?: { type: 'percentage' | 'fixed'; value: number };
+  eveningSurcharge?: { afterHour: number; value: number; type?: 'fixed' | 'percentage' };
+  expressSurcharge?: { type: 'percentage' | 'fixed'; value: number };
+  travelFee?: { baseFee: number; perKmFee: number; freeKm: number };
+}
 
 interface PricingOption {
   id: string;
@@ -27,6 +56,9 @@ interface PricingOption {
   currency: string;
   billingInterval: 'one_time' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
   durationMinutes: number | null;
+  includedUnits?: IncludedUnit[];
+  tiers?: Tier[];
+  modifiers?: PricingModifiers;
   sortOrder: number;
   isActive: boolean;
 }
@@ -45,30 +77,37 @@ const BILLING_INTERVALS = [
   { value: 'yearly', label: 'Per Year' },
 ];
 
+// Swiss marketplace only supports CHF
 const CURRENCIES = [
   { value: 'CHF', label: 'CHF (Swiss Franc)' },
-  { value: 'EUR', label: 'EUR (Euro)' },
-  { value: 'USD', label: 'USD (US Dollar)' },
 ];
+
+interface FormData {
+  label: string;
+  description: string;
+  price: string;
+  currency: string;
+  billingInterval: 'one_time' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  durationMinutes: string;
+  includedUnits: IncludedUnit[];
+  tiers: Tier[];
+  modifiers: PricingModifiers;
+}
 
 export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEditorProps) {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOption, setEditingOption] = useState<PricingOption | null>(null);
-  const [formData, setFormData] = useState<{
-    label: string;
-    description: string;
-    price: string;
-    currency: string;
-    billingInterval: 'one_time' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly';
-    durationMinutes: string;
-  }>({
+  const [formData, setFormData] = useState<FormData>({
     label: '',
     description: '',
     price: '',
     currency: 'CHF',
     billingInterval: 'one_time',
     durationMinutes: '',
+    includedUnits: [],
+    tiers: [],
+    modifiers: {},
   });
 
   // Fetch pricing options
@@ -83,14 +122,20 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
 
   // Create pricing option
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: FormData) => {
       const res = await fetch(`/api/services/${serviceId}/pricing-options`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': `create-${serviceId}-${Date.now()}`,
+        },
         body: JSON.stringify({
           ...data,
           durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : null,
           sortOrder: pricingOptions.length,
+          includedUnits: data.includedUnits.length > 0 ? data.includedUnits : undefined,
+          tiers: data.tiers.length > 0 ? data.tiers : undefined,
+          modifiers: Object.keys(data.modifiers).length > 0 ? data.modifiers : undefined,
         }),
       });
       if (!res.ok) {
@@ -113,13 +158,19 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
 
   // Update pricing option
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+    mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
       const res = await fetch(`/api/pricing-options/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': `update-${id}-${Date.now()}`,
+        },
         body: JSON.stringify({
           ...data,
           durationMinutes: data.durationMinutes ? parseInt(data.durationMinutes) : null,
+          includedUnits: data.includedUnits.length > 0 ? data.includedUnits : undefined,
+          tiers: data.tiers.length > 0 ? data.tiers : undefined,
+          modifiers: Object.keys(data.modifiers).length > 0 ? data.modifiers : undefined,
         }),
       });
       if (!res.ok) {
@@ -143,7 +194,12 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
   // Delete pricing option
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/pricing-options/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/pricing-options/${id}`, { 
+        method: 'DELETE',
+        headers: {
+          'X-Idempotency-Key': `delete-${id}-${Date.now()}`,
+        },
+      });
       if (!res.ok) throw new Error('Failed to delete pricing option');
       return res.json();
     },
@@ -165,6 +221,9 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
       currency: 'CHF',
       billingInterval: 'one_time',
       durationMinutes: '',
+      includedUnits: [],
+      tiers: [],
+      modifiers: {},
     });
     setEditingOption(null);
   };
@@ -178,6 +237,9 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
       currency: option.currency,
       billingInterval: option.billingInterval,
       durationMinutes: option.durationMinutes?.toString() || '',
+      includedUnits: option.includedUnits || [],
+      tiers: option.tiers || [],
+      modifiers: option.modifiers || {},
     });
     setIsDialogOpen(true);
   };
@@ -187,12 +249,81 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
       toast.error('Label and price are required');
       return;
     }
+    
+    // Validate price bounds (CHF 0.50 - 100,000)
+    const priceNum = parseFloat(formData.price);
+    if (isNaN(priceNum) || priceNum < 0.50 || priceNum > 100000) {
+      toast.error('Price must be between CHF 0.50 and CHF 100,000');
+      return;
+    }
 
     if (editingOption) {
       updateMutation.mutate({ id: editingOption.id, data: formData });
     } else {
       createMutation.mutate(formData);
     }
+  };
+
+  // Helper functions for managing flexible pricing
+  const addIncludedUnit = () => {
+    setFormData(prev => ({
+      ...prev,
+      includedUnits: [...prev.includedUnits, { type: '', label: '', quantity: 1, extraPrice: 0, maxAllowed: 5 }],
+    }));
+  };
+
+  const updateIncludedUnit = (index: number, field: keyof IncludedUnit, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      includedUnits: prev.includedUnits.map((unit, i) => 
+        i === index ? { ...unit, [field]: value } : unit
+      ),
+    }));
+  };
+
+  const removeIncludedUnit = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      includedUnits: prev.includedUnits.filter((_, i) => i !== index),
+    }));
+  };
+
+  const addTier = () => {
+    setFormData(prev => ({
+      ...prev,
+      tiers: [...prev.tiers, { type: '', options: [{ label: '', priceAdjustment: 0 }] }],
+    }));
+  };
+
+  const updateTier = (index: number, field: keyof Tier, value: string | TierOption[]) => {
+    setFormData(prev => ({
+      ...prev,
+      tiers: prev.tiers.map((tier, i) => 
+        i === index ? { ...tier, [field]: value } : tier
+      ),
+    }));
+  };
+
+  const removeTier = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tiers: prev.tiers.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateModifier = (
+    key: keyof PricingModifiers, 
+    value: PricingModifiers[keyof PricingModifiers] | undefined
+  ) => {
+    setFormData(prev => {
+      const newModifiers = { ...prev.modifiers };
+      if (value === undefined) {
+        delete newModifiers[key];
+      } else {
+        (newModifiers as Record<string, unknown>)[key] = value;
+      }
+      return { ...prev, modifiers: newModifiers };
+    });
   };
 
   const formatPrice = (price: string, currency: string, interval: string) => {
