@@ -374,7 +374,8 @@ function doTimesOverlap(start1: Date, end1: Date, start2: Date, end2: Date): boo
 export async function getAvailableSlots(
   serviceId: string,
   date: Date,
-  durationMinutes: number = 60
+  durationMinutes: number = 60,
+  pricingOptionId?: string
 ): Promise<TimeSlot[]> {
   const [service] = await db.select()
     .from(services)
@@ -386,15 +387,59 @@ export async function getAvailableSlots(
   }
 
   const vendorId = service.ownerId;
-  const settings = await getVendorAvailabilitySettings(vendorId);
   
-  const slotDuration = settings?.defaultSlotDurationMinutes || durationMinutes;
-  const buffer = settings?.bufferBetweenBookingsMinutes || 15;
+  // Try to get service-specific availability settings first
+  let serviceAvailability: { 
+    workingHours?: unknown; 
+    defaultSlotDurationMinutes?: number; 
+    bufferBetweenBookingsMinutes?: number;
+  } | null = null;
+  
+  try {
+    const { serviceAvailabilitySettings } = await import('../shared/schema');
+    const [svcAvail] = await db.select()
+      .from(serviceAvailabilitySettings)
+      .where(eq(serviceAvailabilitySettings.serviceId, serviceId))
+      .limit(1);
+    serviceAvailability = svcAvail || null;
+  } catch {
+    // Table may not exist yet, continue with vendor settings
+  }
+  
+  // Fall back to vendor availability settings
+  const vendorSettings = await getVendorAvailabilitySettings(vendorId);
+  
+  // Get duration from pricing option if specified
+  let effectiveDuration = durationMinutes;
+  if (pricingOptionId) {
+    const { servicePricingOptions } = await import('../shared/schema');
+    const [pricingOption] = await db.select()
+      .from(servicePricingOptions)
+      .where(eq(servicePricingOptions.id, pricingOptionId))
+      .limit(1);
+    
+    if (pricingOption?.durationMinutes) {
+      effectiveDuration = pricingOption.durationMinutes;
+    }
+  }
+  
+  // Priority: service availability > vendor settings > defaults
+  const slotDuration = serviceAvailability?.defaultSlotDurationMinutes 
+    || vendorSettings?.defaultSlotDurationMinutes 
+    || effectiveDuration;
+    
+  const buffer = serviceAvailability?.bufferBetweenBookingsMinutes 
+    || vendorSettings?.bufferBetweenBookingsMinutes 
+    || 15;
   
   // Get working hours for the day
   const dayOfWeek = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][date.getDay()];
-  const workingHours = (settings?.defaultWorkingHours as Record<string, any>) || getDefaultWorkingHours();
-  const daySettings = workingHours[dayOfWeek];
+  
+  // Priority: service working hours > vendor working hours > defaults
+  const workingHours = (serviceAvailability?.workingHours as Record<string, unknown>) 
+    || (vendorSettings?.defaultWorkingHours as Record<string, unknown>) 
+    || getDefaultWorkingHours();
+  const daySettings = workingHours[dayOfWeek] as { enabled?: boolean; start?: string; end?: string } | undefined;
   
   if (!daySettings?.enabled || !daySettings.start || !daySettings.end) {
     return [];

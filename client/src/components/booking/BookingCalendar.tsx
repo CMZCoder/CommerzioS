@@ -2,6 +2,7 @@
  * BookingCalendar Component
  * 
  * Displays available time slots for a service and allows selection
+ * Enhanced with pricingOptionId support for accurate slot duration
  */
 
 import { useState, useMemo } from 'react';
@@ -24,6 +25,7 @@ interface TimeSlot {
 interface BookingCalendarProps {
   serviceId: string;
   durationMinutes?: number;
+  pricingOptionId?: string; // NEW: Pass pricing option to get accurate duration
   onSelectSlot: (slot: { start: Date; end: Date }) => void;
   selectedSlot?: { start: Date; end: Date } | null;
   minDate?: Date;
@@ -34,6 +36,7 @@ interface BookingCalendarProps {
 export function BookingCalendar({
   serviceId,
   durationMinutes = 60,
+  pricingOptionId, // NEW: Accept pricing option
   onSelectSlot,
   selectedSlot,
   minDate = new Date(),
@@ -46,11 +49,19 @@ export function BookingCalendar({
 
   // Fetch available slots for selected date
   const { data: slots = [], isLoading: slotsLoading } = useQuery<TimeSlot[]>({
-    queryKey: ['available-slots', serviceId, selectedDate?.toISOString(), durationMinutes],
+    queryKey: ['available-slots', serviceId, selectedDate?.toISOString(), durationMinutes, pricingOptionId],
     queryFn: async () => {
       if (!selectedDate) return [];
+      // Build URL with optional pricingOptionId
+      const params = new URLSearchParams({
+        date: selectedDate.toISOString(),
+        duration: durationMinutes.toString(),
+      });
+      if (pricingOptionId) {
+        params.set('pricingOptionId', pricingOptionId);
+      }
       const res = await fetch(
-        `/api/services/${serviceId}/available-slots?date=${selectedDate.toISOString()}&duration=${durationMinutes}`
+        `/api/services/${serviceId}/available-slots?${params.toString()}`
       );
       if (!res.ok) throw new Error('Failed to fetch slots');
       return res.json();

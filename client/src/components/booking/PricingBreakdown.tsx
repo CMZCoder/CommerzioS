@@ -21,7 +21,11 @@ import {
   Info, 
   CheckCircle,
   Sparkles,
-  TrendingDown
+  TrendingDown,
+  Users,
+  Layers,
+  Car,
+  Zap,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -35,11 +39,11 @@ interface LineItem {
   quantity: number;
   unitPrice: number;
   total: number;
-  type: 'base' | 'hourly' | 'daily' | 'surcharge' | 'discount';
+  type: 'base' | 'hourly' | 'daily' | 'surcharge' | 'discount' | 'unit_multiplier' | 'tier_adjustment' | 'travel';
 }
 
 interface SurchargeItem {
-  type: 'weekend' | 'holiday' | 'rush' | 'custom';
+  type: 'weekend' | 'holiday' | 'rush' | 'evening' | 'express' | 'travel' | 'custom';
   description: string;
   amount: number;
   percentage?: number;
@@ -53,6 +57,8 @@ interface PricingBreakdownData {
   baseCost: number;
   dailyCost: number;
   hourlyCost: number;
+  unitMultiplierCost?: number;
+  tierAdjustment?: number;
   surcharges: SurchargeItem[];
   discount: number;
   subtotal: number;
@@ -213,7 +219,10 @@ export function PricingBreakdown({
                 className={cn(
                   "flex items-center justify-between text-sm py-2 px-1 rounded",
                   item.type === 'surcharge' && "bg-amber-50/50 dark:bg-amber-950/20",
-                  item.type === 'discount' && "bg-green-50/50 dark:bg-green-950/20"
+                  item.type === 'discount' && "bg-green-50/50 dark:bg-green-950/20",
+                  item.type === 'unit_multiplier' && "bg-blue-50/50 dark:bg-blue-950/20",
+                  item.type === 'tier_adjustment' && "bg-purple-50/50 dark:bg-purple-950/20",
+                  item.type === 'travel' && "bg-orange-50/50 dark:bg-orange-950/20"
                 )}
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -221,16 +230,24 @@ export function PricingBreakdown({
                   {item.type === 'daily' && <Calendar className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />}
                   {item.type === 'surcharge' && <Percent className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />}
                   {item.type === 'base' && <CheckCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                  {item.type === 'unit_multiplier' && <Users className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />}
+                  {item.type === 'tier_adjustment' && <Layers className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />}
+                  {item.type === 'travel' && <Car className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />}
                   <span className="truncate text-muted-foreground">{item.description}</span>
                 </div>
                 <span className={cn(
                   "font-medium ml-2 whitespace-nowrap",
                   item.type === 'surcharge' && "text-amber-600 dark:text-amber-400",
-                  item.type === 'discount' && "text-green-600 dark:text-green-400"
+                  item.type === 'discount' && "text-green-600 dark:text-green-400",
+                  item.type === 'unit_multiplier' && "text-blue-600 dark:text-blue-400",
+                  item.type === 'tier_adjustment' && item.total > 0 && "text-purple-600 dark:text-purple-400",
+                  item.type === 'tier_adjustment' && item.total < 0 && "text-green-600 dark:text-green-400",
+                  item.type === 'travel' && "text-orange-600 dark:text-orange-400"
                 )}>
-                  {item.type === 'surcharge' ? '+' : ''}
+                  {item.type === 'surcharge' || item.type === 'unit_multiplier' || item.type === 'travel' ? '+' : ''}
                   {item.type === 'discount' ? '-' : ''}
-                  {formatCurrency(item.total, breakdown.currency)}
+                  {item.type === 'tier_adjustment' && item.total > 0 ? '+' : ''}
+                  {formatCurrency(Math.abs(item.total), breakdown.currency)}
                 </span>
               </div>
             ))}
