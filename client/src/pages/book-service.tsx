@@ -23,9 +23,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DateTimeRangePicker } from '@/components/booking/DateTimeRangePicker';
 import { PricingBreakdown } from '@/components/booking/PricingBreakdown';
 import { PricingSelector } from '@/components/pricing/PricingSelector';
+import { PaymentMethodSelector, type PaymentMethod } from '@/components/payment/PaymentMethodSelector';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest, type ServiceWithDetails } from '@/lib/api';
 import { toast } from 'sonner';
@@ -47,7 +49,9 @@ import {
   Star,
   Shield,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Wallet,
+  Info
 } from 'lucide-react';
 
 interface DateTimeRange {
@@ -90,7 +94,8 @@ const STEPS = [
   { id: 1, title: 'Select Time', icon: Calendar },
   { id: 2, title: 'Choose Package', icon: CreditCard },
   { id: 3, title: 'Your Details', icon: User },
-  { id: 4, title: 'Confirm', icon: CheckCircle2 },
+  { id: 4, title: 'Payment', icon: Wallet },
+  { id: 5, title: 'Confirm', icon: CheckCircle2 },
 ];
 
 export default function BookServicePage() {
@@ -103,6 +108,7 @@ export default function BookServicePage() {
   const [step, setStep] = useState(1);
   const [dateRange, setDateRange] = useState<DateTimeRange>({ start: null, end: null });
   const [selectedOption, setSelectedOption] = useState<PricingOption | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [formData, setFormData] = useState({
     customerMessage: '',
     customerPhone: '',
@@ -144,12 +150,13 @@ export default function BookServicePage() {
         throw new Error('Please select dates');
       }
 
-      const res = await fetch('/api/bookings', {
+      // Create the booking with payment method
+      const res = await apiRequest('/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId,
           pricingOptionId: selectedOption?.id,
+          paymentMethod,
           requestedStartTime: dateRange.start.toISOString(),
           requestedEndTime: dateRange.end.toISOString(),
           customerMessage: formData.customerMessage,
@@ -158,20 +165,34 @@ export default function BookServicePage() {
         }),
       });
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.message || 'Failed to create booking');
-      }
-
-      return res.json();
+      return res;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      toast.success('Booking request sent!', {
-        description: 'The vendor will review your request shortly.',
-      });
-      // Redirect to chat with vendor
-      setLocation(`/chat?booking=${data.id}&vendor=${service?.ownerId}`);
+      
+      // Handle different payment flows
+      if (paymentMethod === 'card' && data.checkoutUrl) {
+        // Redirect to Stripe Checkout
+        toast.success('Redirecting to payment...', {
+          description: 'Complete your payment to confirm the booking.',
+        });
+        window.location.href = data.checkoutUrl;
+      } else if (paymentMethod === 'twint' && data.twintPaymentUrl) {
+        // Redirect to TWINT payment
+        toast.success('Redirecting to TWINT...', {
+          description: 'Complete your payment in the TWINT app.',
+        });
+        window.location.href = data.twintPaymentUrl;
+      } else {
+        // Cash payment or instant booking - go to chat
+        const isInstantBooking = !service?.owner?.requireBookingApproval;
+        toast.success(isInstantBooking ? 'Booking confirmed!' : 'Booking request sent!', {
+          description: isInstantBooking 
+            ? 'Your booking has been confirmed. Chat with the vendor for details.'
+            : 'The vendor will review your request shortly.',
+        });
+        setLocation(`/chat?booking=${data.id}&vendor=${service?.ownerId}`);
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -188,14 +209,16 @@ export default function BookServicePage() {
       case 3:
         return true; // Details are optional
       case 4:
+        return !!paymentMethod; // Payment method is required
+      case 5:
         return dateRange.start && dateRange.end;
       default:
         return false;
     }
-  }, [step, dateRange, selectedOption, formData]);
+  }, [step, dateRange, selectedOption, formData, paymentMethod]);
 
   const handleNext = () => {
-    if (step < 4 && canProceed) {
+    if (step < 5 && canProceed) {
       setStep(step + 1);
     }
   };
@@ -389,10 +412,10 @@ export default function BookServicePage() {
             {/* Step Progress (Mobile) */}
             <div className="md:hidden mt-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Step {step} of 4</span>
+                <span className="text-sm font-medium">Step {step} of 5</span>
                 <span className="text-sm text-muted-foreground">{STEPS[step - 1].title}</span>
               </div>
-              <Progress value={(step / 4) * 100} className="h-2" />
+              <Progress value={(step / 5) * 100} className="h-2" />
             </div>
           </div>
 
@@ -515,8 +538,64 @@ export default function BookServicePage() {
                   </>
                 )}
 
-                {/* Step 4: Confirmation */}
+                {/* Step 4: Payment Method */}
                 {step === 4 && (
+                  <>
+                    <CardHeader className="border-b bg-gradient-to-r from-violet-50 to-white dark:from-violet-950/30 dark:to-slate-900">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center">
+                          <Wallet className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div>
+                          <CardTitle>Payment Method</CardTitle>
+                          <CardDescription>Choose how you'd like to pay</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <PaymentMethodSelector
+                        selectedMethod={paymentMethod}
+                        onSelect={setPaymentMethod}
+                        vendorId={service?.ownerId || ''}
+                        amount={selectedOption?.price || 0}
+                        vendorSettings={{
+                          acceptCardPayments: service?.owner?.acceptCardPayments,
+                          acceptTwintPayments: service?.owner?.acceptTwintPayments,
+                          acceptCashPayments: service?.owner?.acceptCashPayments,
+                        }}
+                      />
+                      
+                      {paymentMethod === 'cash' && (
+                        <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                          <p className="text-sm text-amber-800 dark:text-amber-200">
+                            <strong>Cash Payment:</strong> You'll pay the vendor directly at the time of service. 
+                            No online payment required.
+                          </p>
+                        </div>
+                      )}
+                      
+                      {paymentMethod === 'card' && (
+                        <div className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                            <strong>Secure Card Payment:</strong> Your payment is held safely until the service is completed. 
+                            Full refund if cancelled within 24 hours.
+                          </p>
+                        </div>
+                      )}
+                      
+                      {paymentMethod === 'twint' && (
+                        <div className="mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                          <p className="text-sm text-red-800 dark:text-red-200">
+                            <strong>TWINT Payment:</strong> You'll be redirected to complete payment via the TWINT app.
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </>
+                )}
+
+                {/* Step 5: Confirmation */}
+                {step === 5 && (
                   <>
                     <CardHeader className="border-b bg-gradient-to-r from-green-50 to-white dark:from-green-950/30 dark:to-slate-900">
                       <div className="flex items-center gap-3">
@@ -580,6 +659,18 @@ export default function BookServicePage() {
                             </div>
                           </div>
                         )}
+                        
+                        <div className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <Wallet className="w-5 h-5 text-primary mt-0.5" />
+                          <div>
+                            <p className="font-medium">Payment Method</p>
+                            <p className="text-sm text-muted-foreground capitalize">
+                              {paymentMethod === 'card' && 'Credit/Debit Card'}
+                              {paymentMethod === 'twint' && 'TWINT'}
+                              {paymentMethod === 'cash' && 'Cash at Service'}
+                            </p>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Trust badges */}
@@ -614,7 +705,7 @@ export default function BookServicePage() {
                     </Button>
                   )}
 
-                  {step < 4 ? (
+                  {step < 5 ? (
                     <Button onClick={handleNext} disabled={!canProceed}>
                       {step === 2 && !selectedOption ? 'Skip' : 'Continue'}
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -628,12 +719,16 @@ export default function BookServicePage() {
                       {createBookingMutation.isPending ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
+                          {paymentMethod === 'cash' ? 'Booking...' : 'Processing...'}
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Request Booking
+                          {paymentMethod === 'card' && <CreditCard className="w-4 h-4 mr-2" />}
+                          {paymentMethod === 'twint' && <Wallet className="w-4 h-4 mr-2" />}
+                          {paymentMethod === 'cash' && <CheckCircle2 className="w-4 h-4 mr-2" />}
+                          {paymentMethod === 'card' && 'Pay with Card'}
+                          {paymentMethod === 'twint' && 'Pay with TWINT'}
+                          {paymentMethod === 'cash' && 'Confirm Booking'}
                         </>
                       )}
                     </Button>

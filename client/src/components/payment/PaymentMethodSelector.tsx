@@ -40,11 +40,18 @@ interface TwintEligibilityResult {
   };
 }
 
+export interface VendorPaymentSettings {
+  acceptCardPayments?: boolean;
+  acceptTwintPayments?: boolean;
+  acceptCashPayments?: boolean;
+}
+
 interface PaymentMethodSelectorProps {
   amount: number; // in cents
   vendorId: string;
   onSelect: (method: PaymentMethod) => void;
   selectedMethod: PaymentMethod;
+  vendorSettings?: VendorPaymentSettings;
   className?: string;
   disabled?: boolean;
 }
@@ -54,9 +61,15 @@ export function PaymentMethodSelector({
   vendorId,
   onSelect,
   selectedMethod,
+  vendorSettings,
   className,
   disabled,
 }: PaymentMethodSelectorProps) {
+  // Check vendor's accepted payment methods (default to true if not specified)
+  const vendorAcceptsCard = vendorSettings?.acceptCardPayments !== false;
+  const vendorAcceptsTwint = vendorSettings?.acceptTwintPayments !== false;
+  const vendorAcceptsCash = vendorSettings?.acceptCashPayments !== false;
+
   // Check TWINT eligibility
   const { data: twintEligibility, isLoading: twintLoading } = useQuery<TwintEligibilityResult>({
     queryKey: ['twint-eligibility', vendorId, amount],
@@ -86,67 +99,84 @@ export function PaymentMethodSelector({
     );
   }
 
-  const isTwintAllowed = twintEligibility?.allowed ?? false;
+  const isTwintAllowed = vendorAcceptsTwint && (twintEligibility?.allowed ?? false);
+  const isTwintLockedReason = !vendorAcceptsTwint 
+    ? 'This vendor does not accept TWINT payments'
+    : twintEligibility?.reason;
 
   return (
     <div className={cn("space-y-3", className)}>
       {/* CARD Option - Recommended */}
-      <PaymentOptionCard
-        method="card"
-        selected={selectedMethod === 'card'}
-        onSelect={() => onSelect('card')}
-        disabled={disabled}
-        icon={<CreditCard className="w-6 h-6" />}
-        title="Protected Payment"
-        subtitle="Visa, Mastercard, American Express"
-        badge={{ text: "RECOMMENDED", variant: "default" }}
-        features={[
-          { icon: <Shield className="w-4 h-4" />, text: "Full payment protection until service complete" },
-          { icon: <CheckCircle2 className="w-4 h-4" />, text: "Dispute resolution included" },
-          { icon: <Banknote className="w-4 h-4" />, text: "Money-back guarantee" },
-        ]}
-        amount={formatAmount(amount)}
-      />
+      {vendorAcceptsCard && (
+        <PaymentOptionCard
+          method="card"
+          selected={selectedMethod === 'card'}
+          onSelect={() => onSelect('card')}
+          disabled={disabled}
+          icon={<CreditCard className="w-6 h-6" />}
+          title="Protected Payment"
+          subtitle="Visa, Mastercard, American Express"
+          badge={{ text: "RECOMMENDED", variant: "default" }}
+          features={[
+            { icon: <Shield className="w-4 h-4" />, text: "Full payment protection until service complete" },
+            { icon: <CheckCircle2 className="w-4 h-4" />, text: "Dispute resolution included" },
+            { icon: <Banknote className="w-4 h-4" />, text: "Money-back guarantee" },
+          ]}
+          amount={formatAmount(amount)}
+        />
+      )}
 
       {/* TWINT Option */}
-      <PaymentOptionCard
-        method="twint"
-        selected={selectedMethod === 'twint'}
-        onSelect={() => isTwintAllowed && onSelect('twint')}
-        disabled={disabled || !isTwintAllowed}
-        locked={!isTwintAllowed}
-        lockedReason={twintEligibility?.reason}
-        icon={<Smartphone className="w-6 h-6" />}
-        title="TWINT"
-        subtitle="Pay instantly with your TWINT app"
-        badge={{ text: "POPULAR", variant: "secondary", icon: <span className="text-xs">🇨🇭</span> }}
-        features={
-          isTwintAllowed
-            ? [
-                { icon: <Zap className="w-4 h-4" />, text: "Instant payment to vendor" },
-                { icon: <AlertTriangle className="w-4 h-4" />, text: "Limited protection (refunds at vendor discretion)", warning: true },
-                { icon: <Star className="w-4 h-4" />, text: "Best for vendors you've booked before" },
-              ]
-            : []
-        }
-        amount={formatAmount(amount)}
-      />
+      {vendorAcceptsTwint && (
+        <PaymentOptionCard
+          method="twint"
+          selected={selectedMethod === 'twint'}
+          onSelect={() => isTwintAllowed && onSelect('twint')}
+          disabled={disabled || !isTwintAllowed}
+          locked={!isTwintAllowed}
+          lockedReason={isTwintLockedReason}
+          icon={<Smartphone className="w-6 h-6" />}
+          title="TWINT"
+          subtitle="Pay instantly with your TWINT app"
+          badge={{ text: "POPULAR", variant: "secondary", icon: <span className="text-xs">🇨🇭</span> }}
+          features={
+            isTwintAllowed
+              ? [
+                  { icon: <Zap className="w-4 h-4" />, text: "Instant payment to vendor" },
+                  { icon: <AlertTriangle className="w-4 h-4" />, text: "Limited protection (refunds at vendor discretion)", warning: true },
+                  { icon: <Star className="w-4 h-4" />, text: "Best for vendors you've booked before" },
+                ]
+              : []
+          }
+          amount={formatAmount(amount)}
+        />
+      )}
 
       {/* CASH Option */}
-      <PaymentOptionCard
-        method="cash"
-        selected={selectedMethod === 'cash'}
-        onSelect={() => onSelect('cash')}
-        disabled={disabled}
-        icon={<Banknote className="w-6 h-6" />}
-        title="Cash"
-        subtitle="Pay the vendor directly at the service"
-        features={[
-          { icon: <AlertTriangle className="w-4 h-4" />, text: "No platform protection", warning: true },
-          { icon: <Info className="w-4 h-4" />, text: "Resolve issues directly with vendor" },
-        ]}
-        amount={`${formatAmount(amount)} (at service)`}
-      />
+      {vendorAcceptsCash && (
+        <PaymentOptionCard
+          method="cash"
+          selected={selectedMethod === 'cash'}
+          onSelect={() => onSelect('cash')}
+          disabled={disabled}
+          icon={<Banknote className="w-6 h-6" />}
+          title="Cash"
+          subtitle="Pay the vendor directly at the service"
+          features={[
+            { icon: <AlertTriangle className="w-4 h-4" />, text: "No platform protection", warning: true },
+            { icon: <Info className="w-4 h-4" />, text: "Resolve issues directly with vendor" },
+          ]}
+          amount={`${formatAmount(amount)} (at service)`}
+        />
+      )}
+      
+      {/* No payment methods available */}
+      {!vendorAcceptsCard && !vendorAcceptsTwint && !vendorAcceptsCash && (
+        <div className="text-center py-8 text-muted-foreground">
+          <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+          <p>This vendor has not configured any payment methods.</p>
+        </div>
+      )}
     </div>
   );
 }
