@@ -6,6 +6,7 @@ import { X, Upload, Edit, Star, Image as ImageIcon } from "lucide-react";
 import { ImageEditor } from "@/components/image-editor";
 import { uploadImage } from "@/lib/imageUpload";
 import { useToast } from "@/hooks/use-toast";
+import { getImageUrl } from "@/lib/config";
 
 interface ImageMetadata {
   crop?: {
@@ -408,7 +409,7 @@ export function ImageManager({
                 data-testid={`image-preview-${idx}`}
               >
               <img 
-                src={img} 
+                src={getImageUrl(img)} 
                 alt={`Service ${idx}`} 
                 className="w-full h-32 object-cover rounded border-2 border-border" 
               />
@@ -472,7 +473,7 @@ export function ImageManager({
         <ImageEditor
           open={editingIndex !== null}
           onOpenChange={(open) => !open && setEditingIndex(null)}
-          imageUrl={images[editingIndex]}
+          imageUrl={getImageUrl(images[editingIndex])}
           initialMetadata={imageMetadata[editingIndex]}
           onSave={handleMetadataSave}
         />

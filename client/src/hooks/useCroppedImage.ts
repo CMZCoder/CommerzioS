@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { getImageUrl } from "@/lib/config";
 
 interface ImageMetadata {
   crop?: {
@@ -25,6 +26,9 @@ interface ImageMetadata {
 export function useCroppedImage(imageUrl: string | undefined, metadata: ImageMetadata | undefined): string | undefined {
   const [croppedUrl, setCroppedUrl] = useState<string | undefined>(undefined);
 
+  // Convert /objects/ paths to CDN URLs
+  const resolvedImageUrl = useMemo(() => getImageUrl(imageUrl), [imageUrl]);
+
   // Memoize metadata for stable reference
   const stableMetadata = useMemo(
     () => metadata ? JSON.stringify(metadata) : null,
@@ -32,14 +36,14 @@ export function useCroppedImage(imageUrl: string | undefined, metadata: ImageMet
   );
 
   useEffect(() => {
-    if (!imageUrl) {
+    if (!resolvedImageUrl) {
       setCroppedUrl(undefined);
       return;
     }
 
     // If no cropPixels or zero-sized crop, use original image (images not yet edited or saved without interaction)
     if (!metadata || !metadata.cropPixels || metadata.cropPixels.width === 0 || metadata.cropPixels.height === 0) {
-      setCroppedUrl(imageUrl);
+      setCroppedUrl(resolvedImageUrl);
       return;
     }
 
@@ -61,7 +65,7 @@ export function useCroppedImage(imageUrl: string | undefined, metadata: ImageMet
         const tempCtx = tempCanvas.getContext("2d");
         
         if (!tempCtx) {
-          setCroppedUrl(imageUrl);
+          setCroppedUrl(resolvedImageUrl);
           return;
         }
 
@@ -101,7 +105,7 @@ export function useCroppedImage(imageUrl: string | undefined, metadata: ImageMet
         const ctx = canvas.getContext("2d");
         
         if (!ctx) {
-          setCroppedUrl(imageUrl);
+          setCroppedUrl(resolvedImageUrl);
           return;
         }
 
@@ -143,23 +147,23 @@ export function useCroppedImage(imageUrl: string | undefined, metadata: ImageMet
         setCroppedUrl(dataUrl);
       } catch (error) {
         console.error("Error generating cropped image:", error);
-        setCroppedUrl(imageUrl);
+        setCroppedUrl(resolvedImageUrl);
       }
     };
 
     img.onerror = () => {
       console.error("Error loading image for cropping");
-      setCroppedUrl(imageUrl);
+      setCroppedUrl(resolvedImageUrl);
     };
 
-    img.src = imageUrl;
+    img.src = resolvedImageUrl;
 
     // Cleanup
     return () => {
       img.onload = null;
       img.onerror = null;
     };
-  }, [imageUrl, stableMetadata]);
+  }, [resolvedImageUrl, stableMetadata]);
 
   return croppedUrl;
 }
