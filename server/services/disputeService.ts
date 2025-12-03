@@ -195,7 +195,7 @@ export async function getAllDisputes(filters?: {
   const { status, page = 1, limit = 20 } = filters || {};
   const offset = (page - 1) * limit;
 
-  let query = db.select({
+  const query = db.select({
     dispute: escrowDisputes,
     booking: {
       id: bookings.id,
@@ -309,7 +309,7 @@ export async function resolveDispute(params: ResolveDisputeParams): Promise<Escr
         await captureBookingPayment(booking.id);
         break;
 
-      case "split":
+      case "split": {
         // Partial refund based on percentage
         finalStatus = "resolved_split";
         const percentage = refundPercentage || 50;
@@ -323,6 +323,7 @@ export async function resolveDispute(params: ResolveDisputeParams): Promise<Escr
           await createPartialRefund(booking.id, refundAmount, notes || "Dispute resolved with split");
         }
         break;
+      }
     }
 
     // Update dispute status

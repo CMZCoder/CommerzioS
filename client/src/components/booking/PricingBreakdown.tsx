@@ -25,7 +25,6 @@ import {
   Users,
   Layers,
   Car,
-  Zap,
 } from 'lucide-react';
 import {
   Tooltip,

@@ -18,7 +18,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
@@ -36,10 +35,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isSameDay, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -48,11 +46,7 @@ import {
   Trash2,
   Settings,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 
 interface CalendarBlock {

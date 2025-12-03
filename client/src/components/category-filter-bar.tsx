@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,9 +18,9 @@ export function CategoryFilterBar({
   categories,
   selectedCategory,
   onCategoryChange,
-  serviceCount = 0,
-  categoryCounts = {},
-  newCounts = {},
+  serviceCount: _serviceCount = 0,
+  categoryCounts: _categoryCounts = {},
+  newCounts: _newCounts = {},
 }: CategoryFilterBarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showAllCategories, setShowAllCategories] = useState(false);

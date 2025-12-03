@@ -3447,7 +3447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, paymentMethod, page = 1, limit = 20 } = req.query;
       const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
 
-      let query = db.select({
+      const query = db.select({
         escrowTx: escrowTransactions,
         booking: {
           id: bookingsTable.id,

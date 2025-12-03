@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, Send, AlertTriangle, ShieldAlert, Smile, Paperclip, Mic } from 'lucide-react';
+import { Loader2, Send, ShieldAlert, Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 
