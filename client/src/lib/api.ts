@@ -1,4 +1,5 @@
 import type { Service, Review, Category, User, Favorite, Subcategory } from "@shared/schema";
+import { getApiUrl } from "./config";
 
 // Extended Category type to handle temporary categories with additional fields
 export interface CategoryWithTemporary extends Category {
@@ -29,8 +30,12 @@ export async function apiRequest<T = any>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(endpoint, {
+  // Use getApiUrl for /api paths to support split architecture
+  const url = endpoint.startsWith('/api') ? getApiUrl(endpoint) : endpoint;
+  
+  const response = await fetch(url, {
     ...options,
+    credentials: 'include', // Include cookies for cross-domain auth
     headers: {
       "Content-Type": "application/json",
       ...options?.headers,
