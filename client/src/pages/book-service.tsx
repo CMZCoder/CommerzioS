@@ -184,14 +184,14 @@ export default function BookServicePage() {
         });
         window.location.href = data.twintPaymentUrl;
       } else {
-        // Cash payment or instant booking - go to chat
+        // Cash payment or instant booking - go to success page
         const isInstantBooking = !service?.owner?.requireBookingApproval;
         toast.success(isInstantBooking ? 'Booking confirmed!' : 'Booking request sent!', {
           description: isInstantBooking 
-            ? 'Your booking has been confirmed. Chat with the vendor for details.'
+            ? 'Your booking has been confirmed.'
             : 'The vendor will review your request shortly.',
         });
-        setLocation(`/chat?booking=${data.id}&vendor=${service?.ownerId}`);
+        setLocation(`/booking-success?booking=${data.id}`);
       }
     },
     onError: (error: Error) => {

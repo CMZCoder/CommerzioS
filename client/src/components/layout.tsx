@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, PlusCircle, LogOut, Heart, Settings, User, Star, Gift, MessageCircle, Bell } from "lucide-react";
+import { Menu, PlusCircle, LogOut, Heart, Settings, User, Star, Gift, MessageCircle, Bell, CalendarDays } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
@@ -136,6 +136,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <Star className="w-4 h-4 mr-2" />
                         Reviews
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation("/bookings")} data-testid="menu-item-my-bookings">
+                        <CalendarDays className="w-4 h-4 mr-2" />
+                        My Bookings
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setLocation("/favorites")} data-testid="menu-item-saved">
                         <Heart className="w-4 h-4 mr-2" />
                         Saved
@@ -206,6 +210,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <div className="h-px bg-border my-2" />
                   {isAuthenticated && user && (
                     <>
+                      <Link href="/bookings">
+                        <span className="text-lg font-medium cursor-pointer flex items-center gap-2">
+                          <CalendarDays className="w-5 h-5" />
+                          My Bookings
+                        </span>
+                      </Link>
                       <Link href="/chat">
                         <span className="text-lg font-medium cursor-pointer flex items-center gap-2">
                           <MessageCircle className="w-5 h-5" />

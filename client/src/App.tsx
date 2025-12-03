@@ -33,6 +33,7 @@ import ReferralsPage from "@/pages/referrals";
 import ChatPage from "@/pages/chat";
 import VendorBookingsPage from "@/pages/vendor-bookings";
 import BookServicePage from "@/pages/book-service";
+import BookingSuccessPage from "@/pages/booking-success";
 import NotificationsPage from "@/pages/notifications";
 import CustomerBookingsPage from "@/pages/bookings";
 
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/notifications" component={NotificationsPage} />
       {/* Booking routes */}
       <Route path="/bookings" component={CustomerBookingsPage} />
+      <Route path="/booking-success" component={BookingSuccessPage} />
       {/* Vendor routes */}
       <Route path="/vendor/bookings" component={VendorBookingsPage} />
       <Route path="/my-bookings" component={VendorBookingsPage} />

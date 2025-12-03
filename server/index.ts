@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cron from "node-cron";
 import { runEscrowAutoReleaseTasks } from "./services/escrowAutoReleaseService";
+import { sendBookingReminders, sendVendorBookingReminders } from "./bookingReminderService";
 
 const app = express();
 
@@ -128,5 +129,19 @@ app.use((req, res, next) => {
       await runEscrowAutoReleaseTasks();
     });
     log('✓ Escrow auto-release cron job registered (hourly)');
+    
+    // Register booking reminder cron job (runs every 5 minutes)
+    cron.schedule('*/5 * * * *', async () => {
+      try {
+        const customerReminders = await sendBookingReminders();
+        const vendorReminders = await sendVendorBookingReminders();
+        if (customerReminders > 0 || vendorReminders > 0) {
+          log(`[Cron] Sent ${customerReminders} customer reminders, ${vendorReminders} vendor reminders`);
+        }
+      } catch (error) {
+        console.error('[Cron] Booking reminder error:', error);
+      }
+    });
+    log('✓ Booking reminder cron job registered (every 5 minutes)');
   });
 })();

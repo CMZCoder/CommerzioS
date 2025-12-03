@@ -895,6 +895,111 @@ export async function notifyPromotion(
 }
 
 // ===========================================
+// BOOKING REMINDER NOTIFICATIONS
+// ===========================================
+
+/**
+ * Creates a booking reminder notification for customers
+ * Call this from a scheduled job (e.g., cron) for upcoming bookings
+ */
+export async function notifyBookingReminder(
+  userId: string,
+  bookingId: string,
+  serviceName: string,
+  vendorName: string,
+  startTime: Date,
+  reminderType: "24h" | "1h" | "15min"
+): Promise<void> {
+  const reminderMessages: Record<string, { title: string; message: string }> = {
+    "24h": {
+      title: "Booking Tomorrow 📅",
+      message: `Don't forget! Your appointment for "${serviceName}" with ${vendorName} is tomorrow.`,
+    },
+    "1h": {
+      title: "Booking in 1 Hour ⏰",
+      message: `Your appointment for "${serviceName}" with ${vendorName} starts in 1 hour.`,
+    },
+    "15min": {
+      title: "Booking Starting Soon! 🔔",
+      message: `Get ready! Your "${serviceName}" appointment starts in 15 minutes.`,
+    },
+  };
+
+  const content = reminderMessages[reminderType];
+
+  await createNotification({
+    userId,
+    type: "booking",
+    title: content.title,
+    message: content.message,
+    icon: "clock",
+    relatedEntityType: "booking",
+    relatedEntityId: bookingId,
+    actionUrl: `/bookings?booking=${bookingId}`,
+    metadata: { 
+      reminderType, 
+      serviceName, 
+      vendorName, 
+      startTime: startTime.toISOString() 
+    },
+  });
+}
+
+/**
+ * Creates a booking confirmation notification for the customer
+ * Called immediately after booking creation
+ */
+export async function notifyBookingCreated(
+  customerId: string,
+  bookingId: string,
+  bookingNumber: string,
+  serviceName: string,
+  vendorName: string,
+  startTime: Date,
+  isAutoAccepted: boolean = false
+): Promise<void> {
+  const title = isAutoAccepted 
+    ? "Booking Confirmed! 🎉" 
+    : "Booking Request Sent! 📬";
+  
+  const message = isAutoAccepted
+    ? `Your booking for "${serviceName}" with ${vendorName} has been confirmed for ${formatBookingTime(startTime)}.`
+    : `Your booking request for "${serviceName}" has been sent to ${vendorName}. You'll be notified when they respond.`;
+
+  await createNotification({
+    userId: customerId,
+    type: "booking",
+    title,
+    message,
+    icon: "calendar-check",
+    relatedEntityType: "booking",
+    relatedEntityId: bookingId,
+    actionUrl: `/bookings?booking=${bookingId}`,
+    metadata: { 
+      bookingNumber, 
+      serviceName, 
+      vendorName, 
+      startTime: startTime.toISOString(),
+      isAutoAccepted 
+    },
+  });
+}
+
+/**
+ * Helper to format booking time nicely
+ */
+function formatBookingTime(date: Date): string {
+  const options: Intl.DateTimeFormatOptions = { 
+    weekday: 'short', 
+    month: 'short', 
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  };
+  return date.toLocaleDateString('en-US', options);
+}
+
+// ===========================================
 // CLEANUP
 // ===========================================
 
@@ -917,4 +1022,3 @@ export async function cleanupExpiredNotifications(): Promise<number> {
     return 0;
   }
 }
-

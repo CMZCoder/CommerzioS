@@ -21,7 +21,7 @@ import {
   InsertVendorCalendarBlock
 } from '../shared/schema';
 import { eq, and, or, gte, lte, sql, desc, asc, isNull, ne } from 'drizzle-orm';
-import { createNotification } from './notificationService';
+import { createNotification, notifyBookingCreated } from './notificationService';
 
 // ===========================================
 // BOOKING NOTIFICATION HELPER
@@ -591,6 +591,14 @@ export async function createBookingRequest(data: {
     })
     .returning();
 
+  // Get vendor name for notifications
+  const [vendor] = await db.select({ firstName: users.firstName, lastName: users.lastName })
+    .from(users)
+    .where(eq(users.id, service.ownerId))
+    .limit(1);
+  
+  const vendorName = vendor ? `${vendor.firstName || ''} ${vendor.lastName || ''}`.trim() || 'the vendor' : 'the vendor';
+
   // Notify vendor about new booking request (only if pending, not auto-accepted)
   if (status === 'pending') {
     await sendBookingNotification(booking, 'pending');
@@ -598,6 +606,17 @@ export async function createBookingRequest(data: {
     // If auto-accepted, notify customer
     await sendBookingNotification(booking, 'accepted');
   }
+
+  // Send confirmation notification to customer
+  await notifyBookingCreated(
+    data.customerId,
+    booking.id,
+    bookingNumber,
+    service.title,
+    vendorName,
+    data.requestedStartTime,
+    status === 'accepted' || status === 'confirmed'
+  );
 
   return booking;
 }
