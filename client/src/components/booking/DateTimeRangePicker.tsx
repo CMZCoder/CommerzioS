@@ -86,6 +86,7 @@ export function DateTimeRangePicker({
   const [selectedEndDate, setSelectedEndDate] = useState<Date | undefined>(value.end ?? undefined);
   const [startTime, setStartTime] = useState(value.start ? format(value.start, 'HH:mm') : workingHours.start);
   const [endTime, setEndTime] = useState(value.end ? format(value.end, 'HH:mm') : workingHours.end);
+  const [selectedQuickOption, setSelectedQuickOption] = useState<string | null>(null);
 
   const timeOptions = useMemo(() => generateTimeOptions(timeStep), [timeStep]);
 
@@ -216,6 +217,7 @@ export function DateTimeRangePicker({
                     if (!selectedEndDate || (date && isBefore(selectedEndDate, date))) {
                       setSelectedEndDate(date);
                     }
+                    setSelectedQuickOption(null);
                     setIsStartOpen(false);
                   }}
                   disabled={isDateDisabled}
@@ -225,7 +227,7 @@ export function DateTimeRangePicker({
             </Popover>
 
             {/* Time Picker */}
-            <Select value={startTime} onValueChange={setStartTime} disabled={disabled}>
+            <Select value={startTime} onValueChange={(val) => { setStartTime(val); setSelectedQuickOption(null); }} disabled={disabled}>
               <SelectTrigger className="w-full sm:w-28">
                 <Clock className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Time" />
@@ -276,6 +278,7 @@ export function DateTimeRangePicker({
                   selected={selectedEndDate}
                   onSelect={(date) => {
                     setSelectedEndDate(date);
+                    setSelectedQuickOption(null);
                     setIsEndOpen(false);
                   }}
                   disabled={(date) => 
@@ -288,7 +291,7 @@ export function DateTimeRangePicker({
             </Popover>
 
             {/* Time Picker */}
-            <Select value={endTime} onValueChange={setEndTime} disabled={disabled || !selectedEndDate}>
+            <Select value={endTime} onValueChange={(val) => { setEndTime(val); setSelectedQuickOption(null); }} disabled={disabled || !selectedEndDate}>
               <SelectTrigger className="w-full sm:w-28">
                 <Clock className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Time" />
@@ -346,9 +349,12 @@ export function DateTimeRangePicker({
           ].map((preset) => (
             <Button
               key={preset.label}
-              variant="outline"
+              variant={selectedQuickOption === preset.label ? "default" : "outline"}
               size="sm"
-              className="text-xs"
+              className={cn(
+                "text-xs transition-all",
+                selectedQuickOption === preset.label && "ring-2 ring-primary ring-offset-2"
+              )}
               disabled={disabled || !selectedStartDate}
               onClick={() => {
                 if (selectedStartDate) {
@@ -366,6 +372,7 @@ export function DateTimeRangePicker({
                   
                   setSelectedEndDate(end);
                   setEndTime(format(end, 'HH:mm'));
+                  setSelectedQuickOption(preset.label);
                 }
               }}
             >

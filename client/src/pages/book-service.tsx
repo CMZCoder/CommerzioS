@@ -119,14 +119,13 @@ export default function BookServicePage() {
   });
 
   // Fetch pricing breakdown
-  const { data: pricingBreakdown, isLoading: pricingLoading } = useQuery<PricingBreakdownData>({
+  const { data: pricingBreakdown, isLoading: pricingLoading } = useQuery<PricingBreakdownData | null>({
     queryKey: ['pricing-breakdown', serviceId, selectedOption?.id, dateRange.start?.toISOString(), dateRange.end?.toISOString()],
-    queryFn: async () => {
+    queryFn: async (): Promise<PricingBreakdownData | null> => {
       if (!dateRange.start || !dateRange.end) return null;
       
-      const res = await fetch('/api/bookings/calculate-price', {
+      return apiRequest<PricingBreakdownData>('/api/bookings/calculate-price', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           serviceId,
           pricingOptionId: selectedOption?.id,
@@ -134,9 +133,6 @@ export default function BookServicePage() {
           endTime: dateRange.end.toISOString(),
         }),
       });
-      
-      if (!res.ok) throw new Error('Failed to calculate price');
-      return res.json();
     },
     enabled: !!serviceId && !!dateRange.start && !!dateRange.end,
   });
