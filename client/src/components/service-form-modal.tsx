@@ -1025,7 +1025,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4">
+        <form id="service-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4 min-h-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="main" className="flex items-center gap-2">
@@ -1627,102 +1627,103 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
               </div>
             </TabsContent>
           </Tabs>
+        </form>
 
-          {/* Sticky Footer with Navigation */}
-          <div className="flex items-center justify-between pt-6 border-t bg-white sticky bottom-0">
-            {/* Left side - Back button or Save Draft */}
-            <div className="flex gap-2">
-              {!isFirstTab ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={goToPreviousTab}
-                  data-testid="button-previous-step"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Back
-                </Button>
-              ) : !isEditMode ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSaveDraft}
-                  data-testid="button-save-draft"
-                  className={draftSaved ? "border-green-500 text-green-600" : ""}
-                >
-                  {draftSaved ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                      Draft Saved
-                    </>
-                  ) : "Save Draft"}
-                </Button>
-              ) : null}
-            </div>
-
-            {/* Right side - Cancel and Next/Publish */}
-            <div className="flex gap-2">
+        {/* Fixed Footer with Navigation - Outside form, uses form attribute */}
+        <div className="flex items-center justify-between pt-4 pb-2 border-t bg-background flex-shrink-0">
+          {/* Left side - Back button or Save Draft */}
+          <div className="flex gap-2">
+            {!isFirstTab ? (
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => onOpenChange(false)}
-                data-testid="button-cancel-service"
+                onClick={goToPreviousTab}
+                data-testid="button-previous-step"
               >
-                Cancel
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
               </Button>
-              
-              {/* Show Next button if not on last tab, otherwise show Publish/Update */}
-              {!isLastTab ? (
-                <Button
-                  type="button"
-                  onClick={goToNextTab}
-                  className="min-w-[100px]"
-                  data-testid="button-next-step"
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              ) : (
-                <Button
-                  type="submit"
-                  disabled={isSubmitDisabled || !formProgress.isComplete}
-                  className="min-w-[140px] bg-gradient-to-r from-primary to-primary/90"
-                  data-testid="button-submit-service"
-                >
-                  {validatingAddresses ? (
+            ) : !isEditMode ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveDraft}
+                data-testid="button-save-draft"
+                className={draftSaved ? "border-green-500 text-green-600" : ""}
+              >
+                {draftSaved ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                    Draft Saved
+                  </>
+                ) : "Save Draft"}
+              </Button>
+            ) : null}
+          </div>
+
+          {/* Right side - Cancel and Next/Publish */}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              data-testid="button-cancel-service"
+            >
+              Cancel
+            </Button>
+            
+            {/* Show Next button if not on last tab, otherwise show Publish/Update */}
+            {!isLastTab ? (
+              <Button
+                type="button"
+                onClick={goToNextTab}
+                className="min-w-[100px]"
+                data-testid="button-next-step"
+              >
+                Next
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                form="service-form"
+                disabled={isSubmitDisabled || !formProgress.isComplete}
+                className="min-w-[140px] bg-gradient-to-r from-primary to-primary/90"
+                data-testid="button-submit-service"
+              >
+                {validatingAddresses ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    Validating...
+                  </>
+                ) : isEditMode ? (
+                  updateServiceMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                      Validating...
+                      Updating...
                     </>
-                  ) : isEditMode ? (
-                    updateServiceMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                        Update Service
-                      </>
-                    )
                   ) : (
-                    createServiceMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : formProgress.isComplete ? (
-                      "Publish Service"
-                    ) : (
-                      `Complete ${(formProgress.total || 0) - (formProgress.completed || 0)} more steps`
-                    )
-                  )}
-                </Button>
-              )}
-            </div>
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                      Update Service
+                    </>
+                  )
+                ) : (
+                  createServiceMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : formProgress.isComplete ? (
+                    "Publish Service"
+                  ) : (
+                    `Complete ${(formProgress.total || 0) - (formProgress.completed || 0)} more steps`
+                  )
+                )}
+              </Button>
+            )}
           </div>
-        </form>
+        </div>
       </DialogContent>
 
       {/* AI Hashtag Suggestions Dialog */}
