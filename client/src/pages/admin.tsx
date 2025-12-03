@@ -2177,6 +2177,10 @@ function SettingsManagement() {
     enableAiCategoryValidation: true,
     enableServiceContacts: true,
     requireServiceContacts: false,
+    platformCommissionPercent: "5.00",
+    cardProcessingFeePercent: "2.90",
+    cardProcessingFeeFixed: "0.30",
+    twintProcessingFeePercent: "1.30",
   });
 
   useEffect(() => {
@@ -2188,6 +2192,10 @@ function SettingsManagement() {
         enableAiCategoryValidation: settings.enableAiCategoryValidation ?? true,
         enableServiceContacts: settings.enableServiceContacts ?? true,
         requireServiceContacts: settings.requireServiceContacts ?? false,
+        platformCommissionPercent: settings.platformCommissionPercent ?? "5.00",
+        cardProcessingFeePercent: settings.cardProcessingFeePercent ?? "2.90",
+        cardProcessingFeeFixed: settings.cardProcessingFeeFixed ?? "0.30",
+        twintProcessingFeePercent: settings.twintProcessingFeePercent ?? "1.30",
       });
       
       // Load saved Google Maps API key
@@ -2407,6 +2415,129 @@ function SettingsManagement() {
                 </>
               ) : (
                 "Save Verification Settings"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Commission & Fees Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="w-5 h-5" />
+            Commission & Payment Fees
+          </CardTitle>
+          <CardDescription>
+            Configure platform commission and payment processing fees. These fees are applied to all bookings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <Alert>
+            <AlertDescription>
+              <strong>Total fee to customer:</strong> Platform Commission + Processing Fee
+              <br />
+              <span className="text-sm text-muted-foreground">
+                Card: {localSettings.platformCommissionPercent}% + {localSettings.cardProcessingFeePercent}% + CHF {localSettings.cardProcessingFeeFixed} = ~{(parseFloat(localSettings.platformCommissionPercent) + parseFloat(localSettings.cardProcessingFeePercent)).toFixed(1)}%
+                <br />
+                TWINT: {localSettings.platformCommissionPercent}% + {localSettings.twintProcessingFeePercent}% = {(parseFloat(localSettings.platformCommissionPercent) + parseFloat(localSettings.twintProcessingFeePercent)).toFixed(1)}%
+                <br />
+                Cash: {localSettings.platformCommissionPercent}% (collected at service)
+              </span>
+            </AlertDescription>
+          </Alert>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="platform-commission">Platform Commission (%)</Label>
+              <Input
+                id="platform-commission"
+                type="number"
+                step="0.01"
+                min="0"
+                max="50"
+                value={localSettings.platformCommissionPercent}
+                onChange={(e) =>
+                  setLocalSettings({ ...localSettings, platformCommissionPercent: e.target.value })
+                }
+                data-testid="input-platform-commission"
+              />
+              <p className="text-xs text-muted-foreground">
+                Base platform fee applied to all bookings
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="card-fee-percent">Card Processing Fee (%)</Label>
+              <Input
+                id="card-fee-percent"
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                value={localSettings.cardProcessingFeePercent}
+                onChange={(e) =>
+                  setLocalSettings({ ...localSettings, cardProcessingFeePercent: e.target.value })
+                }
+                data-testid="input-card-fee-percent"
+              />
+              <p className="text-xs text-muted-foreground">
+                Stripe card processing percentage (typically 2.9%)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="card-fee-fixed">Card Fixed Fee (CHF)</Label>
+              <Input
+                id="card-fee-fixed"
+                type="number"
+                step="0.01"
+                min="0"
+                max="5"
+                value={localSettings.cardProcessingFeeFixed}
+                onChange={(e) =>
+                  setLocalSettings({ ...localSettings, cardProcessingFeeFixed: e.target.value })
+                }
+                data-testid="input-card-fee-fixed"
+              />
+              <p className="text-xs text-muted-foreground">
+                Stripe fixed fee per transaction (typically CHF 0.30)
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="twint-fee">TWINT Processing Fee (%)</Label>
+              <Input
+                id="twint-fee"
+                type="number"
+                step="0.01"
+                min="0"
+                max="10"
+                value={localSettings.twintProcessingFeePercent}
+                onChange={(e) =>
+                  setLocalSettings({ ...localSettings, twintProcessingFeePercent: e.target.value })
+                }
+                data-testid="input-twint-fee"
+              />
+              <p className="text-xs text-muted-foreground">
+                TWINT processing percentage (typically 1.3%)
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSaveVerificationSettings}
+              disabled={isSavingSettings}
+              data-testid="button-save-commission-settings"
+            >
+              {isSavingSettings ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Commission Settings"
               )}
             </Button>
           </div>

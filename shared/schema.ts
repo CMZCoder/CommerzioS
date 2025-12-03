@@ -36,6 +36,13 @@ export const platformSettings = pgTable("platform_settings", {
   enableAiCategoryValidation: boolean("enable_ai_category_validation").default(true).notNull(),
   enableServiceContacts: boolean("enable_service_contacts").default(true).notNull(), // Show contact section in service form
   requireServiceContacts: boolean("require_service_contacts").default(false).notNull(), // Make contacts required
+  
+  // Commission settings
+  platformCommissionPercent: decimal("platform_commission_percent", { precision: 5, scale: 2 }).default("5.00").notNull(), // Base platform fee (%)
+  cardProcessingFeePercent: decimal("card_processing_fee_percent", { precision: 5, scale: 2 }).default("2.90").notNull(), // Stripe card fee (%)
+  cardProcessingFeeFixed: decimal("card_processing_fee_fixed", { precision: 10, scale: 2 }).default("0.30").notNull(), // Stripe fixed fee (CHF)
+  twintProcessingFeePercent: decimal("twint_processing_fee_percent", { precision: 5, scale: 2 }).default("1.30").notNull(), // TWINT fee (%)
+  
   googleMapsApiKey: text("google_maps_api_key"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -115,6 +122,12 @@ export const users = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 255 }),
   stripeConnectOnboarded: boolean("stripe_connect_onboarded").default(false).notNull(),
+  
+  // Vendor payment settings (for users who offer services)
+  acceptCardPayments: boolean("accept_card_payments").default(true).notNull(),
+  acceptTwintPayments: boolean("accept_twint_payments").default(true).notNull(),
+  acceptCashPayments: boolean("accept_cash_payments").default(true).notNull(),
+  requireBookingApproval: boolean("require_booking_approval").default(false).notNull(), // If true, vendor must approve each booking
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

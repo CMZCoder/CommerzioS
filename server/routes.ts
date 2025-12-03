@@ -192,7 +192,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/users/me', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user!.id;
-      const { firstName, lastName, phoneNumber, profileImageUrl, locationLat, locationLng, preferredLocationName } = req.body;
+      const { 
+        firstName, lastName, phoneNumber, profileImageUrl, 
+        locationLat, locationLng, preferredLocationName,
+        // Vendor payment settings
+        acceptCardPayments, acceptTwintPayments, acceptCashPayments, requireBookingApproval
+      } = req.body;
       
       // Validate Swiss phone number if provided
       if (phoneNumber) {
@@ -212,7 +217,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const updateData: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string } = {};
+      const updateData: { 
+        firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; 
+        locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string;
+        acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean;
+      } = {};
       if (firstName !== undefined) updateData.firstName = firstName;
       if (lastName !== undefined) updateData.lastName = lastName;
       if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
@@ -220,6 +229,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (locationLat !== undefined) updateData.locationLat = locationLat ? parseFloat(locationLat) : null;
       if (locationLng !== undefined) updateData.locationLng = locationLng ? parseFloat(locationLng) : null;
       if (preferredLocationName !== undefined) updateData.preferredLocationName = preferredLocationName;
+      // Vendor payment settings
+      if (acceptCardPayments !== undefined) updateData.acceptCardPayments = acceptCardPayments;
+      if (acceptTwintPayments !== undefined) updateData.acceptTwintPayments = acceptTwintPayments;
+      if (acceptCashPayments !== undefined) updateData.acceptCashPayments = acceptCashPayments;
+      if (requireBookingApproval !== undefined) updateData.requireBookingApproval = requireBookingApproval;
       
       const user = await storage.updateUserProfile(userId, updateData);
       res.json(user);
@@ -1339,6 +1353,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         enableAiCategoryValidation: z.boolean().optional(),
         enableServiceContacts: z.boolean().optional(),
         requireServiceContacts: z.boolean().optional(),
+        platformCommissionPercent: z.string().optional(),
+        cardProcessingFeePercent: z.string().optional(),
+        cardProcessingFeeFixed: z.string().optional(),
+        twintProcessingFeePercent: z.string().optional(),
       });
 
       const validated = schema.parse(req.body);

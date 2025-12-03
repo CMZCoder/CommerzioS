@@ -5,7 +5,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -214,7 +215,11 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string }) => {
+    mutationFn: async (data: { 
+      firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; 
+      locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string;
+      acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean;
+    }) => {
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1229,6 +1234,132 @@ export default function Profile() {
                         Add New Address
                       </Button>
                     )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Vendor Settings Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    Vendor Settings
+                  </CardTitle>
+                  <CardDescription>
+                    Configure your payment and booking preferences for services you offer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Payment Methods */}
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                      Accepted Payment Methods
+                    </h4>
+                    
+                    <div className="grid gap-4">
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <CreditCard className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <Label htmlFor="accept-card" className="font-medium">Card Payments</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Accept Visa, Mastercard, AMEX with full escrow protection
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          id="accept-card"
+                          checked={user.acceptCardPayments ?? true}
+                          onCheckedChange={(checked) => {
+                            updateProfileMutation.mutate({ acceptCardPayments: checked });
+                          }}
+                          data-testid="switch-accept-card"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-red-100 rounded-lg">
+                            <Smartphone className="w-5 h-5 text-red-600" />
+                          </div>
+                          <div>
+                            <Label htmlFor="accept-twint" className="font-medium">TWINT</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Accept instant TWINT payments (popular in Switzerland)
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          id="accept-twint"
+                          checked={user.acceptTwintPayments ?? true}
+                          onCheckedChange={(checked) => {
+                            updateProfileMutation.mutate({ acceptTwintPayments: checked });
+                          }}
+                          data-testid="switch-accept-twint"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-green-100 rounded-lg">
+                            <Banknote className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <Label htmlFor="accept-cash" className="font-medium">Cash</Label>
+                            <p className="text-sm text-muted-foreground">
+                              Accept cash payments at service (no platform protection)
+                            </p>
+                          </div>
+                        </div>
+                        <Switch
+                          id="accept-cash"
+                          checked={user.acceptCashPayments ?? true}
+                          onCheckedChange={(checked) => {
+                            updateProfileMutation.mutate({ acceptCashPayments: checked });
+                          }}
+                          data-testid="switch-accept-cash"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Booking Approval */}
+                  <div className="pt-4 border-t space-y-4">
+                    <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+                      Booking Mode
+                    </h4>
+                    
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-100 rounded-lg">
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        </div>
+                        <div>
+                          <Label htmlFor="require-approval" className="font-medium">Require Booking Approval</Label>
+                          <p className="text-sm text-muted-foreground">
+                            {user.requireBookingApproval 
+                              ? "You must manually approve each booking request"
+                              : "Bookings are confirmed instantly when slots are available"
+                            }
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="require-approval"
+                        checked={user.requireBookingApproval ?? false}
+                        onCheckedChange={(checked) => {
+                          updateProfileMutation.mutate({ requireBookingApproval: checked });
+                        }}
+                        data-testid="switch-require-approval"
+                      />
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      💡 Tip: If you maintain your calendar availability, instant booking provides a better customer experience. 
+                      Enable approval only if you need to review each request before accepting.
+                    </p>
                   </div>
                 </CardContent>
               </Card>
