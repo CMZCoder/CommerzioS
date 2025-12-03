@@ -11,11 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation, Search, X, ChevronDown, ChevronUp, Gift, Users } from "lucide-react";
+import { Sparkles, ArrowRight, Heart, MapPin, Loader2, Navigation, Search, X, ChevronDown, ChevronUp, Gift, Users, PlusCircle } from "lucide-react";
 import heroImg from "@assets/generated_images/abstract_community_connection_hero_background.png";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest, type ServiceWithDetails, type CategoryWithTemporary, type FavoriteWithService } from "@/lib/api";
@@ -30,6 +30,7 @@ export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(10);
   
@@ -623,15 +624,19 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary-foreground text-sm font-medium mb-3 border border-primary/30 backdrop-blur-sm">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-primary-foreground text-sm font-medium mb-4 border border-white/20 backdrop-blur-sm shadow-lg">
                 <Sparkles className="w-4 h-4" />
-                AI-Powered Marketplace
+                AI-Powered Service Marketplace
               </span>
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
-                Find the perfect service for your next project
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+                Find Trusted Professionals
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">
+                  for Any Service
+                </span>
               </h1>
-              <p className="text-base text-slate-300 mb-6 max-w-2xl mx-auto">
-                Connect with trusted professionals who have been verified by our community.
+              <p className="text-base md:text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+                Connect with verified service providers across Switzerland. 
+                Book instantly with secure payments and complete peace of mind.
               </p>
             </motion.div>
 
@@ -866,12 +871,26 @@ export default function Home() {
                 <h3 className="text-lg font-semibold text-slate-900">Loading nearby services...</h3>
               </div>
             ) : nearbyServices.length === 0 ? (
-              <div className="text-center py-20 bg-white rounded-2xl border border-dashed">
-                <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <MapPin className="w-8 h-8 text-slate-400" />
+              <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-full flex items-center justify-center mb-6">
+                  <MapPin className="w-10 h-10 text-primary/60" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-900">No services found within {radiusKm} km</h3>
-                <p className="text-slate-500">Try increasing the search radius to discover more services</p>
+                <h3 className="text-xl font-bold text-slate-900 mb-2">No Services Found Nearby</h3>
+                <p className="text-slate-500 mb-6 max-w-md mx-auto">
+                  We couldn't find any services within {radiusKm} km of your location. 
+                  Try expanding your search radius or browse all services below.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button variant="outline" onClick={() => setRadiusKm(Math.min(radiusKm * 2, 100))}>
+                    Expand to {Math.min(radiusKm * 2, 100)} km
+                  </Button>
+                  <Button onClick={() => {
+                    const servicesSection = document.querySelector('[data-testid="services-section"]');
+                    servicesSection?.scrollIntoView({ behavior: 'smooth' });
+                  }}>
+                    Browse All Services
+                  </Button>
+                </div>
               </div>
             ) : nearbyMode === 'slider' ? (
               <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100">
@@ -1043,19 +1062,38 @@ export default function Home() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-20 bg-white rounded-2xl border border-dashed">
-                    <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                      <Sparkles className="w-8 h-8 text-slate-400" />
+                  <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-violet-50 to-purple-100 rounded-full flex items-center justify-center mb-6">
+                      <Sparkles className="w-10 h-10 text-primary/60" />
                     </div>
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      {allListingsCategory ? 'No services in this category yet' : 'No services found'}
+                    <h3 className="text-xl font-bold text-slate-900 mb-2">
+                      {allListingsCategory ? 'No Services in This Category' : 'No Services Yet'}
                     </h3>
-                    <p className="text-slate-500">
+                    <p className="text-slate-500 mb-6 max-w-md mx-auto">
                       {allListingsCategory 
-                        ? 'Try selecting a different category or check back later'
-                        : 'Check back later for new services'
+                        ? 'Be the first to offer a service in this category and reach customers looking for exactly what you provide.'
+                        : 'Be the first to post a service and start connecting with customers in your area.'
                       }
                     </p>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      {allListingsCategory && (
+                        <Button variant="outline" onClick={() => setAllListingsCategory(null)}>
+                          View All Categories
+                        </Button>
+                      )}
+                      {isAuthenticated ? (
+                        <Button onClick={() => setLocation('/profile?tab=services')}>
+                          <PlusCircle className="w-4 h-4 mr-2" />
+                          Post Your Service
+                        </Button>
+                      ) : (
+                        <Link href="/register">
+                          <Button>
+                            Get Started Free
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

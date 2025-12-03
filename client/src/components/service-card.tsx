@@ -338,9 +338,12 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
   // Full card version
   return (
     <Card className={cn(
-      "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border-border/50",
+      "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 border-border/50 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
       isExpired && "opacity-60 grayscale-[0.5]"
-    )}>
+    )}
+    role="article"
+    aria-label={`Service: ${service.title} by ${service.owner.firstName} ${service.owner.lastName}`}
+    >
       <div className="relative aspect-[4/3] overflow-hidden bg-muted flex-shrink-0">
         {/* Image Carousel */}
         {allImages.length > 0 ? (

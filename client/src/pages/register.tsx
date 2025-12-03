@@ -205,18 +205,27 @@ export default function RegisterPage() {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-violet-100 rounded-full blur-3xl opacity-50" />
       </div>
       
-      <Card className="w-full max-w-md relative backdrop-blur-sm bg-white/80 shadow-xl border-0">
+      <Card className="w-full max-w-md relative backdrop-blur-sm bg-white/90 shadow-2xl border-0 animate-fade-in">
         <CardHeader className="space-y-1 text-center pb-2">
           <Link href="/">
-            <div className="inline-flex items-center justify-center gap-2 text-primary font-bold text-2xl tracking-tight cursor-pointer mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg">
-                <span className="text-xl">S</span>
+            <div className="inline-flex items-center justify-center gap-2.5 cursor-pointer mb-6 group">
+              <div className="w-11 h-11 bg-gradient-to-br from-[#1a56db] to-[#2ba89c] rounded-xl flex items-center justify-center text-white shadow-lg group-hover:shadow-xl group-hover:scale-105 transition-all">
+                <svg width="26" height="26" viewBox="0 0 32 32" fill="none" className="text-white">
+                  <path d="M16 4C9.373 4 4 9.373 4 16s5.373 12 12 12c4.125 0 7.763-2.085 9.924-5.256" 
+                        stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none"/>
+                  <circle cx="23" cy="9" r="2.5" fill="currentColor"/>
+                  <circle cx="26.5" cy="16" r="2.5" fill="currentColor"/>
+                  <circle cx="23" cy="23" r="2.5" fill="currentColor"/>
+                </svg>
               </div>
-              <span>Commerzio Services</span>
+              <div className="flex flex-col leading-tight text-left">
+                <span className="text-xl font-bold text-foreground">Commerzio</span>
+                <span className="text-xs font-medium text-primary -mt-0.5">Services</span>
+              </div>
             </div>
           </Link>
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>Get started with Commerzio Services today</CardDescription>
+          <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
+          <CardDescription>Join Switzerland's trusted service marketplace</CardDescription>
         </CardHeader>
         
         <CardContent className="space-y-4">
