@@ -6,6 +6,7 @@
  */
 
 import { Button } from "@/components/ui/button";
+import { getApiUrl } from "@/lib/config";
 
 // SVG Icons for social providers
 const GoogleIcon = () => (
@@ -48,8 +49,8 @@ interface SocialLoginButtonsProps {
 
 export function SocialLoginButtons({ mode = "login" }: SocialLoginButtonsProps) {
   const handleSocialLogin = (provider: string) => {
-    // Redirect to OAuth endpoint
-    window.location.href = `/api/auth/${provider}`;
+    // Redirect to OAuth endpoint on the API server
+    window.location.href = getApiUrl(`/api/auth/${provider}`);
   };
   
   return (
