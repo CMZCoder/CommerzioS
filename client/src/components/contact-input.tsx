@@ -3,9 +3,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { X, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, CheckCircle2, AlertCircle, Phone, Mail, User, Briefcase } from "lucide-react";
 import { apiRequest } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 export interface Contact {
   id?: string;
@@ -41,6 +42,7 @@ export function ContactInput({
   const [verificationCode, setVerificationCode] = useState("");
   const [sendingCode, setSendingCode] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [showOptionalFields, setShowOptionalFields] = useState(!!(contact.name || contact.role));
 
   const handleSendVerificationCode = async () => {
     if (!contact.id) {
@@ -124,25 +126,26 @@ export function ContactInput({
   const validationMessage = typeof validationResult === 'object' ? validationResult.message : "";
 
   return (
-    <div className="border rounded-lg p-4 space-y-4" data-testid={`contact-input-${index}`}>
+    <div className="rounded-xl border bg-white p-4 space-y-4" data-testid={`contact-input-${index}`}>
+      {/* Header with badges and remove button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Label className="font-semibold">
+          <span className="text-sm font-medium text-muted-foreground">
             Contact {index + 1}
-          </Label>
+          </span>
           {contact.isPrimary && (
-            <Badge variant="default" data-testid={`badge-primary-${index}`}>
+            <Badge variant="default" className="text-xs" data-testid={`badge-primary-${index}`}>
               Primary
             </Badge>
           )}
           {showVerification && contact.isVerified && (
-            <Badge variant="default" className="bg-green-600" data-testid={`badge-verified-${index}`}>
+            <Badge variant="default" className="bg-green-600 text-xs" data-testid={`badge-verified-${index}`}>
               <CheckCircle2 className="w-3 h-3 mr-1" />
               Verified
             </Badge>
           )}
           {showVerification && !contact.isVerified && (
-            <Badge variant="secondary" data-testid={`badge-unverified-${index}`}>
+            <Badge variant="secondary" className="text-xs" data-testid={`badge-unverified-${index}`}>
               <AlertCircle className="w-3 h-3 mr-1" />
               Unverified
             </Badge>
@@ -153,6 +156,7 @@ export function ContactInput({
             type="button"
             size="sm"
             variant="ghost"
+            className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => onRemove(index)}
             data-testid={`button-remove-contact-${index}`}
           >
@@ -161,68 +165,153 @@ export function ContactInput({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor={`contact-type-${index}`}>Type *</Label>
-          <select
-            id={`contact-type-${index}`}
-            value={contact.contactType}
-            onChange={(e) => onUpdate(index, "contactType", e.target.value)}
-            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            data-testid={`select-contact-type-${index}`}
+      {/* Contact Type Selection - Visual Cards */}
+      <div className="space-y-2">
+        <Label className="text-sm">Contact Type</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onUpdate(index, "contactType", "phone")}
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left",
+              contact.contactType === "phone"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            )}
+            data-testid={`button-type-phone-${index}`}
           >
-            <option value="phone">Phone</option>
-            <option value="email">Email</option>
-          </select>
-        </div>
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+              contact.contactType === "phone" ? "bg-primary/10" : "bg-muted"
+            )}>
+              <Phone className={cn(
+                "w-5 h-5",
+                contact.contactType === "phone" ? "text-primary" : "text-muted-foreground"
+              )} />
+            </div>
+            <div>
+              <div className="font-medium text-sm">Phone</div>
+              <div className="text-xs text-muted-foreground">Swiss number</div>
+            </div>
+          </button>
 
-        <div className="space-y-2">
-          <Label htmlFor={`contact-value-${index}`}>
-            {contact.contactType === "phone" ? "Phone Number" : "Email Address"} *
-          </Label>
+          <button
+            type="button"
+            onClick={() => onUpdate(index, "contactType", "email")}
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left",
+              contact.contactType === "email"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            )}
+            data-testid={`button-type-email-${index}`}
+          >
+            <div className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+              contact.contactType === "email" ? "bg-primary/10" : "bg-muted"
+            )}>
+              <Mail className={cn(
+                "w-5 h-5",
+                contact.contactType === "email" ? "text-primary" : "text-muted-foreground"
+              )} />
+            </div>
+            <div>
+              <div className="font-medium text-sm">Email</div>
+              <div className="text-xs text-muted-foreground">Email address</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Value Input - Changes based on type */}
+      <div className="space-y-2">
+        <Label htmlFor={`contact-value-${index}`}>
+          {contact.contactType === "phone" ? "Phone Number" : "Email Address"} *
+        </Label>
+        <div className="relative">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+            {contact.contactType === "phone" ? (
+              <Phone className="w-4 h-4" />
+            ) : (
+              <Mail className="w-4 h-4" />
+            )}
+          </div>
           <Input
             id={`contact-value-${index}`}
             type={contact.contactType === "email" ? "email" : "tel"}
             placeholder={contact.contactType === "phone" ? "+41 44 123 4567" : "contact@example.com"}
             value={contact.value}
             onChange={(e) => onUpdate(index, "value", e.target.value)}
-            className={!isValueValid && contact.value ? "border-red-500" : ""}
+            className={cn(
+              "pl-10",
+              !isValueValid && contact.value ? "border-red-500 focus-visible:ring-red-500" : ""
+            )}
             data-testid={`input-contact-value-${index}`}
           />
-          {!isValueValid && contact.value && (
-            <p className="text-sm text-red-500">
-              {validationMessage || `Please enter a valid ${contact.contactType === "phone" ? "phone number" : "email address"}`}
-            </p>
-          )}
         </div>
+        {!isValueValid && contact.value && (
+          <p className="text-xs text-red-500 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" />
+            {validationMessage || `Please enter a valid ${contact.contactType === "phone" ? "phone number" : "email address"}`}
+          </p>
+        )}
+        {contact.contactType === "phone" && !contact.value && (
+          <p className="text-xs text-muted-foreground">
+            Enter your Swiss phone number starting with +41
+          </p>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor={`contact-name-${index}`}>Name (optional)</Label>
-          <Input
-            id={`contact-name-${index}`}
-            placeholder="e.g., Mr. Müller"
-            value={contact.name || ""}
-            onChange={(e) => onUpdate(index, "name", e.target.value)}
-            data-testid={`input-contact-name-${index}`}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor={`contact-role-${index}`}>Role (optional)</Label>
-          <Input
-            id={`contact-role-${index}`}
-            placeholder="e.g., For painting questions"
-            value={contact.role || ""}
-            onChange={(e) => onUpdate(index, "role", e.target.value)}
-            data-testid={`input-contact-role-${index}`}
-          />
-        </div>
+      {/* Optional Fields Toggle */}
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowOptionalFields(!showOptionalFields)}
+          className="text-sm text-primary hover:underline flex items-center gap-1"
+        >
+          {showOptionalFields ? "Hide" : "Add"} optional details
+          <span className="text-xs text-muted-foreground">(name, role)</span>
+        </button>
       </div>
 
+      {/* Optional Fields */}
+      {showOptionalFields && (
+        <div className="grid grid-cols-2 gap-3 pt-2 border-t">
+          <div className="space-y-2">
+            <Label htmlFor={`contact-name-${index}`} className="text-sm flex items-center gap-1">
+              <User className="w-3 h-3" />
+              Contact Name
+            </Label>
+            <Input
+              id={`contact-name-${index}`}
+              placeholder="e.g., Mr. Müller"
+              value={contact.name || ""}
+              onChange={(e) => onUpdate(index, "name", e.target.value)}
+              className="h-9"
+              data-testid={`input-contact-name-${index}`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`contact-role-${index}`} className="text-sm flex items-center gap-1">
+              <Briefcase className="w-3 h-3" />
+              Role/Purpose
+            </Label>
+            <Input
+              id={`contact-role-${index}`}
+              placeholder="e.g., For quotes"
+              value={contact.role || ""}
+              onChange={(e) => onUpdate(index, "role", e.target.value)}
+              className="h-9"
+              data-testid={`input-contact-role-${index}`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Verification Section */}
       {showVerification && verificationEnabled && !contact.isVerified && (
-        <div className="space-y-3">
+        <div className="pt-3 border-t space-y-3">
           {!showVerificationInput ? (
             <Button
               type="button"

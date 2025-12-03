@@ -1337,6 +1337,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requirePhoneVerification: z.boolean().optional(),
         enableSwissAddressValidation: z.boolean().optional(),
         enableAiCategoryValidation: z.boolean().optional(),
+        enableServiceContacts: z.boolean().optional(),
+        requireServiceContacts: z.boolean().optional(),
       });
 
       const validated = schema.parse(req.body);

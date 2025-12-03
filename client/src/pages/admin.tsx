@@ -2175,6 +2175,8 @@ function SettingsManagement() {
     requirePhoneVerification: false,
     enableSwissAddressValidation: true,
     enableAiCategoryValidation: true,
+    enableServiceContacts: true,
+    requireServiceContacts: false,
   });
 
   useEffect(() => {
@@ -2184,6 +2186,8 @@ function SettingsManagement() {
         requirePhoneVerification: settings.requirePhoneVerification ?? false,
         enableSwissAddressValidation: settings.enableSwissAddressValidation ?? true,
         enableAiCategoryValidation: settings.enableAiCategoryValidation ?? true,
+        enableServiceContacts: settings.enableServiceContacts ?? true,
+        requireServiceContacts: settings.requireServiceContacts ?? false,
       });
       
       // Load saved Google Maps API key
@@ -2352,6 +2356,42 @@ function SettingsManagement() {
                 data-testid="switch-ai-validation"
               />
             </div>
+
+            <div className="flex items-center justify-between" data-testid="setting-service-contacts">
+              <div className="space-y-0.5">
+                <Label htmlFor="enable-contacts">Enable Service Contact Info</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow vendors to add contact information (phone/email) to their service listings
+                </p>
+              </div>
+              <Switch
+                id="enable-contacts"
+                checked={localSettings.enableServiceContacts}
+                onCheckedChange={(checked) =>
+                  setLocalSettings({ ...localSettings, enableServiceContacts: checked })
+                }
+                data-testid="switch-service-contacts"
+              />
+            </div>
+
+            {localSettings.enableServiceContacts && (
+              <div className="flex items-center justify-between ml-6 pl-4 border-l-2 border-muted" data-testid="setting-require-contacts">
+                <div className="space-y-0.5">
+                  <Label htmlFor="require-contacts">Require Contact Info</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Make contact information mandatory for service listings
+                  </p>
+                </div>
+                <Switch
+                  id="require-contacts"
+                  checked={localSettings.requireServiceContacts}
+                  onCheckedChange={(checked) =>
+                    setLocalSettings({ ...localSettings, requireServiceContacts: checked })
+                  }
+                  data-testid="switch-require-contacts"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end">

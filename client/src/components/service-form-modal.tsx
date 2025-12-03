@@ -107,9 +107,23 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const maxImages = user?.plan?.maxImages || 4;
 
+  const { data: categories = [] } = useQuery<CategoryWithTemporary[]>({
+    queryKey: ["/api/categories"],
+    queryFn: () => apiRequest("/api/categories"),
+  });
+
+  const { data: settings } = useQuery<PlatformSettings>({
+    queryKey: ["/api/settings"],
+    queryFn: () => apiRequest("/api/settings"),
+  });
+
+  // Check if contacts are enabled/required
+  const contactsEnabled = settings?.enableServiceContacts !== false;
+  const contactsRequired = settings?.requireServiceContacts === true;
+
   // Calculate form completion progress
   const formProgress = useMemo(() => {
-    if (!formData) return { percentage: 0, steps: [] };
+    if (!formData) return { percentage: 0, steps: [], isComplete: false };
     
     const steps = [
       { id: 'images', label: 'Photos', done: formData.images.length > 0, icon: Camera },
@@ -117,7 +131,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       { id: 'description', label: 'Description', done: !!formData.description?.trim(), icon: Sparkles },
       { id: 'category', label: 'Category', done: !!formData.categoryId, icon: Hash },
       { id: 'location', label: 'Location', done: formData.locations.some((l: string) => l?.trim()), icon: MapPin },
-      { id: 'contact', label: 'Contact', done: formData.contacts.some((c: Contact) => c.value?.trim()), icon: Mail },
+      // Only include contact step if contacts are enabled AND required
+      ...(contactsEnabled && contactsRequired ? [
+        { id: 'contact', label: 'Contact', done: formData.contacts.some((c: Contact) => c.value?.trim()), icon: Mail }
+      ] : []),
       { id: 'pricing', label: 'Pricing', done: formData.priceType === 'fixed' ? !!formData.price : formData.priceType === 'list' ? formData.priceList.length > 0 : !!formData.priceText, icon: DollarSign },
     ];
     
@@ -126,7 +143,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     const isComplete = completed === steps.length;
     
     return { percentage, steps, completed, total: steps.length, isComplete };
-  }, [formData]);
+  }, [formData, contactsEnabled, contactsRequired]);
 
   // Tab navigation helpers
   const tabs = ["main", "location", "pricing"] as const;
@@ -145,16 +162,6 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       setActiveTab(tabs[currentTabIndex - 1]);
     }
   };
-
-  const { data: categories = [] } = useQuery<CategoryWithTemporary[]>({
-    queryKey: ["/api/categories"],
-    queryFn: () => apiRequest("/api/categories"),
-  });
-
-  const { data: settings } = useQuery<PlatformSettings>({
-    queryKey: ["/api/settings"],
-    queryFn: () => apiRequest("/api/settings"),
-  });
 
   const { data: existingContacts = [] } = useQuery<ServiceContact[]>({
     queryKey: [`/api/services/${service?.id}/contacts`],
@@ -1293,52 +1300,64 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 )}
               </div>
 
-              {/* Contacts Section */}
-              <div className="rounded-xl border p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <Phone className="w-5 h-5 text-green-600" />
+              {/* Contacts Section - Only show if enabled */}
+              {contactsEnabled && (
+                <div className="rounded-xl border p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <Phone className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">
+                          Contact Information
+                          {!contactsRequired && <span className="text-muted-foreground font-normal ml-1">(optional)</span>}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">How can customers reach you?</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">Contact Information</h3>
-                      <p className="text-sm text-muted-foreground">How can customers reach you?</p>
-                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={addContact}
+                      className="gap-1.5"
+                      data-testid="button-add-contact"
+                    >
+                      <Plus className="w-4 h-4" /> Add Contact
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={addContact}
-                    className="gap-1.5"
-                    data-testid="button-add-contact"
-                  >
-                    <Plus className="w-4 h-4" /> Add Contact
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  {formData.contacts.map((contact: Contact, idx: number) => (
-                    <ContactInput
-                      key={idx}
-                      contact={contact}
-                      index={idx}
-                      canRemove={formData.contacts.length > 1}
-                      verificationEnabled={!!verificationEnabled}
-                      showVerification={false}
-                      onUpdate={updateContact}
-                      onRemove={removeContact}
-                    />
-                  ))}
+                  
+                  <div className="space-y-3">
+                    {formData.contacts.map((contact: Contact, idx: number) => (
+                      <ContactInput
+                        key={idx}
+                        contact={contact}
+                        index={idx}
+                        canRemove={formData.contacts.length > 1 || !contactsRequired}
+                        verificationEnabled={!!verificationEnabled}
+                        showVerification={false}
+                        onUpdate={updateContact}
+                        onRemove={removeContact}
+                      />
+                    ))}
 
-                  {formData.contacts.length === 0 && (
-                    <div className="text-center py-6 text-muted-foreground">
-                      <Phone className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Please add at least one contact method</p>
-                    </div>
-                  )}
+                    {formData.contacts.length === 0 && contactsRequired && (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Phone className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">Please add at least one contact method</p>
+                      </div>
+                    )}
+
+                    {formData.contacts.length === 0 && !contactsRequired && (
+                      <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-lg">
+                        <p className="text-sm">No contact info added yet</p>
+                        <p className="text-xs mt-1">Customers will contact you through the platform</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </TabsContent>
 
             {/* Pricing & Plans Tab */}

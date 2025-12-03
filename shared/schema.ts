@@ -34,6 +34,8 @@ export const platformSettings = pgTable("platform_settings", {
   requirePhoneVerification: boolean("require_phone_verification").default(false).notNull(),
   enableSwissAddressValidation: boolean("enable_swiss_address_validation").default(true).notNull(),
   enableAiCategoryValidation: boolean("enable_ai_category_validation").default(true).notNull(),
+  enableServiceContacts: boolean("enable_service_contacts").default(true).notNull(), // Show contact section in service form
+  requireServiceContacts: boolean("require_service_contacts").default(false).notNull(), // Make contacts required
   googleMapsApiKey: text("google_maps_api_key"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
