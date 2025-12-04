@@ -275,8 +275,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   }, [existingContacts, isEditMode, service, open, formData]);
 
   // Initialize contacts and locations with user's profile data (only in create mode)
+  // This runs only ONCE when the form opens, not on every render
+  const initializedContactsRef = useRef(false);
+  
   useEffect(() => {
     if (isEditMode || !user || !open || !formData) return;
+    if (initializedContactsRef.current) return; // Only initialize once
     
     let hasChanges = false;
     const updates: Partial<FormData> = {};
@@ -285,7 +289,6 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     if (formData.locations.length === 0 && userAddresses.length > 0) {
       const mainAddress = userAddresses.find((a: any) => a.isMain) || userAddresses[0];
       if (mainAddress) {
-        // Construct full address from components
         const fullAddress = mainAddress.fullAddress || 
           `${mainAddress.street}, ${mainAddress.postalCode} ${mainAddress.city}`;
         if (fullAddress?.trim()) {
@@ -295,11 +298,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       }
     }
     
-    // Initialize contacts with user's profile data
+    // Initialize contacts - create ONE contact with both phone and email if available
+    // This fixes issue (g) where two contacts were created unnecessarily
     if (formData.contacts.length === 0) {
       const initialContacts: Contact[] = [];
       const userName = `${user.firstName} ${user.lastName}`.trim();
       
+      // Create a single primary contact - prefer phone if available
       if (user.phoneNumber) {
         initialContacts.push({
           contactType: "phone",
@@ -310,16 +315,18 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         });
       }
       
+      // Add email as a second contact only if phone exists, otherwise make it primary
       if (user.email) {
         initialContacts.push({
           contactType: "email",
           value: user.email,
           name: userName || undefined,
-          isPrimary: initialContacts.length === 0,
+          isPrimary: !user.phoneNumber, // Only primary if no phone
           isVerified: user.emailVerified,
         });
       }
       
+      // Fallback: create empty email contact if nothing available
       if (initialContacts.length === 0) {
         initialContacts.push({
           contactType: "email",
@@ -335,8 +342,16 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     
     if (hasChanges) {
       setFormData((prev: FormData | null) => ({ ...prev!, ...updates }));
+      initializedContactsRef.current = true;
     }
   }, [user, open, formData, isEditMode, userAddresses]);
+
+  // Reset initialization flag when modal closes
+  useEffect(() => {
+    if (!open) {
+      initializedContactsRef.current = false;
+    }
+  }, [open]);
 
   const createServiceMutation = useMutation({
     mutationFn: async ({ data, status }: { data: typeof formData; status: "draft" | "active" }) => {
@@ -972,9 +987,50 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   if (!formData) return null;
 
+  // Unsaved changes detection
+  const hasUnsavedChanges = useMemo(() => {
+    if (!formData || isEditMode) return false;
+    return formData.title.trim() !== '' ||
+           formData.description.trim() !== '' ||
+           formData.images.length > 0 ||
+           formData.categoryId !== '' ||
+           formData.contacts.some(c => c.value.trim() !== '') ||
+           formData.locations.some(l => l && l.trim() !== '');
+  }, [formData, isEditMode]);
+
+  // Handle modal close with unsaved changes prompt
+  const handleOpenChange = (open: boolean) => {
+    if (!open && hasUnsavedChanges && !draftSaved) {
+      const shouldSave = window.confirm(
+        'You have unsaved changes. Would you like to save as a draft before closing?\n\nClick "OK" to save as draft, or "Cancel" to discard changes.'
+      );
+      if (shouldSave) {
+        handleSaveDraft();
+        return; // Don't close yet, let the save complete
+      }
+    }
+    if (!open) {
+      resetForm();
+    }
+    onOpenChange(open);
+  };
+
+  // Handle beforeunload for page navigation
+  useEffect(() => {
+    if (!open || !hasUnsavedChanges || draftSaved) return;
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [open, hasUnsavedChanges, draftSaved]);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-hidden flex flex-col">
         {/* Modern Header with Progress */}
         <div className="space-y-4 pb-4 border-b">
           <DialogHeader className="space-y-1">
@@ -1286,6 +1342,47 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <p className="text-sm text-muted-foreground">Where do you offer this service?</p>
                   </div>
                 </div>
+
+                {/* Quick select from user's saved addresses (i) */}
+                {!isEditMode && userAddresses.length > 1 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Quick Select from Your Addresses</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {userAddresses.map((addr: any, idx: number) => {
+                        const fullAddr = addr.fullAddress || `${addr.street}, ${addr.postalCode} ${addr.city}`;
+                        const isSelected = formData.locations.includes(fullAddr);
+                        return (
+                          <Button
+                            key={idx}
+                            type="button"
+                            variant={isSelected ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              if (isSelected) {
+                                setFormData((prev: FormData | null) => ({
+                                  ...prev!,
+                                  locations: prev!.locations.filter(l => l !== fullAddr)
+                                }));
+                              } else {
+                                setFormData((prev: FormData | null) => ({
+                                  ...prev!,
+                                  locations: [...prev!.locations, fullAddr]
+                                }));
+                              }
+                            }}
+                            className="text-xs gap-1.5"
+                            data-testid={`select-address-${idx}`}
+                          >
+                            <MapPin className="w-3 h-3" />
+                            {addr.label || `${addr.city} ${addr.postalCode}`}
+                            {addr.isMain && <Badge variant="secondary" className="ml-1 text-[10px] px-1">Main</Badge>}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Click to add/remove addresses, or search for new ones below</p>
+                  </div>
+                )}
                 
                 {addressErrors.length > 0 && (
                   <Alert variant="destructive">
@@ -1328,7 +1425,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                           Contact Information
                           {!contactsRequired && <span className="text-muted-foreground font-normal ml-1">(optional)</span>}
                         </h3>
-                        <p className="text-sm text-muted-foreground">How can customers reach you?</p>
+                        <p className="text-sm text-muted-foreground">How can customers reach you? Add phone and/or email.</p>
                       </div>
                     </div>
                     <Button
@@ -1336,12 +1433,28 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                       size="sm"
                       variant="outline"
                       onClick={addContact}
+                      disabled={formData.contacts.length >= 3}
                       className="gap-1.5"
                       data-testid="button-add-contact"
                     >
                       <Plus className="w-4 h-4" /> Add Contact
                     </Button>
                   </div>
+
+                  {/* Summary of contacts added */}
+                  {formData.contacts.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg">
+                      {formData.contacts.filter(c => c.value.trim()).map((c, i) => (
+                        <Badge key={i} variant="secondary" className="flex items-center gap-1">
+                          {c.contactType === 'phone' ? <Phone className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                          {c.value}
+                        </Badge>
+                      ))}
+                      {formData.contacts.every(c => !c.value.trim()) && (
+                        <span className="text-sm text-muted-foreground">Fill in contact details below</span>
+                      )}
+                    </div>
+                  )}
                   
                   <div className="space-y-3">
                     {formData.contacts.map((contact: Contact, idx: number) => (
@@ -1646,9 +1759,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
         {/* Fixed Footer with Navigation - Outside form, uses form attribute */}
         <div className="flex items-center justify-between pt-4 pb-2 border-t bg-background flex-shrink-0">
-          {/* Left side - Back button or Save Draft */}
+          {/* Left side - Back button and Save Draft */}
           <div className="flex gap-2">
-            {!isFirstTab ? (
+            {!isFirstTab && (
               <Button
                 type="button"
                 variant="ghost"
@@ -1658,22 +1771,30 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 <ChevronLeft className="w-4 h-4 mr-1" />
                 Back
               </Button>
-            ) : !isEditMode ? (
+            )}
+            {/* Save Draft button - always visible in create mode (h) */}
+            {!isEditMode && (
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleSaveDraft}
+                disabled={!formData.title.trim() || createServiceMutation.isPending}
                 data-testid="button-save-draft"
                 className={draftSaved ? "border-green-500 text-green-600" : ""}
               >
-                {draftSaved ? (
+                {createServiceMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : draftSaved ? (
                   <>
                     <CheckCircle2 className="w-4 h-4 mr-1.5" />
                     Draft Saved
                   </>
                 ) : "Save Draft"}
               </Button>
-            ) : null}
+            )}
           </div>
 
           {/* Right side - Cancel and Next/Publish */}

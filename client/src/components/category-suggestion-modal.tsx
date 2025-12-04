@@ -22,6 +22,10 @@ interface ValidationResult {
   suggestedName?: string;
   reasoning: string;
   confidence: number;
+  existingCategoryId?: string;
+  existingCategoryName?: string;
+  suggestedSubcategoryId?: string;
+  suggestedSubcategoryName?: string;
 }
 
 export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated }: CategorySuggestionModalProps) {
@@ -61,6 +65,22 @@ export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated 
         body: JSON.stringify(data),
       }),
     onSuccess: (result) => {
+      // AI found an existing category that matches! (d)
+      if (result.existingCategoryId) {
+        toast({
+          title: "Perfect Match Found!",
+          description: result.suggestedSubcategoryName 
+            ? `We found "${result.existingCategoryName}" > "${result.suggestedSubcategoryName}" which matches your service perfectly.`
+            : `We found "${result.existingCategoryName}" which is exactly what you need.`,
+        });
+        if (onCategoryCreated) {
+          onCategoryCreated(result.existingCategoryId);
+        }
+        resetForm();
+        onOpenChange(false);
+        return;
+      }
+      
       if (result.isValid && result.confidence > 0.7) {
         // AI says it's valid - check if category already exists first
         const existing = findExistingCategory(categoryName.trim());
@@ -83,7 +103,7 @@ export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated 
           slug: generateUniqueSlug(categoryName.trim()),
         });
       } else {
-        // AI says it's invalid - show validation dialog
+        // AI says it's invalid or found similar - show validation dialog
         setValidationResult(result);
         setShowValidationDialog(true);
       }
@@ -114,7 +134,7 @@ export function CategorySuggestionModal({ open, onOpenChange, onCategoryCreated 
       } else {
         toast({
           title: "Category Created!",
-          description: "Your category has been created successfully.",
+          description: "Your category has been created and selected.",
         });
       }
       
