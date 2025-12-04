@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { toast } from 'sonner';
 import { format, isSameDay, isWithinInterval, startOfMonth, endOfMonth } from 'date-fns';
 import {
@@ -185,7 +186,7 @@ export function VendorAvailabilityCalendar({ serviceId, className }: VendorAvail
   // Delete block mutation
   const deleteBlockMutation = useMutation({
     mutationFn: async (blockId: string) => {
-      const res = await fetch(`/api/vendor/calendar/blocks/${blockId}`, {
+      const res = await fetchApi(`/api/vendor/calendar/blocks/${blockId}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete block');
@@ -203,7 +204,7 @@ export function VendorAvailabilityCalendar({ serviceId, className }: VendorAvail
   // Save settings mutation
   const saveSettingsMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await fetch('/api/vendor/availability/settings', {
+      const res = await fetchApi('/api/vendor/availability/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

@@ -50,6 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
+import { fetchApi } from '@/lib/config';
 
 interface Message {
   id: string;
@@ -118,9 +119,7 @@ export function ChatWindow({
   const { data: conversationData } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: async () => {
-      const res = await fetch(`/api/chat/conversations/${conversationId}`, {
-        credentials: 'include',
-      });
+      const res = await fetchApi(`/api/chat/conversations/${conversationId}`);
       if (!res.ok) throw new Error('Failed to fetch conversation');
       return res.json();
     },
@@ -131,9 +130,7 @@ export function ChatWindow({
   const { data: blockedUsers = [] } = useQuery({
     queryKey: ['blocked-users', currentUserId],
     queryFn: async () => {
-      const res = await fetch('/api/chat/blocked-users', {
-        credentials: 'include',
-      });
+      const res = await fetchApi('/api/chat/blocked-users');
       if (!res.ok) return [];
       return res.json();
     },
@@ -146,9 +143,7 @@ export function ChatWindow({
   const { data: messages = [], isLoading } = useQuery<Message[]>({
     queryKey: ['messages', conversationId],
     queryFn: async () => {
-      const res = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
-        credentials: 'include',
-      });
+      const res = await fetchApi(`/api/chat/conversations/${conversationId}/messages`);
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json();
     },
@@ -158,9 +153,8 @@ export function ChatWindow({
   // Mark as read mutation
   const markReadMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/chat/conversations/${conversationId}/read`, {
+      const res = await fetchApi(`/api/chat/conversations/${conversationId}/read`, {
         method: 'POST',
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to mark as read');
       return res.json();
@@ -173,10 +167,9 @@ export function ChatWindow({
   // Send message mutation
   const sendMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await fetch(`/api/chat/conversations/${conversationId}/messages`, {
+      const res = await fetchApi(`/api/chat/conversations/${conversationId}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ content }),
       });
       if (!res.ok) {
@@ -203,9 +196,8 @@ export function ChatWindow({
   // Delete message mutation
   const deleteMessageMutation = useMutation({
     mutationFn: async (messageId: string) => {
-      const res = await fetch(`/api/chat/messages/${messageId}`, {
+      const res = await fetchApi(`/api/chat/messages/${messageId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to delete message');
       return res.json();
@@ -222,9 +214,8 @@ export function ChatWindow({
   // Delete conversation mutation
   const deleteConversationMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/chat/conversations/${conversationId}`, {
+      const res = await fetchApi(`/api/chat/conversations/${conversationId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to delete conversation' }));
@@ -261,10 +252,9 @@ export function ChatWindow({
       if (!otherPartyId) {
         throw new Error('Cannot block: user ID not available');
       }
-      const res = await fetch(`/api/chat/users/${otherPartyId}/block`, {
+      const res = await fetchApi(`/api/chat/users/${otherPartyId}/block`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ reason: 'Blocked by user' }),
       });
       if (!res.ok) {
@@ -295,9 +285,8 @@ export function ChatWindow({
       if (!otherPartyId) {
         throw new Error('Cannot unblock: user ID not available');
       }
-      const res = await fetch(`/api/chat/users/${otherPartyId}/unblock`, {
+      const res = await fetchApi(`/api/chat/users/${otherPartyId}/unblock`, {
         method: 'POST',
-        credentials: 'include',
       });
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to unblock user' }));

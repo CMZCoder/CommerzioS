@@ -31,6 +31,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchApi } from "@/lib/config";
 import { format } from "date-fns";
 
 interface EscrowTransaction {
@@ -73,7 +74,7 @@ export function VendorEscrowDashboard() {
   const { data, isLoading, error } = useQuery<VendorEscrowResponse>({
     queryKey: ["/api/vendor/escrow"],
     queryFn: async () => {
-      const res = await fetch("/api/vendor/escrow");
+      const res = await fetchApi("/api/vendor/escrow");
       if (!res.ok) throw new Error("Failed to fetch escrow transactions");
       return res.json();
     },

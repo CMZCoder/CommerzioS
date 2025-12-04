@@ -23,7 +23,7 @@ import {
   Info,
   Star,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/lib/utils';\nimport { fetchApi } from '@/lib/config';
 
 export type PaymentMethod = 'card' | 'twint' | 'cash';
 
@@ -74,7 +74,7 @@ export function PaymentMethodSelector({
   const { data: twintEligibility, isLoading: twintLoading } = useQuery<TwintEligibilityResult>({
     queryKey: ['twint-eligibility', vendorId, amount],
     queryFn: async () => {
-      const res = await fetch(`/api/payments/twint-eligibility?vendorId=${vendorId}&amount=${amount}`);
+      const res = await fetchApi(`/api/payments/twint-eligibility?vendorId=${vendorId}&amount=${amount}`);
       if (!res.ok) {
         // If not authenticated or error, return not allowed
         return { allowed: false, reason: 'Sign in to check TWINT eligibility' };

@@ -41,6 +41,7 @@ import {
   Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { useState, useMemo, useEffect } from 'react';
 
 interface Conversation {
@@ -174,9 +175,7 @@ export function ConversationList({
         params.append('status', activeFilter);
       }
       
-      const res = await fetch(`/api/chat/conversations?${params.toString()}`, {
-        credentials: 'include',
-      });
+      const res = await fetchApi(`/api/chat/conversations?${params.toString()}`);
       if (!res.ok) {
         throw new Error('Failed to fetch conversations');
       }

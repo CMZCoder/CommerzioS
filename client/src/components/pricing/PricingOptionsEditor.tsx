@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Plus, Edit2, Trash2, GripVertical, Clock, DollarSign, Settings2, Users, Layers } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchApi } from '@/lib/config';
 
 interface IncludedUnit {
   type: string;
@@ -114,7 +115,7 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
   const { data: pricingOptions = [], isLoading } = useQuery<PricingOption[]>({
     queryKey: ['pricing-options', serviceId],
     queryFn: async () => {
-      const res = await fetch(`/api/services/${serviceId}/pricing-options`);
+      const res = await fetchApi(`/api/services/${serviceId}/pricing-options`);
       if (!res.ok) throw new Error('Failed to fetch pricing options');
       return res.json();
     },
@@ -123,7 +124,7 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
   // Create pricing option
   const createMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const res = await fetch(`/api/services/${serviceId}/pricing-options`, {
+      const res = await fetchApi(`/api/services/${serviceId}/pricing-options`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -159,7 +160,7 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
   // Update pricing option
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: FormData }) => {
-      const res = await fetch(`/api/pricing-options/${id}`, {
+      const res = await fetchApi(`/api/pricing-options/${id}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -194,7 +195,7 @@ export function PricingOptionsEditor({ serviceId, onUpdate }: PricingOptionsEdit
   // Delete pricing option
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/pricing-options/${id}`, { 
+      const res = await fetchApi(`/api/pricing-options/${id}`, { 
         method: 'DELETE',
         headers: {
           'X-Idempotency-Key': `delete-${id}-${Date.now()}`,

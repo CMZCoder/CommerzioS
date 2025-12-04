@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { 
   CheckCircle2, 
   Calendar, 
@@ -102,7 +103,7 @@ export default function BookingSuccessPage() {
     queryKey: ['booking-success', bookingId],
     queryFn: async () => {
       if (!bookingId) throw new Error('No booking ID');
-      const res = await fetch(`/api/bookings/${bookingId}`, { credentials: 'include' });
+      const res = await fetchApi(`/api/bookings/${bookingId}`);
       if (!res.ok) throw new Error('Failed to fetch booking');
       return res.json();
     },

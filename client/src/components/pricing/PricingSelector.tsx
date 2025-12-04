@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 
 interface PricingOption {
   id: string;
@@ -51,7 +52,7 @@ export function PricingSelector({
   const { data: pricingOptions = [], isLoading } = useQuery<PricingOption[]>({
     queryKey: ['pricing-options', serviceId],
     queryFn: async () => {
-      const res = await fetch(`/api/services/${serviceId}/pricing-options`);
+      const res = await fetchApi(`/api/services/${serviceId}/pricing-options`);
       if (!res.ok) throw new Error('Failed to fetch pricing options');
       return res.json();
     },

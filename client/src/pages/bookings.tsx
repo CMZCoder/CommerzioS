@@ -744,7 +744,7 @@ export default function BookingsPage() {
           onOpenChange={(open) => setShowDisputeModal(open)}
           onSubmit={async (data) => {
             // Open dispute via API
-            const response = await fetch(`/api/disputes/booking/${selectedBooking.id}`, {
+            const response = await fetchApi(`/api/disputes/booking/${selectedBooking.id}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(data),

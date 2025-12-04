@@ -33,6 +33,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { toast } from 'sonner';
 import { useState } from 'react';
 import type { PaymentMethod } from './PaymentMethodSelector';
@@ -80,7 +81,7 @@ export function BookingPaymentStatus({
   const { data: escrowStatus, isLoading } = useQuery<EscrowStatus>({
     queryKey: ['escrow-status', bookingId],
     queryFn: async () => {
-      const res = await fetch(`/api/bookings/${bookingId}/escrow-status`);
+      const res = await fetchApi(`/api/bookings/${bookingId}/escrow-status`);
       if (!res.ok) throw new Error('Failed to fetch escrow status');
       return res.json();
     },
@@ -90,7 +91,7 @@ export function BookingPaymentStatus({
   // Request TWINT refund mutation (customer)
   const requestRefundMutation = useMutation({
     mutationFn: async (reason: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/request-twint-refund`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/request-twint-refund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -115,7 +116,7 @@ export function BookingPaymentStatus({
   // Process TWINT refund mutation (vendor)
   const processRefundMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/bookings/${bookingId}/process-twint-refund`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/process-twint-refund`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -136,7 +137,7 @@ export function BookingPaymentStatus({
   // Decline TWINT refund mutation (vendor)
   const declineRefundMutation = useMutation({
     mutationFn: async (reason?: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/decline-twint-refund`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/decline-twint-refund`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),

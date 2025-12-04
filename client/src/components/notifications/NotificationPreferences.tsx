@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { fetchApi } from "@/lib/config";
 
 interface NotificationTypeSettings {
   in_app: boolean;
@@ -158,10 +159,9 @@ export function NotificationPreferences() {
   // Update preferences mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<NotificationPreferences>) => {
-      const res = await fetch("/api/notifications/preferences", {
+      const res = await fetchApi("/api/notifications/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error("Failed to update preferences");
@@ -201,10 +201,9 @@ export function NotificationPreferences() {
         });
 
         // Send subscription to server
-        await fetch("/api/push/subscribe", {
+        await fetchApi("/api/push/subscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include",
           body: JSON.stringify({
             subscription: subscription.toJSON(),
             deviceInfo: {
