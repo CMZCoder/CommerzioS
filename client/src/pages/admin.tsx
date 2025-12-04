@@ -20,7 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AddressMultiInput } from "@/components/address-multi-input";
-import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff, History, AlertCircle, Plus, Edit, MoreVertical, ChevronDown, ChevronUp, Folder, Gift, TrendingUp, Award } from "lucide-react";
+import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff, History, AlertCircle, Plus, Edit, MoreVertical, ChevronDown, ChevronUp, Folder, Gift, TrendingUp, Award, TestTube, Play, RefreshCw, Clipboard, Copy, CheckCheck } from "lucide-react";
 import type { User, Service, Plan, SubmittedCategory, Category } from "@shared/schema";
 
 interface Message {
@@ -138,7 +138,7 @@ export function AdminPage() {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-8 mb-6">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="w-4 h-4 mr-2" />
               Users
@@ -159,9 +159,13 @@ export function AdminPage() {
               <CreditCard className="w-4 h-4 mr-2" />
               Plans
             </TabsTrigger>
+            <TabsTrigger value="test-users" data-testid="tab-test-users">
+              <TestTube className="w-4 h-4 mr-2" />
+              E2E Tests
+            </TabsTrigger>
             <TabsTrigger value="ai-assistant" data-testid="tab-ai-assistant">
               <Brain className="w-4 h-4 mr-2" />
-              AI Assistant
+              AI
             </TabsTrigger>
             <TabsTrigger value="settings" data-testid="tab-settings">
               <Settings className="w-4 h-4 mr-2" />
@@ -187,6 +191,10 @@ export function AdminPage() {
 
           <TabsContent value="plans">
             <PlansManagement />
+          </TabsContent>
+
+          <TabsContent value="test-users">
+            <TestUsersManagement />
           </TabsContent>
 
           <TabsContent value="ai-assistant">
@@ -3203,6 +3211,650 @@ function ReferralManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Test User Credentials Interface
+interface TestCredentials {
+  customer: { email: string; password: string };
+  vendor: { email: string; password: string };
+}
+
+// Test Stats Interface
+interface TestStats {
+  testUsers: { id: string; email: string; createdAt: string | null }[];
+  counts: {
+    services: number;
+    bookings: number;
+    reviews: number;
+    conversations: number;
+    notifications: number;
+  };
+  lastCleanup?: string;
+  activeTestRuns: number;
+}
+
+// Test Report Interface
+interface TestReport {
+  summary: {
+    totalRuns: number;
+    completedRuns: number;
+    failedRuns: number;
+    cleanedRuns: number;
+  };
+  stats: TestStats;
+  recentRuns: any[];
+  testCredentials: TestCredentials;
+}
+
+// Test Run Interface
+interface TestRun {
+  id: string;
+  startedAt: string;
+  completedAt?: string;
+  status: 'running' | 'completed' | 'failed' | 'cleaned';
+  testType: 'e2e' | 'integration' | 'manual';
+  createdData: {
+    services: string[];
+    bookings: string[];
+    reviews: string[];
+    conversations: string[];
+    messages: string[];
+    notifications: string[];
+  };
+  cleanedAt?: string;
+  notes?: string;
+}
+
+function TestUsersManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showCredentials, setShowCredentials] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [confirmCleanup, setConfirmCleanup] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Fetch test stats
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<TestStats>({
+    queryKey: ["/api/admin/test-users/stats"],
+    queryFn: () => apiRequest("/api/admin/test-users/stats"),
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  // Fetch test report
+  const { data: report, isLoading: reportLoading, refetch: refetchReport } = useQuery<TestReport>({
+    queryKey: ["/api/admin/test-users/report"],
+    queryFn: () => apiRequest("/api/admin/test-users/report"),
+  });
+
+  // Fetch test runs
+  const { data: runsData, refetch: refetchRuns } = useQuery<{ runs: TestRun[] }>({
+    queryKey: ["/api/admin/test-users/runs"],
+    queryFn: () => apiRequest("/api/admin/test-users/runs"),
+  });
+
+  // Fetch credentials
+  const { data: credentials } = useQuery<TestCredentials>({
+    queryKey: ["/api/admin/test-users/credentials"],
+    queryFn: () => apiRequest("/api/admin/test-users/credentials"),
+  });
+
+  // Initialize test users mutation
+  const initializeMutation = useMutation({
+    mutationFn: () => apiRequest("/api/admin/test-users/initialize", { method: "POST" }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Success",
+        description: `Test users ${data.users.customer.created ? 'created' : 'updated'} successfully`,
+      });
+      refetchStats();
+      refetchReport();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to initialize test users",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Cleanup mutation
+  const cleanupMutation = useMutation({
+    mutationFn: (dryRun: boolean) => 
+      apiRequest("/api/admin/test-users/cleanup", { 
+        method: "POST",
+        body: JSON.stringify({ dryRun }),
+      }),
+    onSuccess: (data: any) => {
+      const total = Object.values(data.deleted).reduce((a: number, b: any) => a + (b as number), 0);
+      toast({
+        title: data.dryRun ? "Dry Run Complete" : "Cleanup Complete",
+        description: data.dryRun 
+          ? `Would delete ${total} test records` 
+          : `Deleted ${total} test records successfully`,
+      });
+      setConfirmCleanup(false);
+      refetchStats();
+      refetchReport();
+      refetchRuns();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to cleanup test data",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete test users mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => apiRequest("/api/admin/test-users", { method: "DELETE" }),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Test users deleted successfully",
+      });
+      setConfirmDelete(false);
+      refetchStats();
+      refetchReport();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete test users",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Start test run mutation
+  const startRunMutation = useMutation({
+    mutationFn: (testType: string) => 
+      apiRequest("/api/admin/test-users/runs/start", {
+        method: "POST",
+        body: JSON.stringify({ testType }),
+      }),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Test Run Started",
+        description: `Run ID: ${data.runId}`,
+      });
+      refetchRuns();
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to start test run",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Copy to clipboard
+  const copyToClipboard = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const totalTestData = stats ? Object.values(stats.counts).reduce((a, b) => a + b, 0) : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Quick Actions */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <TestTube className="w-6 h-6" />
+            E2E Test Management
+          </h2>
+          <p className="text-muted-foreground">
+            Manage test users, run tests, and cleanup test data
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              refetchStats();
+              refetchReport();
+              refetchRuns();
+            }}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
+          <Button
+            onClick={() => initializeMutation.mutate()}
+            disabled={initializeMutation.isPending}
+          >
+            {initializeMutation.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-2" />
+            )}
+            Initialize Test Users
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Test Users</p>
+                <p className="text-3xl font-bold">{stats?.testUsers.length || 0}</p>
+              </div>
+              <Users className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Test Data Records</p>
+                <p className="text-3xl font-bold">{totalTestData}</p>
+              </div>
+              <FileText className="w-8 h-8 text-orange-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Test Runs</p>
+                <p className="text-3xl font-bold">{stats?.activeTestRuns || 0}</p>
+              </div>
+              <Play className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Runs</p>
+                <p className="text-3xl font-bold">{report?.summary.totalRuns || 0}</p>
+              </div>
+              <BarChart3 className="w-8 h-8 text-purple-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 gap-6">
+        {/* Test Credentials Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clipboard className="w-5 h-5" />
+                Test User Credentials
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowCredentials(!showCredentials)}
+              >
+                {showCredentials ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            <CardDescription>
+              Use these credentials for E2E tests. Ghost mode hides test data from real users.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {credentials && (
+              <>
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Customer Account</span>
+                    <Badge variant="secondary">For booking tests</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-muted px-2 py-1 rounded text-xs flex-1">
+                          {showCredentials ? credentials.customer.email : '••••••••••••'}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(credentials.customer.email, 'customer-email')}
+                        >
+                          {copiedField === 'customer-email' ? (
+                            <CheckCheck className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Password</Label>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-muted px-2 py-1 rounded text-xs flex-1">
+                          {showCredentials ? credentials.customer.password : '••••••••••'}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(credentials.customer.password, 'customer-pass')}
+                        >
+                          {copiedField === 'customer-pass' ? (
+                            <CheckCheck className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">Vendor Account</span>
+                    <Badge variant="secondary">For service creation tests</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Email</Label>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-muted px-2 py-1 rounded text-xs flex-1">
+                          {showCredentials ? credentials.vendor.email : '••••••••••••'}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(credentials.vendor.email, 'vendor-email')}
+                        >
+                          {copiedField === 'vendor-email' ? (
+                            <CheckCheck className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Password</Label>
+                      <div className="flex items-center gap-2">
+                        <code className="bg-muted px-2 py-1 rounded text-xs flex-1">
+                          {showCredentials ? credentials.vendor.password : '••••••••••'}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(credentials.vendor.password, 'vendor-pass')}
+                        >
+                          {copiedField === 'vendor-pass' ? (
+                            <CheckCheck className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Ghost Mode:</strong> Test data created by these accounts is automatically hidden from regular users.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+
+        {/* Test Data Summary Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Test Data Summary
+            </CardTitle>
+            <CardDescription>
+              Records created by test users
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b">
+                <span>Services</span>
+                <Badge variant={stats?.counts.services ? "default" : "secondary"}>
+                  {stats?.counts.services || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b">
+                <span>Bookings</span>
+                <Badge variant={stats?.counts.bookings ? "default" : "secondary"}>
+                  {stats?.counts.bookings || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b">
+                <span>Reviews</span>
+                <Badge variant={stats?.counts.reviews ? "default" : "secondary"}>
+                  {stats?.counts.reviews || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b">
+                <span>Conversations</span>
+                <Badge variant={stats?.counts.conversations ? "default" : "secondary"}>
+                  {stats?.counts.conversations || 0}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span>Notifications</span>
+                <Badge variant={stats?.counts.notifications ? "default" : "secondary"}>
+                  {stats?.counts.notifications || 0}
+                </Badge>
+              </div>
+            </div>
+
+            {stats?.lastCleanup && (
+              <p className="text-xs text-muted-foreground mt-4">
+                Last cleanup: {new Date(stats.lastCleanup).toLocaleString()}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Actions Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Test Actions</CardTitle>
+          <CardDescription>
+            Manage test runs and cleanup test data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-4 gap-4">
+            <Button
+              variant="outline"
+              onClick={() => startRunMutation.mutate('e2e')}
+              disabled={startRunMutation.isPending}
+              className="h-20 flex-col"
+            >
+              <Play className="w-6 h-6 mb-2" />
+              <span>Start E2E Run</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => cleanupMutation.mutate(true)}
+              disabled={cleanupMutation.isPending}
+              className="h-20 flex-col"
+            >
+              <Eye className="w-6 h-6 mb-2" />
+              <span>Dry Run Cleanup</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setConfirmCleanup(true)}
+              disabled={cleanupMutation.isPending || totalTestData === 0}
+              className="h-20 flex-col text-orange-600 hover:text-orange-700 hover:border-orange-300"
+            >
+              <RefreshCw className="w-6 h-6 mb-2" />
+              <span>Cleanup Data</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleteMutation.isPending}
+              className="h-20 flex-col text-red-600 hover:text-red-700 hover:border-red-300"
+            >
+              <Trash2 className="w-6 h-6 mb-2" />
+              <span>Delete Users</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Test Run History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Test Run History
+          </CardTitle>
+          <CardDescription>
+            Recent test runs and their status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {runsData?.runs && runsData.runs.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Run ID</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Started</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead>Data Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {runsData.runs.slice(0, 10).map((run) => {
+                  const duration = run.completedAt 
+                    ? Math.round((new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) / 1000)
+                    : null;
+                  const dataCount = Object.values(run.createdData).flat().length;
+                  
+                  return (
+                    <TableRow key={run.id}>
+                      <TableCell className="font-mono text-xs">
+                        {run.id.substring(0, 20)}...
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{run.testType}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            run.status === 'completed' ? 'default' :
+                            run.status === 'running' ? 'secondary' :
+                            run.status === 'cleaned' ? 'outline' :
+                            'destructive'
+                          }
+                        >
+                          {run.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {new Date(run.startedAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {duration !== null ? `${duration}s` : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{dataCount} records</Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No test runs recorded yet</p>
+              <p className="text-sm">Start a test run to see history here</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cleanup Confirmation Dialog */}
+      <AlertDialog open={confirmCleanup} onOpenChange={setConfirmCleanup}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cleanup Test Data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all data created by test users, including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>{stats?.counts.services || 0} services</li>
+                <li>{stats?.counts.bookings || 0} bookings</li>
+                <li>{stats?.counts.reviews || 0} reviews</li>
+                <li>{stats?.counts.conversations || 0} conversations</li>
+                <li>{stats?.counts.notifications || 0} notifications</li>
+              </ul>
+              <p className="mt-4 font-semibold">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cleanupMutation.mutate(false)}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              {cleanupMutation.isPending ? "Cleaning..." : "Cleanup Data"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Test Users?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all test user accounts and their associated data.
+              You can reinitialize them later using the "Initialize Test Users" button.
+              <p className="mt-4 font-semibold text-red-600">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate()}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete Test Users"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

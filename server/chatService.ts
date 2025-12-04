@@ -82,9 +82,10 @@ const CONTACT_PATTERNS = {
   phone: [
     /(?:\+|00)[0-9]{1,3}[\s.-]?[0-9]{2,4}[\s.-]?[0-9]{3,4}[\s.-]?[0-9]{2,4}/gi,  // International
     /0[0-9]{2}[\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/gi,                   // Swiss landline
-    /07[0-9][\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/gi,                     // Swiss mobile
+    /07[0-9][\s.-]?[0-9]{3}[\s.-]?[0-9]{2}[\s.-]?[0-9]{2}/gi,                     // Swiss mobile formatted
+    /07[0-9]{8}\b/gi,                                                              // Swiss mobile unformatted (9 digits starting with 07)
     /\b[0-9]{3}[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}\b/gi,                                // US format
-    /\b[0-9]{10,14}\b/gi,                                                          // Consecutive digits
+    /\b[0-9]{7,14}\b/gi,                                                           // Consecutive digits (7+ catches most phone numbers)
   ],
   
   // Email addresses

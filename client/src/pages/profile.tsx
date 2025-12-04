@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -45,7 +45,7 @@ export default function Profile() {
     const search = window.location.search;
     const searchParams = new URLSearchParams(search);
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['profile', 'services', 'reviews', 'referrals', 'notifications'].includes(tabParam)) {
+    if (tabParam && ['profile', 'services', 'bookings', 'reviews', 'referrals', 'notifications'].includes(tabParam)) {
       return tabParam;
     }
     return 'profile';
@@ -694,6 +694,10 @@ export default function Profile() {
             <TabsList className="mb-6 bg-white p-1 border border-border">
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="services" data-testid="tab-my-services">My Listings</TabsTrigger>
+              <TabsTrigger value="bookings" data-testid="tab-my-bookings" className="gap-1">
+                <CalendarDays className="w-3 h-3" />
+                My Bookings
+              </TabsTrigger>
               <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews ({receivedReviews.length})</TabsTrigger>
               <TabsTrigger value="referrals" data-testid="tab-referrals" className="gap-1">
                 <Gift className="w-3 h-3" />
@@ -1633,6 +1637,35 @@ export default function Profile() {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Bookings Tab - Redirects to dedicated bookings page */}
+            <TabsContent value="bookings" data-testid="panel-bookings" className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                  <CalendarDays className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">My Bookings</h2>
+                  <p className="text-muted-foreground">View and manage your service bookings</p>
+                </div>
+              </div>
+              
+              <Card className="border-dashed">
+                <CardContent className="py-12 text-center">
+                  <CalendarDays className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
+                  <h3 className="text-lg font-semibold mb-2">Booking Management</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    View your upcoming appointments, manage bookings, and track service history in the dedicated bookings page.
+                  </p>
+                  <Link href="/bookings">
+                    <Button className="gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Go to My Bookings
+                    </Button>
+                  </Link>
                 </CardContent>
               </Card>
             </TabsContent>

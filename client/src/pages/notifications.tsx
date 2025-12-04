@@ -75,6 +75,8 @@ const typeInfo: Record<string, { label: string; icon: string; color: string }> =
   system: { label: "System", icon: "🔔", color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300" },
   review: { label: "Reviews", icon: "⭐", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
   promotion: { label: "Promotions", icon: "🎁", color: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300" },
+  tip: { label: "Tips", icon: "💰", color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  dispute: { label: "Disputes", icon: "⚖️", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
 };
 
 export default function NotificationsPage() {
@@ -391,6 +393,8 @@ export default function NotificationsPage() {
                                         {notification.type === 'review' && 'Opens service reviews'}
                                         {notification.type === 'referral' && 'Opens referral dashboard'}
                                         {notification.type === 'promotion' && 'Opens promotion'}
+                                        {notification.type === 'tip' && 'Opens tip details'}
+                                        {notification.type === 'dispute' && 'Opens dispute details'}
                                         {notification.type === 'system' && 'Learn more'}
                                       </span>
                                     </div>

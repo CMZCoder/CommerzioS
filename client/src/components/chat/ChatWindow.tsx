@@ -444,7 +444,7 @@ export function ChatWindow({
     : '#';
 
   return (
-    <Card className={cn("flex flex-col h-full overflow-hidden border-0 shadow-none rounded-none md:rounded-xl md:border md:shadow-sm", className)}>
+    <Card className={cn("flex flex-col h-full overflow-hidden border-0 shadow-none rounded-none md:rounded-xl md:border md:shadow-sm", className)} data-testid="chat-window">
       {/* Header - Professional SaaS style */}
       <CardHeader className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 py-3 flex flex-row items-center justify-between gap-3 sticky top-0 z-10">
         <div className="flex items-center gap-3 min-w-0">
@@ -553,7 +553,7 @@ export function ChatWindow({
       </CardHeader>
 
       {/* Messages */}
-      <div className="flex-1 overflow-hidden relative bg-slate-50/50 dark:bg-slate-900/50">
+      <div className="flex-1 overflow-hidden relative bg-slate-50/50 dark:bg-slate-900/50" data-testid="message-list">
         <ScrollArea ref={scrollAreaRef} className="h-full w-full">
           <div className="p-4 md:p-6 space-y-6 min-h-full flex flex-col justify-end">
             {messages.length === 0 ? (
@@ -599,7 +599,7 @@ export function ChatWindow({
                       <div className={cn(
                         "flex gap-3 group",
                         isOwn ? "justify-end" : "justify-start"
-                      )}>
+                      )} data-testid={isOwn ? "message-sent" : "message-received"}>
                         {/* Avatar for received messages - Only on desktop/tablet usually, or keep small on mobile */}
                         {!isOwn && (
                           <div className="flex-shrink-0 w-8 pt-1 hidden sm:block">

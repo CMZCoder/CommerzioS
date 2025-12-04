@@ -173,7 +173,7 @@ export function MessageInput({
   };
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-3", className)} data-testid="message-input-container">
       {/* Moderation Warning */}
       {moderationResult?.wouldBeFiltered && (
         <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-sm animate-in fade-in slide-in-from-bottom-2">
@@ -209,6 +209,7 @@ export function MessageInput({
           placeholder={placeholder}
           disabled={isLoading}
           rows={1}
+          data-testid="message-input"
           className={cn(
             "min-h-[52px] max-h-[120px] resize-none border-0 bg-transparent px-4 py-3.5 pr-32 text-[15px] placeholder:text-muted-foreground/60 focus-visible:ring-0 focus-visible:ring-offset-0",
             moderationResult?.wouldBeFiltered && "text-amber-700"
@@ -287,6 +288,7 @@ export function MessageInput({
             onClick={handleSend}
             disabled={!message.trim() || isLoading}
             size="icon"
+            data-testid="send-button"
             className={cn(
               "h-9 w-9 rounded-full transition-all",
               message.trim() 

@@ -1,11 +1,12 @@
 /**
- * Chat Page
+ * Chat Page (Redesigned)
  * 
- * Full chat interface with conversation list and message window
+ * Modern chat interface with clean layout
  * Features:
- * - Centered chat panel with professional styling
- * - Product/seller context in header
- * - Responsive layout
+ * - Unified design language
+ * - Smart filter dropdown (replaces cluttered tabs)
+ * - Professional responsive layout
+ * - Smooth transitions
  */
 
 import { useState, useEffect } from 'react';
@@ -15,10 +16,8 @@ import { Layout } from '@/components/layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { ChatWindow } from '@/components/chat/ChatWindow';
-import { MessageSquare, ArrowLeft, Package } from 'lucide-react';
+import { MessageSquare, ArrowLeft, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { fetchApi } from '@/lib/config';
 
@@ -167,20 +166,28 @@ export default function ChatPage() {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-950/50 dark:to-slate-900">
+      <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
         <div className="container max-w-7xl py-4 md:py-6 px-4">
-          {/* Header */}
-          <div className="mb-4 md:mb-6">
-            <h1 className="text-2xl md:text-3xl font-bold">Messages</h1>
-            <p className="text-muted-foreground">
-              Chat with vendors and customers
-            </p>
+          {/* Header - Clean and minimal */}
+          <div className="mb-4 md:mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                Messages
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Chat with vendors and customers
+              </p>
+            </div>
+            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Real-time messaging</span>
+            </div>
           </div>
 
-          {/* Desktop Layout - Centered chat panel */}
-          <div className="hidden md:grid md:grid-cols-[380px_1fr] gap-6 h-[calc(100vh-180px)] min-h-[500px]">
-            {/* Conversation List - Fixed width sidebar */}
-            <Card className="border-0 shadow-lg overflow-hidden h-full">
+          {/* Desktop Layout - Modern two-column */}
+          <div className="hidden md:grid md:grid-cols-[400px_1fr] gap-4 h-[calc(100vh-180px)] min-h-[500px]">
+            {/* Conversation List - Clean card */}
+            <Card className="border shadow-lg overflow-hidden h-full bg-white dark:bg-slate-900">
               <ConversationList
                 currentUserId={user.id}
                 selectedConversationId={selectedConversation?.id}
@@ -189,43 +196,42 @@ export default function ChatPage() {
               />
             </Card>
 
-            {/* Chat Window - Expanded to fill available space */}
-            <div className="flex flex-col h-full overflow-hidden w-full">
-              <div className="w-full h-full flex flex-col shadow-xl rounded-2xl overflow-hidden">
-                {selectedConversation ? (
-                  <div className="h-full flex flex-col overflow-hidden bg-white dark:bg-slate-900">
-                    {/* Chat Window with enhanced styling */}
-                    <ChatWindow
-                      conversationId={selectedConversation.id}
-                      currentUserId={user.id}
-                      currentUserRole={currentUserRole as 'customer' | 'vendor'}
-                      otherPartyName={otherPartyName}
-                      otherPartyImage={otherParty?.profileImageUrl}
-                      otherPartyId={otherParty?.id}
-                      service={selectedConversation.service}
-                      onDelete={handleDeleteConversation}
-                      className="flex-1 border-0 h-full"
-                    />
-                  </div>
-                ) : (
-                  <Card className="h-full flex items-center justify-center border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
-                    <CardContent className="text-center text-muted-foreground py-16">
-                      <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                        <MessageSquare className="w-12 h-12 text-primary/60" />
-                      </div>
-                      <p className="text-xl font-semibold mb-2">Select a conversation</p>
-                      <p className="text-sm max-w-xs mx-auto">Choose a chat from the list to start messaging with vendors or customers</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+            {/* Chat Window - Main content area */}
+            <div className="flex flex-col h-full overflow-hidden">
+              {selectedConversation ? (
+                <Card className="h-full flex flex-col overflow-hidden border shadow-lg bg-white dark:bg-slate-900">
+                  <ChatWindow
+                    conversationId={selectedConversation.id}
+                    currentUserId={user.id}
+                    currentUserRole={currentUserRole as 'customer' | 'vendor'}
+                    otherPartyName={otherPartyName}
+                    otherPartyImage={otherParty?.profileImageUrl}
+                    otherPartyId={otherParty?.id}
+                    service={selectedConversation.service}
+                    onDelete={handleDeleteConversation}
+                    className="flex-1 border-0 h-full"
+                  />
+                </Card>
+              ) : (
+                <Card className="h-full flex items-center justify-center border shadow-lg bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-800">
+                  <CardContent className="text-center py-16">
+                    <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center rotate-3 shadow-lg">
+                      <MessageSquare className="w-12 h-12 text-primary/60 -rotate-3" />
+                    </div>
+                    <p className="text-xl font-semibold mb-2">Select a conversation</p>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                      Choose a chat from the list to start messaging
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
 
-          {/* Mobile Layout */}
+          {/* Mobile Layout - Full screen switching */}
           <div className="md:hidden h-[calc(100vh-160px)]">
             {!isMobileViewingChat ? (
-              <Card className="h-full border-0 shadow-lg overflow-hidden">
+              <Card className="h-full border shadow-lg overflow-hidden">
                 <ConversationList
                   currentUserId={user.id}
                   selectedConversationId={selectedConversation?.id}
@@ -235,30 +241,30 @@ export default function ChatPage() {
               </Card>
             ) : selectedConversation ? (
               <div className="h-full flex flex-col overflow-hidden">
-                <div className="flex items-center mb-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="p-0 hover:bg-transparent -ml-2"
-                    onClick={handleBackToList}
-                  >
-                    <ArrowLeft className="w-5 h-5 mr-1" />
-                    <span className="font-medium">Back</span>
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-2 self-start -ml-2 text-muted-foreground hover:text-foreground"
+                  onClick={handleBackToList}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1.5" />
+                  <span className="font-medium">All chats</span>
+                </Button>
                 
-                <ChatWindow
-                  conversationId={selectedConversation.id}
-                  currentUserId={user.id}
-                  currentUserRole={currentUserRole as 'customer' | 'vendor'}
-                  otherPartyName={otherPartyName}
-                  otherPartyImage={otherParty?.profileImageUrl}
-                  otherPartyId={otherParty?.id}
-                  service={selectedConversation.service}
-                  onClose={handleBackToList}
-                  onDelete={handleDeleteConversation}
-                  className="flex-1 border-0 shadow-lg rounded-xl overflow-hidden"
-                />
+                <Card className="flex-1 border shadow-lg overflow-hidden">
+                  <ChatWindow
+                    conversationId={selectedConversation.id}
+                    currentUserId={user.id}
+                    currentUserRole={currentUserRole as 'customer' | 'vendor'}
+                    otherPartyName={otherPartyName}
+                    otherPartyImage={otherParty?.profileImageUrl}
+                    otherPartyId={otherParty?.id}
+                    service={selectedConversation.service}
+                    onClose={handleBackToList}
+                    onDelete={handleDeleteConversation}
+                    className="flex-1 border-0 h-full"
+                  />
+                </Card>
               </div>
             ) : null}
           </div>

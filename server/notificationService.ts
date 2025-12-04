@@ -175,6 +175,7 @@ function getDefaultIcon(type: NotificationType): string {
     system: "bell",
     review: "star",
     promotion: "gift",
+    tip: "gift",
   };
   return icons[type] || "bell";
 }

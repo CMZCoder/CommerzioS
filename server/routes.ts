@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, sql } from "drizzle-orm";
-import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable } from "@shared/schema";
+import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
 import { setupOAuthRoutes } from "./oauthProviders";
@@ -94,6 +94,7 @@ import {
   handleBookingPaymentSucceeded,
   createPartialRefund,
   transferToVendor,
+  createBookingCheckoutSession,
   PLATFORM_FEE_PERCENTAGE,
 } from "./stripeService";
 import {
@@ -105,6 +106,56 @@ import {
   markDisputeUnderReview,
   closeDispute,
 } from "./services/disputeService";
+import {
+  getDisputePhases,
+  getTimeUntilDeadline,
+  canEscalateDispute,
+} from "./services/disputePhaseService";
+import {
+  analyzeDispute,
+  generateResolutionOptions,
+  generateFinalDecision,
+  getLatestAnalysis,
+  getResolutionOptions,
+  getAiDecision,
+} from "./services/disputeAiService";
+import {
+  openDispute,
+  submitCounterOffer,
+  acceptCounterOffer,
+  requestEscalation,
+  acceptAiOption,
+  chooseExternalResolution,
+  getUserDisputes,
+} from "./services/disputeResolutionService";
+import {
+  createTip,
+  confirmTipPayment,
+  getVendorTips,
+  getCustomerTips,
+  canTip,
+  getVendorTipStats,
+} from "./tipService";
+import {
+  editReview,
+  createRemovalRequest,
+  getRemovalRequests,
+  processRemovalRequest,
+  getVendorRemovalRequests,
+  getPendingRemovalRequestCount,
+} from "./reviewService";
+import {
+  initializeTestUsers,
+  cleanupTestData,
+  getTestDataStats,
+  generateTestReport,
+  deleteTestUsers,
+  startTestRun,
+  endTestRun,
+  getTestRunLogs,
+  TEST_USER_CONFIG,
+  isTestUser,
+} from "./testUserService";
 import {
   checkTwintEligibility,
   getTwintEligibilityStatus,
@@ -2282,44 +2333,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reviewId = req.params.reviewId;
       const { rating, comment } = req.body;
 
-      // Get the review
-      const reviewData = await db.select().from(reviews).where(eq(reviews.id, reviewId));
-      if (reviewData.length === 0) {
-        return res.status(404).json({ message: "Review not found" });
+      // Use the new review service with notifications
+      const result = await editReview({
+        reviewId,
+        userId,
+        newRating: rating,
+        newComment: comment,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
       }
 
-      const review = reviewData[0];
-
-      // Check if user is the reviewer
-      if (review.userId !== userId) {
-        return res.status(403).json({ message: "Not authorized to edit this review" });
-      }
-
-      // Check 7-day constraint
-      const createdDate = new Date(review.createdAt);
-      const now = new Date();
-      const daysDiff = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysDiff > 7) {
-        return res.status(400).json({ message: "Reviews can only be edited within 7 days of creation" });
-      }
-
-      // Check edit count constraint
-      if ((review.editCount || 0) >= 2) {
-        return res.status(400).json({ message: "Reviews can be edited maximum 2 times" });
-      }
-
-      // Update review
-      await db.update(reviews)
-        .set({
-          rating: rating !== undefined ? rating : review.rating,
-          comment: comment !== undefined ? comment : review.comment,
-          editCount: (review.editCount || 0) + 1,
-          lastEditedAt: new Date(),
-        })
-        .where(eq(reviews.id, reviewId));
-
-      const updated = await db.select().from(reviews).where(eq(reviews.id, reviewId));
-      res.json(updated[0]);
+      res.json({
+        ...result.review,
+        notificationSent: result.notificationSent,
+      });
     } catch (error) {
       console.error("Error updating review:", error);
       res.status(500).json({ message: "Failed to update review" });
@@ -2350,6 +2379,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting review:", error);
       res.status(500).json({ message: "Failed to delete review" });
+    }
+  });
+
+  // ===========================================
+  // TIPS SYSTEM ROUTES
+  // ===========================================
+
+  // Check if user can tip for a booking
+  app.get('/api/tips/can-tip/:bookingId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const result = await canTip(req.params.bookingId, userId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error checking tip eligibility:", error);
+      res.status(500).json({ message: "Failed to check tip eligibility" });
+    }
+  });
+
+  // Create a tip for a completed booking
+  app.post('/api/tips', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { bookingId, amount, message, paymentMethod } = req.body;
+
+      if (!bookingId || !amount || !paymentMethod) {
+        return res.status(400).json({ message: "bookingId, amount, and paymentMethod are required" });
+      }
+
+      if (amount < 1 || amount > 500) {
+        return res.status(400).json({ message: "Tip amount must be between CHF 1 and CHF 500" });
+      }
+
+      const result = await createTip({
+        bookingId,
+        customerId: userId,
+        amount,
+        message,
+        paymentMethod,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.status(201).json({
+        tip: result.tip,
+        clientSecret: result.clientSecret,
+      });
+    } catch (error) {
+      console.error("Error creating tip:", error);
+      res.status(500).json({ message: "Failed to create tip" });
+    }
+  });
+
+  // Confirm tip payment (webhook or client callback)
+  app.post('/api/tips/:tipId/confirm', isAuthenticated, async (req: any, res) => {
+    try {
+      const result = await confirmTipPayment(req.params.tipId);
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.json(result.tip);
+    } catch (error) {
+      console.error("Error confirming tip:", error);
+      res.status(500).json({ message: "Failed to confirm tip" });
+    }
+  });
+
+  // Get tips received by vendor
+  app.get('/api/tips/received', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const tipsReceived = await getVendorTips(userId);
+      res.json(tipsReceived);
+    } catch (error) {
+      console.error("Error fetching received tips:", error);
+      res.status(500).json({ message: "Failed to fetch tips" });
+    }
+  });
+
+  // Get tips given by customer
+  app.get('/api/tips/given', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const tipsGiven = await getCustomerTips(userId);
+      res.json(tipsGiven);
+    } catch (error) {
+      console.error("Error fetching given tips:", error);
+      res.status(500).json({ message: "Failed to fetch tips" });
+    }
+  });
+
+  // Get vendor tip statistics
+  app.get('/api/tips/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const stats = await getVendorTipStats(userId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching tip stats:", error);
+      res.status(500).json({ message: "Failed to fetch tip statistics" });
+    }
+  });
+
+  // ===========================================
+  // REVIEW REMOVAL REQUEST ROUTES
+  // ===========================================
+
+  // Request review removal (vendor)
+  app.post('/api/reviews/:reviewId/request-removal', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { reason, details } = req.body;
+
+      if (!reason || !details) {
+        return res.status(400).json({ message: "Reason and details are required" });
+      }
+
+      const result = await createRemovalRequest({
+        reviewId: req.params.reviewId,
+        requesterId: userId,
+        reason,
+        details,
+      });
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.status(201).json(result.request);
+    } catch (error) {
+      console.error("Error requesting review removal:", error);
+      res.status(500).json({ message: "Failed to request review removal" });
+    }
+  });
+
+  // Get vendor's removal requests
+  app.get('/api/reviews/my-removal-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const requests = await getVendorRemovalRequests(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching removal requests:", error);
+      res.status(500).json({ message: "Failed to fetch removal requests" });
+    }
+  });
+
+  // Admin: Get all removal requests
+  app.get('/api/admin/review-removal-requests', isAdmin, async (req, res) => {
+    try {
+      const status = req.query.status as 'pending' | 'under_review' | 'approved' | 'rejected' | undefined;
+      const requests = await getRemovalRequests(status);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching removal requests:", error);
+      res.status(500).json({ message: "Failed to fetch removal requests" });
+    }
+  });
+
+  // Admin: Get pending removal request count
+  app.get('/api/admin/review-removal-requests/count', isAdmin, async (_req, res) => {
+    try {
+      const count = await getPendingRemovalRequestCount();
+      res.json({ count });
+    } catch (error) {
+      console.error("Error fetching removal request count:", error);
+      res.status(500).json({ message: "Failed to fetch count" });
+    }
+  });
+
+  // Admin: Process removal request
+  app.patch('/api/admin/review-removal-requests/:requestId', isAdmin, async (req: any, res) => {
+    try {
+      const adminId = req.user!.id;
+      const { decision, adminNotes } = req.body;
+
+      if (!decision || !['approved', 'rejected'].includes(decision)) {
+        return res.status(400).json({ message: "Decision must be 'approved' or 'rejected'" });
+      }
+
+      const result = await processRemovalRequest(
+        req.params.requestId,
+        adminId,
+        decision,
+        adminNotes
+      );
+
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      res.json(result.request);
+    } catch (error) {
+      console.error("Error processing removal request:", error);
+      res.status(500).json({ message: "Failed to process removal request" });
     }
   });
 
@@ -3456,6 +3684,334 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===========================================
+  // 3-PHASE DISPUTE RESOLUTION ROUTES
+  // ===========================================
+
+  /**
+   * Get all disputes for the authenticated user
+   */
+  app.get('/api/disputes', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputes = await getUserDisputes(req.user!.id);
+      res.json(disputes);
+    } catch (error) {
+      console.error("Error fetching user disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  /**
+   * Get single dispute details with full context
+   */
+  app.get('/api/disputes/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const dispute = await getDisputeById(disputeId);
+      
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Get associated booking to verify access
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized to view this dispute" });
+      }
+
+      // Get additional context
+      const [phases, timeRemaining, aiAnalysis, aiOptions, aiDecision] = await Promise.all([
+        getDisputePhases(String(disputeId)),
+        getTimeUntilDeadline(String(disputeId)),
+        getLatestAnalysis(String(disputeId)).catch(() => null),
+        getResolutionOptions(String(disputeId)).catch(() => []),
+        getAiDecision(String(disputeId)).catch(() => null),
+      ]);
+
+      const isCustomer = booking.customerId === req.user!.id;
+
+      res.json({
+        ...dispute,
+        phases,
+        timeRemaining,
+        aiAnalysis,
+        aiOptions,
+        aiDecision,
+        isCustomer,
+      });
+    } catch (error) {
+      console.error("Error fetching dispute details:", error);
+      res.status(500).json({ message: "Failed to fetch dispute details" });
+    }
+  });
+
+  /**
+   * Open a new dispute on a booking (uses new 3-phase system)
+   */
+  app.post('/api/disputes/open', isAuthenticated, async (req: any, res) => {
+    try {
+      const { bookingId, reason, description } = req.body;
+      
+      if (!bookingId || !reason || !description) {
+        return res.status(400).json({ message: "bookingId, reason, and description are required" });
+      }
+
+      // Verify booking access
+      const booking = await getBookingById(bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const dispute = await openDispute(bookingId, req.user!.id, role, reason, description);
+      res.json({ success: true, dispute });
+    } catch (error: any) {
+      console.error("Error opening dispute:", error);
+      res.status(400).json({ message: error.message || "Failed to open dispute" });
+    }
+  });
+
+  /**
+   * Submit a counter-offer (Phase 1)
+   */
+  app.post('/api/disputes/:id/counter-offer', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const { refundPercentage, message } = req.body;
+      
+      if (typeof refundPercentage !== 'number' || refundPercentage < 0 || refundPercentage > 100) {
+        return res.status(400).json({ message: "refundPercentage must be 0-100" });
+      }
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await submitCounterOffer(disputeId, req.user!.id, role, refundPercentage, message);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error submitting counter-offer:", error);
+      res.status(400).json({ message: error.message || "Failed to submit counter-offer" });
+    }
+  });
+
+  /**
+   * Accept the latest counter-offer (Phase 1)
+   */
+  app.post('/api/disputes/:id/accept-offer', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await acceptCounterOffer(disputeId, req.user!.id, role);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error accepting offer:", error);
+      res.status(400).json({ message: error.message || "Failed to accept offer" });
+    }
+  });
+
+  /**
+   * Request escalation to AI mediation (Phase 1 → Phase 2)
+   */
+  app.post('/api/disputes/:id/escalate', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await requestEscalation(disputeId, req.user!.id, role);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error requesting escalation:", error);
+      res.status(400).json({ message: error.message || "Failed to escalate" });
+    }
+  });
+
+  /**
+   * Select an AI-proposed option (Phase 2)
+   */
+  app.post('/api/disputes/:id/select-option', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const { optionId } = req.body;
+      
+      if (!optionId) {
+        return res.status(400).json({ message: "optionId is required" });
+      }
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await selectOption(disputeId, req.user!.id, role, optionId);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error selecting option:", error);
+      res.status(400).json({ message: error.message || "Failed to select option" });
+    }
+  });
+
+  /**
+   * Accept AI decision (Phase 3)
+   */
+  app.post('/api/disputes/:id/accept-decision', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await acceptAiOption(disputeId, req.user!.id, role);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error accepting AI decision:", error);
+      res.status(400).json({ message: error.message || "Failed to accept decision" });
+    }
+  });
+
+  /**
+   * Choose external resolution (Phase 3 - with penalty)
+   */
+  app.post('/api/disputes/:id/external-resolution', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      const result = await chooseExternalResolution(disputeId, req.user!.id, role);
+      res.json({ success: true, ...result });
+    } catch (error: any) {
+      console.error("Error choosing external resolution:", error);
+      res.status(400).json({ message: error.message || "Failed to choose external resolution" });
+    }
+  });
+
+  /**
+   * Upload evidence for a dispute
+   */
+  app.post('/api/disputes/:id/evidence', isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const { files } = req.body; // Array of { url, fileName, fileType }
+      
+      if (!Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ message: "files array is required" });
+      }
+
+      // Verify access
+      const dispute = await getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      const booking = await getBookingById(dispute.bookingId, req.user!.id);
+      if (!booking) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const isCustomer = booking.customerId === req.user!.id;
+      const role = isCustomer ? "customer" : "vendor";
+
+      // Store evidence in dispute history
+      const evidenceUrls = files.map((f: any) => f.url);
+      
+      // Update dispute with evidence
+      await db.update(escrowDisputes)
+        .set({
+          evidenceUrls: sql`COALESCE(${escrowDisputes.evidenceUrls}, '[]'::jsonb) || ${JSON.stringify(evidenceUrls)}::jsonb`,
+          updatedAt: new Date(),
+        })
+        .where(eq(escrowDisputes.id, disputeId));
+
+      // Log event
+      await db.insert(notifications).values({
+        userId: req.user!.id,
+        type: 'system',
+        title: 'Evidence Uploaded',
+        message: `${files.length} file(s) uploaded as evidence for dispute #${disputeId}`,
+        actionUrl: `/disputes`,
+        relatedEntityId: disputeId,
+        relatedEntityType: 'dispute',
+      });
+
+      res.json({ success: true, message: `${files.length} file(s) uploaded` });
+    } catch (error: any) {
+      console.error("Error uploading evidence:", error);
+      res.status(400).json({ message: error.message || "Failed to upload evidence" });
+    }
+  });
+
+  // ===========================================
   // ADMIN ESCROW ROUTES
   // ===========================================
 
@@ -4167,12 +4723,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create booking request
   app.post('/api/bookings', isAuthenticated, async (req: any, res) => {
     try {
+      const { paymentMethod, pricingOptionId, ...bookingData } = req.body;
+      
       const booking = await createBookingRequest({
         customerId: req.user!.id,
-        ...req.body,
+        ...bookingData,
+        pricingOptionId,
         requestedStartTime: new Date(req.body.requestedStartTime),
         requestedEndTime: new Date(req.body.requestedEndTime),
       });
+
+      // For card/twint payments, create checkout session
+      if (paymentMethod === 'card' || paymentMethod === 'twint') {
+        // Get service for title and calculate price
+        const service = await storage.getService(booking.serviceId);
+        if (!service) {
+          return res.status(404).json({ message: "Service not found" });
+        }
+
+        // Calculate price (use pricing calculation if available)
+        let amount = 0;
+        try {
+          const { calculateBookingPrice } = await import('./pricingCalculationService');
+          const pricingResult = await calculateBookingPrice({
+            serviceId: booking.serviceId,
+            pricingOptionId,
+            startTime: new Date(req.body.requestedStartTime),
+            endTime: new Date(req.body.requestedEndTime),
+          });
+          amount = Math.round(pricingResult.total * 100); // Convert to cents
+        } catch (priceError) {
+          // Fallback to base price if calculation fails
+          amount = Math.round(parseFloat(service.price || '0') * 100);
+        }
+
+        if (amount > 0) {
+          const baseUrl = process.env.CLIENT_URL || req.headers.origin || 'http://localhost:5173';
+          
+          const checkoutResult = await createBookingCheckoutSession({
+            bookingId: booking.id,
+            customerId: req.user!.id,
+            vendorId: booking.vendorId,
+            serviceTitle: service.title,
+            amount,
+            paymentMethod,
+            successUrl: `${baseUrl}/booking-success`,
+            cancelUrl: `${baseUrl}/service/${booking.serviceId}/book`,
+          });
+
+          if (checkoutResult) {
+            return res.status(201).json({
+              ...booking,
+              checkoutUrl: checkoutResult.checkoutUrl,
+              sessionId: checkoutResult.sessionId,
+            });
+          }
+        }
+      }
+
+      // Cash payment or no payment needed - just return the booking
       res.status(201).json(booking);
     } catch (error: any) {
       console.error("Error creating booking:", error);
@@ -4993,6 +5602,667 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching notification stats:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // ===========================================
+  // TEST USER MANAGEMENT ROUTES (Admin Only)
+  // ===========================================
+
+  /**
+   * Public: Bootstrap test users (for initial E2E setup)
+   * This endpoint creates test users including the test admin
+   * Only works in development/test environments
+   */
+  app.post('/api/test/init', async (req: any, res) => {
+    // Only allow in development/test environments
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+    
+    try {
+      const result = await initializeTestUsers();
+      res.json({ 
+        success: true, 
+        message: "Test users bootstrapped",
+        users: {
+          admin: { 
+            id: result.admin.id,
+            email: result.admin.email,
+            created: result.admin.created,
+          },
+          customer: { 
+            id: result.customer.id,
+            email: result.customer.email,
+            created: result.customer.created,
+          },
+          vendor: { 
+            id: result.vendor.id,
+            email: result.vendor.email,
+            created: result.vendor.created,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error bootstrapping test users:", error);
+      res.status(500).json({ message: "Failed to bootstrap test users" });
+    }
+  });
+
+  /**
+   * Admin: Initialize/reset test users
+   */
+  app.post('/api/admin/test-users/initialize', isAdmin, async (req: any, res) => {
+    try {
+      const result = await initializeTestUsers();
+      res.json({ 
+        success: true, 
+        message: "Test users initialized",
+        users: {
+          admin: { 
+            id: result.admin.id,
+            email: result.admin.email,
+            created: result.admin.created,
+          },
+          customer: { 
+            id: result.customer.id,
+            email: result.customer.email,
+            created: result.customer.created,
+          },
+          vendor: { 
+            id: result.vendor.id,
+            email: result.vendor.email,
+            created: result.vendor.created,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error initializing test users:", error);
+      res.status(500).json({ message: "Failed to initialize test users" });
+    }
+  });
+
+  /**
+   * Admin: Get test data statistics
+   */
+  app.get('/api/admin/test-users/stats', isAdmin, async (req: any, res) => {
+    try {
+      const stats = await getTestDataStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting test stats:", error);
+      res.status(500).json({ message: "Failed to get test stats" });
+    }
+  });
+
+  /**
+   * Admin: Get full test report
+   */
+  app.get('/api/admin/test-users/report', isAdmin, async (req: any, res) => {
+    try {
+      const report = await generateTestReport();
+      res.json(report);
+    } catch (error) {
+      console.error("Error generating test report:", error);
+      res.status(500).json({ message: "Failed to generate report" });
+    }
+  });
+
+  /**
+   * Admin: Get test run logs
+   */
+  app.get('/api/admin/test-users/runs', isAdmin, async (req: any, res) => {
+    try {
+      const logs = getTestRunLogs();
+      res.json({ runs: logs });
+    } catch (error) {
+      console.error("Error getting test runs:", error);
+      res.status(500).json({ message: "Failed to get test runs" });
+    }
+  });
+
+  /**
+   * Admin: Start a new test run
+   */
+  app.post('/api/admin/test-users/runs/start', isAdmin, async (req: any, res) => {
+    try {
+      const { testType = 'manual' } = req.body;
+      const runId = startTestRun(testType);
+      res.json({ success: true, runId });
+    } catch (error) {
+      console.error("Error starting test run:", error);
+      res.status(500).json({ message: "Failed to start test run" });
+    }
+  });
+
+  /**
+   * Admin: End a test run
+   */
+  app.post('/api/admin/test-users/runs/:runId/end', isAdmin, async (req: any, res) => {
+    try {
+      const { runId } = req.params;
+      const { status = 'completed' } = req.body;
+      const log = endTestRun(runId, status);
+      res.json({ success: true, log });
+    } catch (error) {
+      console.error("Error ending test run:", error);
+      res.status(500).json({ message: "Failed to end test run" });
+    }
+  });
+
+  /**
+   * Admin: Cleanup test data
+   */
+  app.post('/api/admin/test-users/cleanup', isAdmin, async (req: any, res) => {
+    try {
+      const { runId, dryRun = false } = req.body;
+      const result = await cleanupTestData({ runId, dryRun });
+      res.json({ 
+        success: result.errors.length === 0,
+        dryRun,
+        deleted: result.deleted,
+        errors: result.errors,
+        message: dryRun 
+          ? "Dry run completed - no data was actually deleted"
+          : "Test data cleaned up successfully",
+      });
+    } catch (error) {
+      console.error("Error cleaning up test data:", error);
+      res.status(500).json({ message: "Failed to cleanup test data" });
+    }
+  });
+
+  /**
+   * Admin: Delete test users entirely
+   */
+  app.delete('/api/admin/test-users', isAdmin, async (req: any, res) => {
+    try {
+      const result = await deleteTestUsers();
+      if (result.deleted) {
+        res.json({ success: true, message: "Test users deleted" });
+      } else {
+        res.status(500).json({ success: false, error: result.error });
+      }
+    } catch (error) {
+      console.error("Error deleting test users:", error);
+      res.status(500).json({ message: "Failed to delete test users" });
+    }
+  });
+
+  /**
+   * Admin: Get test user credentials (for display in admin panel)
+   */
+  app.get('/api/admin/test-users/credentials', isAdmin, async (req: any, res) => {
+    try {
+      res.json({
+        customer: {
+          email: TEST_USER_CONFIG.customer.email,
+          password: TEST_USER_CONFIG.customer.password,
+        },
+        vendor: {
+          email: TEST_USER_CONFIG.vendor.email,
+          password: TEST_USER_CONFIG.vendor.password,
+        },
+      });
+    } catch (error) {
+      console.error("Error getting test credentials:", error);
+      res.status(500).json({ message: "Failed to get credentials" });
+    }
+  });
+
+  // ===========================================
+  // E2E BUG REPORT ROUTES (Admin + Test)
+  // ===========================================
+
+  /**
+   * Public: Report a bug from E2E tests
+   * This endpoint allows the test framework to submit bug reports
+   */
+  app.post('/api/test/bug-report', async (req: any, res) => {
+    // Only allow in development/test environments
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+    
+    try {
+      const { createBugReport, findDuplicateReport } = await import('./bugReportService');
+      
+      // Check for duplicate first
+      const duplicate = await findDuplicateReport(
+        req.body.testFile,
+        req.body.testName,
+        req.body.errorMessage
+      );
+      
+      if (duplicate) {
+        return res.json({ 
+          success: true, 
+          bugReportId: duplicate,
+          isDuplicate: true,
+          message: "Duplicate bug report found",
+        });
+      }
+      
+      const bugReportId = await createBugReport(req.body);
+      res.json({ 
+        success: true, 
+        bugReportId,
+        isDuplicate: false,
+        message: "Bug report created",
+      });
+    } catch (error) {
+      console.error("Error creating bug report:", error);
+      res.status(500).json({ message: "Failed to create bug report" });
+    }
+  });
+
+  /**
+   * Admin: Get all bug reports
+   */
+  app.get('/api/admin/bug-reports', isAdmin, async (req: any, res) => {
+    try {
+      const { getBugReports } = await import('./bugReportService');
+      const { status, priority, limit, offset } = req.query;
+      
+      const result = await getBugReports({
+        status: status as string,
+        priority: priority as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined,
+      });
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching bug reports:", error);
+      res.status(500).json({ message: "Failed to fetch bug reports" });
+    }
+  });
+
+  /**
+   * Admin: Get bug report statistics
+   */
+  app.get('/api/admin/bug-reports/stats', isAdmin, async (req: any, res) => {
+    try {
+      const { getBugReportStats } = await import('./bugReportService');
+      const stats = await getBugReportStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching bug report stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  /**
+   * Admin: Get single bug report
+   */
+  app.get('/api/admin/bug-reports/:id', isAdmin, async (req: any, res) => {
+    try {
+      const { getBugReportById } = await import('./bugReportService');
+      const report = await getBugReportById(req.params.id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Bug report not found" });
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching bug report:", error);
+      res.status(500).json({ message: "Failed to fetch bug report" });
+    }
+  });
+
+  /**
+   * Admin: Update bug report status
+   */
+  app.patch('/api/admin/bug-reports/:id/status', isAdmin, async (req: any, res) => {
+    try {
+      const { updateBugReportStatus } = await import('./bugReportService');
+      const { status, resolution } = req.body;
+      
+      const success = await updateBugReportStatus(req.params.id, status, resolution);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Bug report not found" });
+      }
+      
+      res.json({ success: true, message: "Status updated" });
+    } catch (error) {
+      console.error("Error updating bug report status:", error);
+      res.status(500).json({ message: "Failed to update status" });
+    }
+  });
+
+  /**
+   * Admin: Update bug report priority
+   */
+  app.patch('/api/admin/bug-reports/:id/priority', isAdmin, async (req: any, res) => {
+    try {
+      const { updateBugReportPriority } = await import('./bugReportService');
+      const { priority } = req.body;
+      
+      const success = await updateBugReportPriority(req.params.id, priority);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Bug report not found" });
+      }
+      
+      res.json({ success: true, message: "Priority updated" });
+    } catch (error) {
+      console.error("Error updating bug report priority:", error);
+      res.status(500).json({ message: "Failed to update priority" });
+    }
+  });
+
+  /**
+   * Admin: Cleanup old resolved bug reports
+   */
+  app.delete('/api/admin/bug-reports/cleanup', isAdmin, async (req: any, res) => {
+    try {
+      const { cleanupOldReports } = await import('./bugReportService');
+      const { daysOld = 30 } = req.body;
+      
+      const deleted = await cleanupOldReports(daysOld);
+      res.json({ success: true, deleted, message: `Cleaned up ${deleted} old reports` });
+    } catch (error) {
+      console.error("Error cleaning up bug reports:", error);
+      res.status(500).json({ message: "Failed to cleanup bug reports" });
+    }
+  });
+
+  // ===========================================
+  // SECURE TEST BYPASS ROUTES (E2E Testing Only)
+  // ===========================================
+
+  /**
+   * Get a test bypass token for an action
+   * Only works in non-production, only for test users
+   */
+  app.post('/api/test/bypass/token', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { getTestBypassTokenForUser, isTestUser } = await import('./testBypass');
+      const { email, action } = req.body;
+
+      if (!email || !action) {
+        return res.status(400).json({ message: "Email and action required" });
+      }
+
+      if (!isTestUser(email)) {
+        return res.status(403).json({ message: "Only test users can get bypass tokens" });
+      }
+
+      const token = await getTestBypassTokenForUser(email, action);
+      if (!token) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ token, expiresIn: 300 }); // 5 minutes
+    } catch (error) {
+      console.error("Error generating bypass token:", error);
+      res.status(500).json({ message: "Failed to generate token" });
+    }
+  });
+
+  /**
+   * Create a booking bypassing time restrictions
+   */
+  app.post('/api/test/bypass/booking', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createTestBooking } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-booking');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { serviceId, startTime, endTime, status, message } = req.body;
+      
+      const booking = await createTestBooking({
+        customerId: validation.userId!,
+        serviceId,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        status,
+        message,
+      });
+
+      res.status(201).json({ booking });
+    } catch (error: any) {
+      console.error("Error in test bypass booking:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Update booking status bypassing normal flow
+   */
+  app.post('/api/test/bypass/booking/:id/status', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, updateTestBookingStatus } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'update-booking');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { status } = req.body;
+      const booking = await updateTestBookingStatus(req.params.id, status);
+
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.json({ booking });
+    } catch (error: any) {
+      console.error("Error in test bypass status update:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Fast-forward a booking through all states
+   */
+  app.post('/api/test/bypass/booking/:id/fast-forward', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, fastForwardBooking } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'fast-forward');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { toState } = req.body;
+      const booking = await fastForwardBooking(req.params.id, toState);
+
+      if (!booking) {
+        return res.status(404).json({ message: "Booking not found" });
+      }
+
+      res.json({ booking });
+    } catch (error: any) {
+      console.error("Error in test bypass fast-forward:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Create a review bypassing validations
+   */
+  app.post('/api/test/bypass/review', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createTestReview } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-review');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { vendorId, serviceId, bookingId, rating, title, comment } = req.body;
+      
+      const review = await createTestReview({
+        customerId: validation.userId!,
+        vendorId,
+        serviceId,
+        bookingId,
+        rating,
+        title,
+        comment,
+      });
+
+      res.status(201).json({ review });
+    } catch (error: any) {
+      console.error("Error in test bypass review:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Create a tip bypassing payment
+   */
+  app.post('/api/test/bypass/tip', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createTestTip } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-tip');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { vendorId, bookingId, amount, message } = req.body;
+      
+      const tip = await createTestTip({
+        customerId: validation.userId!,
+        vendorId,
+        bookingId,
+        amount,
+        message,
+      });
+
+      res.status(201).json({ tip });
+    } catch (error: any) {
+      console.error("Error in test bypass tip:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Create a notification bypassing triggers
+   */
+  app.post('/api/test/bypass/notification', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createTestNotification } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-notification');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { userId, type, title, message, actionUrl, metadata } = req.body;
+      
+      const notification = await createTestNotification({
+        userId: userId || validation.userId!,
+        type,
+        title,
+        message,
+        actionUrl,
+        metadata,
+      });
+
+      res.status(201).json({ notification });
+    } catch (error: any) {
+      console.error("Error in test bypass notification:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Create a dispute bypassing normal flow
+   */
+  app.post('/api/test/bypass/dispute', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createTestDispute } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-dispute');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { bookingId, reason, amount } = req.body;
+      
+      const dispute = await createTestDispute({
+        bookingId,
+        raisedBy: validation.userId!,
+        reason,
+        amount,
+      });
+
+      res.status(201).json({ dispute });
+    } catch (error: any) {
+      console.error("Error in test bypass dispute:", error);
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  /**
+   * Create a complete test scenario (booking + review)
+   */
+  app.post('/api/test/bypass/scenario', async (req: any, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: "Not available in production" });
+    }
+
+    try {
+      const { validateTestBypassRequest, createCompleteTestScenario } = await import('./testBypass');
+      
+      const validation = validateTestBypassRequest(req, 'create-scenario');
+      if (!validation.valid) {
+        return res.status(403).json({ message: validation.error });
+      }
+
+      const { vendorId, serviceId, rating } = req.body;
+      
+      const scenario = await createCompleteTestScenario({
+        customerId: validation.userId!,
+        vendorId,
+        serviceId,
+        rating,
+      });
+
+      res.status(201).json(scenario);
+    } catch (error: any) {
+      console.error("Error in test bypass scenario:", error);
+      res.status(400).json({ message: error.message });
     }
   });
 

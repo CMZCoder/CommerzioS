@@ -53,10 +53,12 @@ import {
   Package,
   User,
   DollarSign,
-  ArrowLeft
+  ArrowLeft,
+  Scale
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { OpenDisputeModal } from '@/components/disputes';
 
 interface Booking {
   id: string;
@@ -150,6 +152,7 @@ export default function BookingsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
 
   // Get booking ID from URL query params
   useEffect(() => {
@@ -683,6 +686,17 @@ export default function BookingsPage() {
                     Cancel Booking
                   </Button>
                 )}
+                {/* Open Dispute button for completed/in_progress bookings */}
+                {['completed', 'in_progress'].includes(selectedBooking.status) && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowDisputeModal(true)}
+                    className="w-full sm:w-auto border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                  >
+                    <Scale className="w-4 h-4 mr-1" />
+                    Open Dispute
+                  </Button>
+                )}
                 <Button 
                   variant="outline" 
                   onClick={() => setSelectedBooking(null)}
@@ -719,6 +733,18 @@ export default function BookingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Open Dispute Modal */}
+      {selectedBooking && (
+        <OpenDisputeModal
+          bookingId={selectedBooking.id}
+          bookingNumber={selectedBooking.bookingNumber}
+          serviceName={selectedBooking.service?.title || 'Service'}
+          escrowAmount={parseFloat(selectedBooking.totalPrice || '0')}
+          isOpen={showDisputeModal}
+          onClose={() => setShowDisputeModal(false)}
+        />
+      )}
     </Layout>
   );
 }

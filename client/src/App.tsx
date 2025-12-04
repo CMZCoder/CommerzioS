@@ -36,6 +36,7 @@ import BookServicePage from "@/pages/book-service";
 import BookingSuccessPage from "@/pages/booking-success";
 import NotificationsPage from "@/pages/notifications";
 import CustomerBookingsPage from "@/pages/bookings";
+import DisputesPage from "@/pages/disputes";
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -90,6 +91,8 @@ function Router() {
       {/* Booking routes */}
       <Route path="/bookings" component={CustomerBookingsPage} />
       <Route path="/booking-success" component={BookingSuccessPage} />
+      {/* Dispute routes */}
+      <Route path="/disputes" component={DisputesPage} />
       {/* Vendor routes */}
       <Route path="/vendor/bookings" component={VendorBookingsPage} />
       <Route path="/my-bookings" component={VendorBookingsPage} />

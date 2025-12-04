@@ -166,21 +166,58 @@ export default function TrustSafety() {
               </CardHeader>
               <CardContent className="space-y-4 text-muted-foreground">
                 <p>
-                  If you experience a dispute with another user, we're here to help facilitate a resolution.
+                  If you experience a dispute with another user, we have a structured 3-phase resolution process designed for speed (max 14 days) and fairness.
                 </p>
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-foreground">Resolution Process:</h4>
-                  <ol className="list-decimal list-inside space-y-2 ml-4">
-                    <li><strong className="text-foreground">Direct Communication:</strong> First, try to resolve the issue directly with the other party</li>
-                    <li><strong className="text-foreground">Contact Support:</strong> If direct communication fails, contact our safety team with details</li>
-                    <li><strong className="text-foreground">Mediation:</strong> We'll review the situation and may offer mediation services</li>
-                    <li><strong className="text-foreground">Investigation:</strong> For serious violations, we'll conduct a full investigation</li>
-                    <li><strong className="text-foreground">Action:</strong> We may take action including warnings, refunds facilitation, or account termination</li>
-                  </ol>
+                
+                <div className="space-y-4">
+                  <div className="border-l-4 border-blue-400 pl-4">
+                    <h4 className="font-semibold text-foreground">Phase 1: Direct Negotiation (Max 7 Days)</h4>
+                    <p className="text-sm mt-1 mb-2 text-muted-foreground">
+                      <strong>How to start:</strong> Click "Report Issue" on any completed booking before payment is released.
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 ml-2 text-sm">
+                      <li>Describe the problem and upload evidence (required)</li>
+                      <li>Communicate directly with the other party via chat</li>
+                      <li>Vendors can propose alternative times or discounts</li>
+                      <li>Maximum 3 counter-proposals per party</li>
+                      <li>48-hour response window per proposal</li>
+                    </ul>
+                  </div>
+
+                  <div className="border-l-4 border-yellow-400 pl-4">
+                    <h4 className="font-semibold text-foreground">Phase 2: AI-Mediated Negotiation (Max 7 Days)</h4>
+                    <ul className="list-disc list-inside space-y-1 ml-2 text-sm mt-2">
+                      <li>Upload evidence (photos, screenshots, documents)</li>
+                      <li>AI analyzes evidence, descriptions, and behavior patterns</li>
+                      <li>AI proposes tailored resolution options based on analysis</li>
+                      <li>Both parties can accept an option or counter-propose</li>
+                      <li>If both accept the same option, dispute is resolved</li>
+                    </ul>
+                  </div>
+
+                  <div className="border-l-4 border-red-400 pl-4">
+                    <h4 className="font-semibold text-foreground">Phase 3: Final Resolution</h4>
+                    <ul className="list-disc list-inside space-y-1 ml-2 text-sm mt-2">
+                      <li><strong>Option A:</strong> AI makes binding final decision (immediate)</li>
+                      <li><strong>Option B:</strong> Choose "External Resolution" to handle outside platform</li>
+                      <li>External resolution generates a dispute report for legal use</li>
+                    </ul>
+                  </div>
                 </div>
+
                 <div className="bg-slate-100 rounded-lg p-4 mt-4">
                   <p className="text-sm">
-                    <strong className="text-foreground">Important:</strong> Commerzio Services acts as a platform connecting users. While we facilitate dispute resolution, we are not responsible for transactions between users. All disputes are subject to Swiss law and jurisdiction in Zürich, Switzerland.
+                    <strong className="text-foreground">Important:</strong> AI decisions are FINAL and BINDING with no appeals within the platform. 
+                    You can choose "External Resolution" to handle the dispute through mediation, arbitration, or Swiss courts - 
+                    a comprehensive dispute report will be provided to both parties. Commission rules apply based on who chooses external resolution.
+                  </p>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                  <p className="text-sm text-amber-900">
+                    <strong>Commission on External Resolution:</strong><br/>
+                    • Customer chooses external → Commission charged, funds to vendor<br/>
+                    • Vendor chooses external → No commission, full refund to customer
                   </p>
                 </div>
               </CardContent>
@@ -199,7 +236,7 @@ export default function TrustSafety() {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">
-                  For safety concerns, reports, or dispute resolution, contact our dedicated safety team:
+                  For safety concerns or reporting violations (not disputes - disputes follow the 3-phase process above), contact our safety team:
                 </p>
                 <p className="text-muted-foreground">
                   Email:{" "}
@@ -212,6 +249,9 @@ export default function TrustSafety() {
                   </a>
                 </p>
                 <p className="text-sm text-muted-foreground mt-4">
+                  <strong>Note:</strong> Disputes are resolved through our 3-phase system (max 14 days). This team is for reporting platform violations and safety concerns only.
+                </p>
+                <p className="text-sm text-muted-foreground mt-2">
                   Emergency situations should be reported to local authorities immediately.
                 </p>
               </CardContent>

@@ -52,6 +52,8 @@ const typeIcons: Record<string, string> = {
   system: "🔔",
   review: "⭐",
   promotion: "🎁",
+  tip: "💰",
+  dispute: "⚖️",
 };
 
 // Color mapping for notification types
@@ -64,6 +66,8 @@ const typeColors: Record<string, string> = {
   system: "bg-gray-500/10 text-gray-500 border-gray-500/20",
   review: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
   promotion: "bg-pink-500/10 text-pink-500 border-pink-500/20",
+  tip: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  dispute: "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
 export function NotificationBell() {
@@ -289,6 +293,8 @@ export function NotificationBell() {
                             {notification.type === 'review' && 'See review'}
                             {notification.type === 'referral' && 'View referrals'}
                             {notification.type === 'promotion' && 'View offer'}
+                            {notification.type === 'tip' && 'View tip'}
+                            {notification.type === 'dispute' && 'View dispute'}
                             {notification.type === 'system' && 'Learn more'}
                             <ChevronRight className="w-3 h-3" />
                           </span>

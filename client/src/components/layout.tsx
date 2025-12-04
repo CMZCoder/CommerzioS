@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, PlusCircle, LogOut, Heart, Settings, User, Star, Gift, MessageCircle, Bell, CalendarDays } from "lucide-react";
+import { Menu, PlusCircle, LogOut, Heart, Settings, User, Star, Gift, MessageCircle, Bell, CalendarDays, Scale } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,6 +75,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link href="/favorites"><span className="hover:text-primary transition-colors cursor-pointer">Saved</span></Link>
               )}
               <Link href="/how-it-works"><span className="hover:text-primary transition-colors cursor-pointer">How it Works</span></Link>
+              {isAuthenticated && user && (
+                <Link href="/bookings"><span className="hover:text-primary transition-colors cursor-pointer">My Bookings</span></Link>
+              )}
             </nav>
 
             <div className="flex items-center gap-4">
@@ -82,14 +85,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <div className="text-sm text-muted-foreground">Loading...</div>
               ) : isAuthenticated && user ? (
                 <>
-                  <Button 
-                    variant="ghost" 
-                    className="gap-2 hover:bg-slate-100 transition-colors cursor-pointer" 
-                    data-testid="link-profile"
-                    onClick={() => navigateToProfile()}
-                  >
-                    Profile
-                  </Button>
                   <Button 
                     className="gap-2 shadow-md shadow-primary/20"
                     onClick={() => setShowCreateService(true)}
@@ -139,6 +134,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       <DropdownMenuItem onClick={() => setLocation("/bookings")} data-testid="menu-item-my-bookings">
                         <CalendarDays className="w-4 h-4 mr-2" />
                         My Bookings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setLocation("/disputes")} data-testid="menu-item-disputes">
+                        <Scale className="w-4 h-4 mr-2" />
+                        Disputes
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setLocation("/favorites")} data-testid="menu-item-saved">
                         <Heart className="w-4 h-4 mr-2" />

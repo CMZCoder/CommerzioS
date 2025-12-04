@@ -1139,6 +1139,115 @@ export async function handleBookingPaymentSucceeded(paymentIntent: Stripe.Paymen
   }
 }
 
+/**
+ * Create a Stripe Checkout session for a booking
+ */
+export async function createBookingCheckoutSession(params: {
+  bookingId: string;
+  customerId: string;
+  vendorId: string;
+  serviceTitle: string;
+  amount: number; // in cents
+  paymentMethod: 'card' | 'twint';
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<{ checkoutUrl: string; sessionId: string } | null> {
+  if (!stripe) {
+    console.log('Stripe not configured - returning stub checkout session');
+    // Return success URL directly for testing without Stripe
+    return { checkoutUrl: params.successUrl, sessionId: 'stub_session' };
+  }
+
+  const { bookingId, customerId, vendorId, serviceTitle, amount, paymentMethod, successUrl, cancelUrl } = params;
+
+  try {
+    // Get or create Stripe customer
+    const stripeCustomerId = await getOrCreateStripeCustomer(customerId);
+    
+    // Get vendor's Connect account
+    const [vendor] = await db.select().from(users).where(eq(users.id, vendorId)).limit(1);
+
+    // Calculate platform fee
+    const platformFee = Math.round(amount * PLATFORM_FEE_PERCENTAGE);
+    const vendorAmount = amount - platformFee;
+
+    const sessionData: Stripe.Checkout.SessionCreateParams = {
+      mode: 'payment',
+      customer: stripeCustomerId || undefined,
+      line_items: [{
+        price_data: {
+          currency: 'chf',
+          product_data: {
+            name: serviceTitle,
+            description: `Booking ${bookingId}`,
+          },
+          unit_amount: amount,
+        },
+        quantity: 1,
+      }],
+      success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}&booking=${bookingId}`,
+      cancel_url: `${cancelUrl}?booking=${bookingId}`,
+      payment_method_types: paymentMethod === 'twint' ? ['twint'] : ['card'],
+      metadata: {
+        bookingId,
+        customerId,
+        vendorId,
+        type: 'booking',
+      },
+    };
+
+    // For card payments, use manual capture for escrow
+    if (paymentMethod === 'card') {
+      sessionData.payment_intent_data = {
+        capture_method: 'manual',
+        metadata: {
+          bookingId,
+          customerId,
+          vendorId,
+          paymentMethod: 'card',
+        },
+      };
+    }
+
+    // Add transfer data if vendor has Connect account
+    if (vendor?.stripeConnectAccountId && vendor.stripeConnectOnboarded) {
+      if (sessionData.payment_intent_data) {
+        sessionData.payment_intent_data.application_fee_amount = platformFee;
+        sessionData.payment_intent_data.transfer_data = {
+          destination: vendor.stripeConnectAccountId,
+        };
+      }
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionData);
+
+    // Create escrow transaction record
+    const [escrowTx] = await db.insert(escrowTransactions)
+      .values({
+        bookingId,
+        amount: (amount / 100).toString(),
+        currency: 'CHF',
+        platformFee: (platformFee / 100).toString(),
+        vendorAmount: (vendorAmount / 100).toString(),
+        paymentMethod,
+        stripeCheckoutSessionId: session.id,
+        status: 'pending',
+        autoReleaseAt: paymentMethod === 'card' ? new Date(Date.now() + 48 * 60 * 60 * 1000) : null,
+      })
+      .returning();
+
+    console.log(`Created checkout session ${session.id} for booking ${bookingId}`);
+    
+    return {
+      checkoutUrl: session.url!,
+      sessionId: session.id,
+    };
+  } catch (error) {
+    console.error('Error creating booking checkout session:', error);
+    throw error;
+  }
+}
+
 // ===========================================
 // EXPORTS
 // ===========================================

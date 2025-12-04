@@ -16,6 +16,7 @@ import {
   vendorCalendarBlocks,
   services,
   users,
+  reviews,
   InsertBooking,
   InsertVendorAvailabilitySettings,
   InsertVendorCalendarBlock
@@ -205,13 +206,26 @@ export async function createCalendarBlock(
   userId: string,
   data: Omit<InsertVendorCalendarBlock, 'userId'>
 ) {
+  // Convert string dates to Date objects if needed
+  const startTime = typeof data.startTime === 'string' ? new Date(data.startTime) : data.startTime;
+  const endTime = typeof data.endTime === 'string' ? new Date(data.endTime) : data.endTime;
+  const recurrenceEndDate = data.recurrenceEndDate 
+    ? (typeof data.recurrenceEndDate === 'string' ? new Date(data.recurrenceEndDate) : data.recurrenceEndDate)
+    : null;
+
   // Validate times
-  if (new Date(data.startTime) >= new Date(data.endTime)) {
+  if (startTime >= endTime) {
     throw new Error('End time must be after start time');
   }
 
   const [block] = await db.insert(vendorCalendarBlocks)
-    .values({ userId, ...data })
+    .values({ 
+      userId, 
+      ...data,
+      startTime,
+      endTime,
+      recurrenceEndDate,
+    })
     .returning();
   
   return block;
@@ -615,7 +629,7 @@ export async function createBookingRequest(data: {
     service.title,
     vendorName,
     data.requestedStartTime,
-    status === 'accepted' || status === 'confirmed'
+    status === 'accepted'
   );
 
   return booking;
@@ -913,7 +927,7 @@ export async function getVendorBookings(
 }
 
 /**
- * Get a single booking by ID
+ * Get a single booking by ID with full service and vendor details
  */
 export async function getBookingById(bookingId: string, userId?: string) {
   const [booking] = await db.select()
@@ -930,7 +944,81 @@ export async function getBookingById(bookingId: string, userId?: string) {
     return null;
   }
 
-  return booking;
+  // Get service details
+  const [service] = await db.select({
+    id: services.id,
+    title: services.title,
+    description: services.description,
+    price: services.price,
+    priceType: services.priceType,
+    priceUnit: services.priceUnit,
+    images: services.images,
+    categoryId: services.categoryId,
+  })
+    .from(services)
+    .where(eq(services.id, booking.serviceId))
+    .limit(1);
+
+  // Get vendor details with review stats
+  const vendorReviewStats = await db.select({
+    avgRating: sql<number>`COALESCE(AVG(reviews.rating), 0)`,
+    reviewCount: sql<number>`COUNT(reviews.id)::int`,
+  })
+    .from(services)
+    .leftJoin(reviews, eq(reviews.serviceId, services.id))
+    .where(eq(services.ownerId, booking.vendorId))
+    .groupBy(services.ownerId);
+
+  const [vendor] = await db.select({
+    id: users.id,
+    firstName: users.firstName,
+    lastName: users.lastName,
+    email: users.email,
+    profileImageUrl: users.profileImageUrl,
+    isVerified: users.isVerified,
+    createdAt: users.createdAt,
+  })
+    .from(users)
+    .where(eq(users.id, booking.vendorId))
+    .limit(1);
+
+  // Get customer details
+  const [customer] = await db.select({
+    id: users.id,
+    firstName: users.firstName,
+    lastName: users.lastName,
+    email: users.email,
+    profileImageUrl: users.profileImageUrl,
+  })
+    .from(users)
+    .where(eq(users.id, booking.customerId))
+    .limit(1);
+
+  // Calculate average rating across all vendor services
+  const rating = vendorReviewStats[0]?.avgRating || 0;
+  const reviewCount = vendorReviewStats[0]?.reviewCount || 0;
+
+  // Compute total price from service (or use pricing option if available)
+  const totalPrice = service?.price || null;
+  const currency = "CHF"; // Default currency
+
+  return {
+    ...booking,
+    totalPrice,
+    currency,
+    service: service ? {
+      ...service,
+      category: service.categoryId, // Could be expanded to full category lookup
+    } : undefined,
+    vendor: vendor ? {
+      ...vendor,
+      verified: vendor.isVerified,
+      rating: Math.round(rating * 10) / 10,
+      reviewCount,
+      memberSince: vendor.createdAt?.toISOString(),
+    } : undefined,
+    customer: customer || undefined,
+  };
 }
 
 /**

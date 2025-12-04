@@ -38,7 +38,7 @@ export const platformSettings = pgTable("platform_settings", {
   requireServiceContacts: boolean("require_service_contacts").default(false).notNull(), // Make contacts required
   
   // Commission settings
-  platformCommissionPercent: decimal("platform_commission_percent", { precision: 5, scale: 2 }).default("5.00").notNull(), // Base platform fee (%)
+  platformCommissionPercent: decimal("platform_commission_percent", { precision: 5, scale: 2 }).default("8.00").notNull(), // Base platform fee (%) - 8% Standard tier
   cardProcessingFeePercent: decimal("card_processing_fee_percent", { precision: 5, scale: 2 }).default("2.90").notNull(), // Stripe card fee (%)
   cardProcessingFeeFixed: decimal("card_processing_fee_fixed", { precision: 10, scale: 2 }).default("0.30").notNull(), // Stripe fixed fee (CHF)
   twintProcessingFeePercent: decimal("twint_processing_fee_percent", { precision: 5, scale: 2 }).default("1.30").notNull(), // TWINT fee (%)
@@ -122,6 +122,18 @@ export const users = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
   stripeConnectAccountId: varchar("stripe_connect_account_id", { length: 255 }),
   stripeConnectOnboarded: boolean("stripe_connect_onboarded").default(false).notNull(),
+  
+  // Vendor billing - for commission charges on Cash/TWINT bookings
+  defaultPaymentMethodId: varchar("default_payment_method_id", { length: 255 }),
+  paymentMethodLast4: varchar("payment_method_last4", { length: 4 }),
+  paymentMethodBrand: varchar("payment_method_brand", { length: 50 }),
+  
+  // Account status - for payment failures and restrictions
+  accountStatus: varchar("account_status", { 
+    enum: ["active", "restricted_payment_failed", "restricted_debt", "suspended", "banned"] 
+  }).default("active").notNull(),
+  accountStatusReason: text("account_status_reason"),
+  accountStatusChangedAt: timestamp("account_status_changed_at"),
   
   // Vendor payment settings (for users who offer services)
   acceptCardPayments: boolean("accept_card_payments").default(true).notNull(),
@@ -596,6 +608,14 @@ export const services = pgTable("services", {
   contactPhone: varchar("contact_phone", { length: 50 }).notNull(),
   contactEmail: varchar("contact_email", { length: 200 }).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
+  
+  // Cancellation Policy (for dispute resolution)
+  cancellationPolicy: varchar("cancellation_policy", { 
+    enum: ["flexible", "moderate", "strict", "custom"] 
+  }).default("flexible").notNull(),
+  // For custom policy: what % vendor keeps on customer no-show (0-100)
+  customNoShowFeePercent: integer("custom_no_show_fee_percent").default(0),
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -680,15 +700,61 @@ export const reviews = pgTable("reviews", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  bookingId: varchar("booking_id").references(() => bookings.id, { onDelete: "set null" }),
   rating: integer("rating").notNull(),
   comment: text("comment").notNull(),
   editCount: integer("edit_count").default(0).notNull(),
   lastEditedAt: timestamp("last_edited_at"),
+  // Track rating history for notification purposes
+  previousRating: integer("previous_rating"),
+  ratingDirection: varchar("rating_direction", { enum: ["improved", "worsened", "same"] }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => [
   index("idx_reviews_service").on(table.serviceId),
   index("idx_reviews_user").on(table.userId),
+  index("idx_reviews_booking").on(table.bookingId),
 ]);
+
+// Review Removal Requests - vendors can request admin review of inappropriate reviews
+export const reviewRemovalRequests = pgTable("review_removal_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull().references(() => reviews.id, { onDelete: "cascade" }),
+  requesterId: varchar("requester_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  reason: varchar("reason", { 
+    enum: ["inappropriate", "fake", "spam", "off_topic", "harassment", "other"] 
+  }).notNull(),
+  details: text("details").notNull(),
+  
+  // Admin handling
+  status: varchar("status", { 
+    enum: ["pending", "under_review", "approved", "rejected"] 
+  }).default("pending").notNull(),
+  reviewedBy: varchar("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at"),
+  adminNotes: text("admin_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_removal_requests_review").on(table.reviewId),
+  index("idx_removal_requests_requester").on(table.requesterId),
+  index("idx_removal_requests_status").on(table.status),
+]);
+
+export const reviewRemovalRequestsRelations = relations(reviewRemovalRequests, ({ one }) => ({
+  review: one(reviews, {
+    fields: [reviewRemovalRequests.reviewId],
+    references: [reviews.id],
+  }),
+  requester: one(users, {
+    fields: [reviewRemovalRequests.requesterId],
+    references: [users.id],
+  }),
+  reviewer: one(users, {
+    fields: [reviewRemovalRequests.reviewedBy],
+    references: [users.id],
+  }),
+}));
 
 export const reviewsRelations = relations(reviews, ({ one }) => ({
   service: one(services, {
@@ -1519,6 +1585,7 @@ export const escrowTransactions = pgTable("escrow_transactions", {
   
   // Stripe tracking
   stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
   stripeChargeId: varchar("stripe_charge_id", { length: 255 }),
   stripeTransferId: varchar("stripe_transfer_id", { length: 255 }),
   
@@ -1563,10 +1630,76 @@ export const escrowTransactions = pgTable("escrow_transactions", {
   index("idx_escrow_auto_release").on(table.autoReleaseAt),
 ]);
 
-export const escrowTransactionsRelations = relations(escrowTransactions, ({ one }) => ({
+export const escrowTransactionsRelations = relations(escrowTransactions, ({ one, many }) => ({
   booking: one(bookings, {
     fields: [escrowTransactions.bookingId],
     references: [bookings.id],
+  }),
+  tips: many(tips),
+}));
+
+// ===========================================
+// TIPS SYSTEM
+// ===========================================
+
+/**
+ * Tips Table
+ * Allows customers to tip vendors after service completion
+ */
+export const tips = pgTable("tips", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bookingId: varchar("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }),
+  escrowTransactionId: varchar("escrow_transaction_id").references(() => escrowTransactions.id, { onDelete: "set null" }),
+  
+  // Parties
+  customerId: varchar("customer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Amount
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("CHF").notNull(),
+  
+  // Optional message with the tip
+  message: text("message"),
+  
+  // Payment tracking
+  paymentMethod: varchar("payment_method", { 
+    enum: ["card", "twint", "cash"] 
+  }).notNull(),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
+  
+  // Status
+  status: varchar("status", { 
+    enum: ["pending", "completed", "failed", "refunded"] 
+  }).default("pending").notNull(),
+  
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_tips_booking").on(table.bookingId),
+  index("idx_tips_customer").on(table.customerId),
+  index("idx_tips_vendor").on(table.vendorId),
+  index("idx_tips_status").on(table.status),
+]);
+
+export const tipsRelations = relations(tips, ({ one }) => ({
+  booking: one(bookings, {
+    fields: [tips.bookingId],
+    references: [bookings.id],
+  }),
+  escrowTransaction: one(escrowTransactions, {
+    fields: [tips.escrowTransactionId],
+    references: [escrowTransactions.id],
+  }),
+  customer: one(users, {
+    fields: [tips.customerId],
+    references: [users.id],
+    relationName: "customerTips",
+  }),
+  vendor: one(users, {
+    fields: [tips.vendorId],
+    references: [users.id],
+    relationName: "vendorTips",
   }),
 }));
 
@@ -1913,6 +2046,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "system",       // System notifications (maintenance, updates)
   "review",       // New review received
   "promotion",    // Promotional notifications
+  "tip",          // Tip received from customer
 ]);
 
 /**
@@ -2218,6 +2352,78 @@ export type InsertNotificationPreferences = typeof notificationPreferences.$infe
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = typeof pushSubscriptions.$inferInsert;
 
+// ===========================================
+// E2E TEST BUG REPORTS
+// ===========================================
+
+/**
+ * E2E Test Bug Reports Table
+ * Stores automated test failures for admin review
+ */
+export const e2eBugReports = pgTable("e2e_bug_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Test identification
+  testFile: varchar("test_file", { length: 255 }).notNull(),
+  testName: varchar("test_name", { length: 500 }).notNull(),
+  testSuite: varchar("test_suite", { length: 255 }),
+  
+  // Error details
+  errorType: varchar("error_type", { length: 100 }).notNull(), // timeout, assertion, network, etc.
+  errorMessage: text("error_message").notNull(),
+  stackTrace: text("stack_trace"),
+  
+  // Context for debugging
+  screenshotUrl: varchar("screenshot_url", { length: 500 }),
+  pageUrl: varchar("page_url", { length: 500 }),
+  userAgent: varchar("user_agent", { length: 500 }),
+  
+  // Test user context
+  testUserId: varchar("test_user_id", { length: 100 }),
+  testUserRole: varchar("test_user_role", { length: 50 }), // customer, vendor, admin
+  
+  // LLM-friendly prompt
+  llmPrompt: text("llm_prompt"), // Pre-formatted prompt to paste into LLM for fixing
+  
+  // Steps to reproduce
+  stepsToReproduce: jsonb("steps_to_reproduce").default([]),
+  
+  // Related data
+  apiEndpoint: varchar("api_endpoint", { length: 255 }),
+  apiResponse: jsonb("api_response"),
+  requestPayload: jsonb("request_payload"),
+  
+  // Status tracking
+  status: varchar("status", { enum: ["new", "investigating", "fixed", "wont_fix", "duplicate"] }).default("new").notNull(),
+  priority: varchar("priority", { enum: ["critical", "high", "medium", "low"] }).default("medium").notNull(),
+  assignedTo: varchar("assigned_to", { length: 100 }),
+  resolvedAt: timestamp("resolved_at"),
+  resolution: text("resolution"),
+  
+  // Metadata
+  browserName: varchar("browser_name", { length: 50 }),
+  browserVersion: varchar("browser_version", { length: 50 }),
+  runId: varchar("run_id", { length: 100 }), // Test run identifier
+  retryCount: integer("retry_count").default(0),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_bug_reports_status").on(table.status),
+  index("idx_bug_reports_priority").on(table.priority),
+  index("idx_bug_reports_created").on(table.createdAt),
+  index("idx_bug_reports_test").on(table.testFile, table.testName),
+]);
+
+export type E2EBugReport = typeof e2eBugReports.$inferSelect;
+export type InsertE2EBugReport = typeof e2eBugReports.$inferInsert;
+
+export const insertE2EBugReportSchema = createInsertSchema(e2eBugReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // User Reports
 export const insertUserReportSchema = createInsertSchema(userReports).omit({
   id: true,
@@ -2264,6 +2470,15 @@ export const NOTIFICATION_TYPES = [
   "system",
   "review",
   "promotion",
+  "tip",
 ] as const;
 
 export type NotificationType = typeof NOTIFICATION_TYPES[number];
+
+// Tips types
+export type Tip = typeof tips.$inferSelect;
+export type InsertTip = typeof tips.$inferInsert;
+
+// Review Removal Request types
+export type ReviewRemovalRequest = typeof reviewRemovalRequests.$inferSelect;
+export type InsertReviewRemovalRequest = typeof reviewRemovalRequests.$inferInsert;
