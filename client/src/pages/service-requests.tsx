@@ -91,7 +91,7 @@ interface ServiceRequest {
   locationRadiusKm: number | null;
   serviceAtCustomerLocation: boolean;
   attachmentUrls: string[];
-  status: "draft" | "open" | "in_progress" | "completed" | "cancelled" | "expired";
+  status: "draft" | "open" | "booked" | "suspended" | "cancelled" | "expired";
   moderationStatus: string | null;
   publishedAt: Date | null;
   expiresAt: Date | null;
@@ -323,6 +323,45 @@ export default function ServiceRequestsPage() {
     },
   });
 
+  // Deactivate request mutation
+  const deactivateRequestMutation = useMutation({
+    mutationFn: (requestId: string) =>
+      apiRequest(`/api/service-requests/${requestId}/deactivate`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "Request deactivated", description: "Your request has been hidden from vendors." });
+      queryClient.invalidateQueries({ queryKey: ["service-requests"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to deactivate request", variant: "destructive" });
+    },
+  });
+
+  // Reactivate request mutation
+  const reactivateRequestMutation = useMutation({
+    mutationFn: (requestId: string) =>
+      apiRequest(`/api/service-requests/${requestId}/reactivate`, { method: "POST" }),
+    onSuccess: () => {
+      toast({ title: "Request reactivated", description: "Your request is now visible to vendors." });
+      queryClient.invalidateQueries({ queryKey: ["service-requests"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to reactivate request", variant: "destructive" });
+    },
+  });
+
+  // Delete request mutation
+  const deleteRequestMutation = useMutation({
+    mutationFn: (requestId: string) =>
+      apiRequest(`/api/service-requests/${requestId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast({ title: "Request cancelled", description: "Your request has been cancelled and vendors have been notified." });
+      queryClient.invalidateQueries({ queryKey: ["service-requests"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to cancel request", variant: "destructive" });
+    },
+  });
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
       open: "default",
@@ -331,6 +370,8 @@ export default function ServiceRequestsPage() {
       completed: "default",
       expired: "destructive",
       cancelled: "destructive",
+      suspended: "outline",
+      booked: "default",
     };
     const labels: Record<string, string> = {
       open: "Open",
@@ -339,6 +380,8 @@ export default function ServiceRequestsPage() {
       completed: "Completed",
       expired: "Expired",
       cancelled: "Cancelled",
+      suspended: "Deactivated",
+      booked: "Booked",
     };
     return <Badge variant={variants[status] || "secondary"}>{labels[status] || status}</Badge>;
   };
@@ -618,7 +661,7 @@ export default function ServiceRequestsPage() {
                         </div>
                       </div>
                     </CardContent>
-                    <CardFooter className="gap-2">
+                    <CardFooter className="gap-2 flex-wrap">
                       {request.proposalCount > 0 && request.status === "open" && (
                         <Button
                           variant="outline"
@@ -644,6 +687,52 @@ export default function ServiceRequestsPage() {
                           }
                         >
                           Publish Request
+                        </Button>
+                      )}
+                      {/* Deactivate button for open requests */}
+                      {request.status === "open" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm("Deactivate this request? It will be hidden from vendors but you can reactivate it later.")) {
+                              deactivateRequestMutation.mutate(request.id);
+                            }
+                          }}
+                          disabled={deactivateRequestMutation.isPending}
+                        >
+                          Deactivate
+                        </Button>
+                      )}
+                      {/* Reactivate button for suspended requests */}
+                      {request.status === "suspended" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => reactivateRequestMutation.mutate(request.id)}
+                          disabled={reactivateRequestMutation.isPending}
+                        >
+                          Reactivate
+                        </Button>
+                      )}
+                      {/* Delete button for non-booked requests */}
+                      {request.status !== "booked" && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            const hasProposals = request.proposalCount > 0;
+                            const message = hasProposals
+                              ? `Cancel this request? This will notify ${request.proposalCount} vendor(s) that their proposals have been cancelled.`
+                              : "Cancel this request? This action cannot be undone.";
+                            if (confirm(message)) {
+                              deleteRequestMutation.mutate(request.id);
+                            }
+                          }}
+                          disabled={deleteRequestMutation.isPending}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          Cancel
                         </Button>
                       )}
                     </CardFooter>

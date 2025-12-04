@@ -979,3 +979,207 @@ export async function expireStaleRequests(): Promise<number> {
 
   return expired.length;
 }
+
+/**
+ * Update a service request (only if owned by customer and still editable)
+ */
+export async function updateServiceRequest(
+  requestId: string,
+  customerId: string,
+  data: Partial<Pick<ServiceRequest, 'title' | 'description' | 'budgetMin' | 'budgetMax' | 'budgetFlexible' | 'categoryId' | 'subcategoryId' | 'urgency' | 'locationCity' | 'locationCanton' | 'preferredDateStart' | 'preferredDateEnd' | 'flexibleDates'>>
+): Promise<ServiceRequest> {
+  // Check ownership and status
+  const [existing] = await db
+    .select()
+    .from(serviceRequests)
+    .where(eq(serviceRequests.id, requestId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Service request not found");
+  }
+  
+  if (existing.customerId !== customerId) {
+    throw new Error("You can only edit your own requests");
+  }
+  
+  // Can only edit if draft or open
+  if (existing.status !== "draft" && existing.status !== "open") {
+    throw new Error("Cannot edit a request that is no longer active");
+  }
+
+  const [updated] = await db
+    .update(serviceRequests)
+    .set({
+      ...data,
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceRequests.id, requestId))
+    .returning();
+
+  console.log(`[ServiceRequest] Updated request ${requestId}`);
+  return updated;
+}
+
+/**
+ * Deactivate (suspend) a service request - hides it from public but keeps proposals
+ */
+export async function deactivateServiceRequest(
+  requestId: string,
+  customerId: string
+): Promise<ServiceRequest> {
+  // Check ownership
+  const [existing] = await db
+    .select()
+    .from(serviceRequests)
+    .where(eq(serviceRequests.id, requestId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Service request not found");
+  }
+  
+  if (existing.customerId !== customerId) {
+    throw new Error("You can only deactivate your own requests");
+  }
+  
+  if (existing.status !== "open" && existing.status !== "draft") {
+    throw new Error("Can only deactivate active requests");
+  }
+
+  const [updated] = await db
+    .update(serviceRequests)
+    .set({
+      status: "suspended",
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceRequests.id, requestId))
+    .returning();
+
+  console.log(`[ServiceRequest] Deactivated request ${requestId}`);
+  return updated;
+}
+
+/**
+ * Reactivate a suspended service request
+ */
+export async function reactivateServiceRequest(
+  requestId: string,
+  customerId: string
+): Promise<ServiceRequest> {
+  const [existing] = await db
+    .select()
+    .from(serviceRequests)
+    .where(eq(serviceRequests.id, requestId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Service request not found");
+  }
+  
+  if (existing.customerId !== customerId) {
+    throw new Error("You can only reactivate your own requests");
+  }
+  
+  if (existing.status !== "suspended") {
+    throw new Error("Can only reactivate suspended requests");
+  }
+
+  const [updated] = await db
+    .update(serviceRequests)
+    .set({
+      status: "open",
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceRequests.id, requestId))
+    .returning();
+
+  console.log(`[ServiceRequest] Reactivated request ${requestId}`);
+  return updated;
+}
+
+/**
+ * Delete a service request - also cancels all pending proposals
+ */
+export async function deleteServiceRequest(
+  requestId: string,
+  customerId: string
+): Promise<void> {
+  // Check ownership
+  const [existing] = await db
+    .select()
+    .from(serviceRequests)
+    .where(eq(serviceRequests.id, requestId))
+    .limit(1);
+
+  if (!existing) {
+    throw new Error("Service request not found");
+  }
+  
+  if (existing.customerId !== customerId) {
+    throw new Error("You can only delete your own requests");
+  }
+  
+  // Cannot delete if a proposal was accepted (booking created)
+  if (existing.status === "booked") {
+    throw new Error("Cannot delete a request with an accepted booking");
+  }
+
+  // Get pending proposals to notify vendors
+  const pendingProposals = await db
+    .select()
+    .from(proposals)
+    .where(
+      and(
+        eq(proposals.serviceRequestId, requestId),
+        or(
+          eq(proposals.status, "pending"),
+          eq(proposals.status, "viewed")
+        )
+      )
+    );
+
+  // Notify vendors of cancelled proposals
+  for (const proposal of pendingProposals) {
+    await createNotification({
+      userId: proposal.vendorId,
+      type: "service",
+      title: "Request Cancelled",
+      message: `The customer has cancelled their request "${existing.title}"`,
+      metadata: {
+        type: "request_cancelled",
+        requestId: requestId,
+        proposalId: proposal.id,
+      },
+      actionUrl: `/service-requests`,
+    });
+  }
+
+  // Update request status to cancelled (soft delete to preserve history)
+  await db
+    .update(serviceRequests)
+    .set({
+      status: "cancelled",
+      updatedAt: new Date(),
+    })
+    .where(eq(serviceRequests.id, requestId));
+
+  // Mark all pending proposals as expired/withdrawn
+  await db
+    .update(proposals)
+    .set({
+      status: "withdrawn",
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(proposals.serviceRequestId, requestId),
+        or(
+          eq(proposals.status, "pending"),
+          eq(proposals.status, "viewed")
+        )
+      )
+    );
+
+  console.log(`[ServiceRequest] Deleted request ${requestId}, notified ${pendingProposals.length} vendors`);
+}

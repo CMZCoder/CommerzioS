@@ -2487,6 +2487,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     getProposalsForRequest,
     acceptProposal,
     getMyProposals,
+    updateServiceRequest,
+    deactivateServiceRequest,
+    reactivateServiceRequest,
+    deleteServiceRequest,
   } = await import('./serviceRequestService');
 
   // Create a new service request (customer posts what they need)
@@ -2553,6 +2557,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching service request:", error);
       res.status(500).json({ message: "Failed to fetch service request" });
+    }
+  });
+
+  // Update a service request (customer only, draft/open status)
+  app.patch('/api/service-requests/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const request = await updateServiceRequest(req.params.id, userId, req.body);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error updating service request:", error);
+      res.status(400).json({ message: error.message || "Failed to update service request" });
+    }
+  });
+
+  // Deactivate (suspend) a service request
+  app.post('/api/service-requests/:id/deactivate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const request = await deactivateServiceRequest(req.params.id, userId);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error deactivating service request:", error);
+      res.status(400).json({ message: error.message || "Failed to deactivate service request" });
+    }
+  });
+
+  // Reactivate a suspended service request
+  app.post('/api/service-requests/:id/reactivate', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const request = await reactivateServiceRequest(req.params.id, userId);
+      res.json(request);
+    } catch (error: any) {
+      console.error("Error reactivating service request:", error);
+      res.status(400).json({ message: error.message || "Failed to reactivate service request" });
+    }
+  });
+
+  // Delete (cancel) a service request - notifies vendors with pending proposals
+  app.delete('/api/service-requests/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      await deleteServiceRequest(req.params.id, userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting service request:", error);
+      res.status(400).json({ message: error.message || "Failed to delete service request" });
     }
   });
 
