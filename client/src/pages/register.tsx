@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Eye, EyeOff, Loader2, Mail, Lock, User, AlertCircle, CheckCircle, Check, X, Gift } from "lucide-react";
 import { apiRequest } from "@/lib/api";
+import { fetchApi } from "@/lib/config";
 import { SocialLoginButtons } from "@/components/social-login-buttons";
 
 const registerSchema = z.object({
@@ -87,7 +88,7 @@ export default function RegisterPage() {
     if (ref && ref.length >= 4) {
       setReferralCode(ref.toUpperCase());
       // Store in session for OAuth flows
-      fetch(`/api/auth/set-referral?ref=${encodeURIComponent(ref)}`).catch(() => {});
+      fetchApi(`/api/auth/set-referral?ref=${encodeURIComponent(ref)}`).catch(() => {});
     }
   }, [searchString]);
   
@@ -96,7 +97,7 @@ export default function RegisterPage() {
     queryKey: ["/api/referral/validate", referralCode],
     queryFn: async () => {
       if (!referralCode) return null;
-      const res = await fetch(`/api/referral/validate/${encodeURIComponent(referralCode)}`);
+      const res = await fetchApi(`/api/referral/validate/${encodeURIComponent(referralCode)}`);
       if (!res.ok) return null;
       return res.json();
     },

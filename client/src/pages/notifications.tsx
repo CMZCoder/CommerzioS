@@ -42,6 +42,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { fetchApi } from "@/lib/config";
 import { formatDistanceToNow, format } from "date-fns";
 import { Link, useLocation } from "wouter";
 
@@ -99,9 +100,7 @@ export default function NotificationsPage() {
         params.set('types', filterType);
       }
       
-      const res = await fetch(`/api/notifications?${params.toString()}`, {
-        credentials: "include",
-      });
+      const res = await fetchApi(`/api/notifications?${params.toString()}`);
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: "Failed to fetch notifications" }));
         throw new Error(error.message || "Failed to fetch notifications");
@@ -142,9 +141,8 @@ export default function NotificationsPage() {
   // Mutations
   const markReadMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/notifications/${id}/read`, {
+      const res = await fetchApi(`/api/notifications/${id}/read`, {
         method: "POST",
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();
@@ -156,9 +154,8 @@ export default function NotificationsPage() {
 
   const markAllReadMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/notifications/mark-all-read", {
+      const res = await fetchApi("/api/notifications/mark-all-read", {
         method: "POST",
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();
@@ -170,9 +167,8 @@ export default function NotificationsPage() {
 
   const dismissMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/notifications/${id}/dismiss`, {
+      const res = await fetchApi(`/api/notifications/${id}/dismiss`, {
         method: "POST",
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();
@@ -184,9 +180,8 @@ export default function NotificationsPage() {
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/notifications/clear-all", {
+      const res = await fetchApi("/api/notifications/clear-all", {
         method: "POST",
-        credentials: "include",
       });
       if (!res.ok) throw new Error("Failed");
       return res.json();

@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails } from "@/lib/api";
+import { fetchApi } from "@/lib/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import { useEffect, useCallback, useRef } from "react";
@@ -276,10 +277,9 @@ export default function Profile() {
 
   const updateAddressMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<typeof addressForm> }) => {
-      const response = await fetch(`/api/users/me/addresses/${id}`, {
+      const response = await fetchApi(`/api/users/me/addresses/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
       if (!response.ok) throw new Error('Failed to update address');
@@ -306,9 +306,8 @@ export default function Profile() {
 
   const deleteAddressMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/users/me/addresses/${id}`, {
+      const response = await fetchApi(`/api/users/me/addresses/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to delete address');
     },

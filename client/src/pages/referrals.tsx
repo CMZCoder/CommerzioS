@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { fetchApi } from "@/lib/config";
 import { 
   Copy, 
   Users, 
@@ -254,7 +255,7 @@ export default function ReferralsPage() {
   // Redeem points mutation
   const redeemMutation = useMutation({
     mutationFn: async (data: { points: number; redemptionType: string }) => {
-      const res = await fetch("/api/points/redeem", {
+      const res = await fetchApi("/api/points/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

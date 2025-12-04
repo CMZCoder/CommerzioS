@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { 
   Calendar,
   Clock, 
@@ -160,7 +161,7 @@ export default function BookingsPage() {
     const bookingId = params.get('booking');
     if (bookingId) {
       // Fetch and select this specific booking
-      fetch(`/api/bookings/${bookingId}`, { credentials: 'include' })
+      fetchApi(`/api/bookings/${bookingId}`)
         .then(res => res.ok ? res.json() : null)
         .then(booking => {
           if (booking) {
@@ -176,7 +177,7 @@ export default function BookingsPage() {
     queryKey: ['customer-bookings', activeTab],
     queryFn: async () => {
       const statusFilter = activeTab === 'all' ? '' : `?status=${activeTab}`;
-      const res = await fetch(`/api/bookings/my${statusFilter}`, { credentials: 'include' });
+      const res = await fetchApi(`/api/bookings/my${statusFilter}`);
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
@@ -186,9 +187,8 @@ export default function BookingsPage() {
   // Cancel booking mutation
   const cancelMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/cancel`, {
         method: 'POST',
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to cancel booking');
       return res.json();
@@ -207,9 +207,8 @@ export default function BookingsPage() {
   // Accept alternative time mutation
   const acceptAlternativeMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/accept-alternative`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/accept-alternative`, {
         method: 'POST',
-        credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to accept alternative');
       return res.json();

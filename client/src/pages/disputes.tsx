@@ -5,6 +5,7 @@ import { Layout } from "@/components/layout";
 import { DisputeCenter, DisputeCard } from "@/components/disputes";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
+import { fetchApi } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,7 +55,7 @@ export default function DisputesPage() {
   const { data: disputes, isLoading, error } = useQuery<DisputeFromAPI[]>({
     queryKey: ["/api/disputes"],
     queryFn: async () => {
-      const response = await fetch("/api/disputes", { credentials: "include" });
+      const response = await fetchApi("/api/disputes");
       if (!response.ok) throw new Error("Failed to fetch disputes");
       return response.json();
     },

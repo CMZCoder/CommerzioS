@@ -30,6 +30,7 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -94,7 +95,7 @@ export default function VendorBookingsPage() {
     if (bookingId) {
       setHighlightedBookingId(bookingId);
       // Fetch the specific booking to show in detail
-      fetch(`/api/bookings/${bookingId}`, { credentials: 'include' })
+      fetchApi(`/api/bookings/${bookingId}`)
         .then(res => res.ok ? res.json() : null)
         .then(booking => {
           if (booking) {
@@ -114,7 +115,7 @@ export default function VendorBookingsPage() {
     queryKey: ['vendor-bookings', activeTab],
     queryFn: async () => {
       const statusFilter = activeTab === 'all' ? '' : `?status=${activeTab}`;
-      const res = await fetch(`/api/vendor/bookings${statusFilter}`);
+      const res = await fetchApi(`/api/vendor/bookings${statusFilter}`);
       if (!res.ok) throw new Error('Failed to fetch bookings');
       return res.json();
     },
@@ -124,7 +125,7 @@ export default function VendorBookingsPage() {
   const { data: pendingData } = useQuery({
     queryKey: ['vendor-bookings-pending-count'],
     queryFn: async () => {
-      const res = await fetch('/api/vendor/bookings/pending-count');
+      const res = await fetchApi('/api/vendor/bookings/pending-count');
       if (!res.ok) throw new Error('Failed to fetch count');
       return res.json();
     },
@@ -133,7 +134,7 @@ export default function VendorBookingsPage() {
   // Accept booking
   const acceptMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/accept`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/accept`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -157,7 +158,7 @@ export default function VendorBookingsPage() {
   // Reject booking
   const rejectMutation = useMutation({
     mutationFn: async ({ bookingId, reason }: { bookingId: string; reason: string }) => {
-      const res = await fetch(`/api/bookings/${bookingId}/reject`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -194,7 +195,7 @@ export default function VendorBookingsPage() {
       endTime: string; 
       message: string;
     }) => {
-      const res = await fetch(`/api/bookings/${bookingId}/propose-alternative`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/propose-alternative`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -226,7 +227,7 @@ export default function VendorBookingsPage() {
   // Complete booking
   const completeMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      const res = await fetch(`/api/bookings/${bookingId}/complete`, {
+      const res = await fetchApi(`/api/bookings/${bookingId}/complete`, {
         method: 'POST',
       });
       if (!res.ok) {
