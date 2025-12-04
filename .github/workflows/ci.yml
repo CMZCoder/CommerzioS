@@ -34,7 +34,7 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: npm run test -- --exclude='**/*e2e*'
+        run: npm run test -- --exclude='**/browser-e2e*' --exclude='**/*e2e*'
 
       - name: Build
         run: npm run build
