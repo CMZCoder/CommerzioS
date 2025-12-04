@@ -499,7 +499,7 @@ export async function submitProposal(
       requestId: data.serviceRequestId,
       proposalId: proposal.id,
     },
-    actionUrl: `/service-requests`,
+    actionUrl: `/service-requests?requestId=${data.serviceRequestId}&proposals=true`,
   });
 
   console.log(`[Proposal] Vendor ${vendorId} submitted proposal ${proposal.id} for request ${data.serviceRequestId}`);

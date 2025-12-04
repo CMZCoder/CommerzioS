@@ -531,12 +531,27 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   };
 
   const updateContact = (index: number, field: keyof Contact, value: string | boolean) => {
-    setFormData((prev: FormData | null) => ({
-      ...prev!,
-      contacts: prev!.contacts.map((contact: Contact, i: number) =>
-        i === index ? { ...contact, [field]: value } : contact
-      ),
-    }));
+    setFormData((prev: FormData | null) => {
+      if (!prev) return prev;
+      
+      return {
+        ...prev,
+        contacts: prev.contacts.map((contact: Contact, i: number) => {
+          if (i !== index) return contact;
+          
+          // When switching contact type, clear the value since the format is different
+          if (field === 'contactType' && typeof value === 'string' && contact.contactType !== value) {
+            return { 
+              ...contact, 
+              contactType: value as "phone" | "email", 
+              value: '' 
+            };
+          }
+          
+          return { ...contact, [field]: value };
+        }),
+      };
+    });
   };
 
   const removeContact = (index: number) => {

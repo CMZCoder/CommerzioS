@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/api";
@@ -200,6 +200,30 @@ export default function ServiceRequestsPage() {
     queryFn: () => apiRequest("/api/service-requests/mine"),
     enabled: isAuthenticated,
   });
+
+  // Handle URL parameters for deep linking to specific request (e.g., from proposal notifications)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestId = params.get('requestId');
+    const showProposals = params.get('proposals') === 'true';
+    
+    if (requestId && myRequests) {
+      // Auto-switch to my requests tab
+      setActiveTab("my-requests");
+      
+      // Clean up URL
+      window.history.replaceState({}, '', '/service-requests');
+      
+      // Find and select the request
+      const request = myRequests.find(r => r.id === requestId);
+      if (request) {
+        setSelectedRequest(request);
+        if (showProposals) {
+          setShowProposalsModal(true);
+        }
+      }
+    }
+  }, [myRequests]);
 
   // Fetch user's proposals (as vendor)
   const { data: myProposals, isLoading: loadingProposals } = useQuery<Proposal[]>({
