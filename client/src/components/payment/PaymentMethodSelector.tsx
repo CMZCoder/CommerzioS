@@ -23,7 +23,8 @@ import {
   Info,
   Star,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';\nimport { fetchApi } from '@/lib/config';
+import { cn } from '@/lib/utils';
+import { fetchApi } from '@/lib/config';
 
 export type PaymentMethod = 'card' | 'twint' | 'cash';
 

@@ -20,7 +20,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { AddressMultiInput } from "@/components/address-multi-input";
-import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff, History, AlertCircle, Plus, Edit, MoreVertical, ChevronDown, ChevronUp, Folder, Gift, TrendingUp, Award, TestTube, Play, RefreshCw, Clipboard, Copy, CheckCheck } from "lucide-react";
+import { Shield, Users, FileText, CreditCard, CheckCircle, XCircle, Trash2, Brain, Send, Loader2, Sparkles, BarChart3, Settings, Eye, EyeOff, History, AlertCircle, Plus, Edit, MoreVertical, ChevronDown, ChevronUp, Folder, Gift, TrendingUp, Award, TestTube, Play, RefreshCw, Clipboard, Copy, CheckCheck, Star, MessageSquare, Gavel } from "lucide-react";
 import type { User, Service, Plan, SubmittedCategory, Category } from "@shared/schema";
 
 interface Message {
@@ -138,7 +138,7 @@ export function AdminPage() {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-8 mb-6">
+          <TabsList className="grid w-full grid-cols-10 mb-6">
             <TabsTrigger value="users" data-testid="tab-users">
               <Users className="w-4 h-4 mr-2" />
               Users
@@ -146,6 +146,14 @@ export function AdminPage() {
             <TabsTrigger value="services" data-testid="tab-services">
               <FileText className="w-4 h-4 mr-2" />
               Services
+            </TabsTrigger>
+            <TabsTrigger value="disputes" data-testid="tab-disputes">
+              <Gavel className="w-4 h-4 mr-2" />
+              Disputes
+            </TabsTrigger>
+            <TabsTrigger value="reviews" data-testid="tab-reviews">
+              <Star className="w-4 h-4 mr-2" />
+              Reviews
             </TabsTrigger>
             <TabsTrigger value="categories" data-testid="tab-categories">
               <Folder className="w-4 h-4 mr-2" />
@@ -179,6 +187,14 @@ export function AdminPage() {
 
           <TabsContent value="services">
             <ServicesManagement />
+          </TabsContent>
+
+          <TabsContent value="disputes">
+            <DisputesManagement />
+          </TabsContent>
+
+          <TabsContent value="reviews">
+            <ReviewsManagement />
           </TabsContent>
 
           <TabsContent value="categories">
@@ -357,11 +373,18 @@ function UsersManagement() {
                     {getStatusBadge(user.status)}
                   </TableCell>
                   <TableCell>
-                    {user.isVerified ? (
-                      <Badge variant="secondary" className="bg-green-100 text-green-700">Verified</Badge>
-                    ) : (
-                      <Badge variant="secondary">Not Verified</Badge>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={user.isVerified || false}
+                        onCheckedChange={(checked) => 
+                          updateUserMutation.mutate({ id: user.id, data: { isVerified: checked } })
+                        }
+                        data-testid={`switch-verified-${user.id}`}
+                      />
+                      <span className={user.isVerified ? "text-green-600 text-xs" : "text-muted-foreground text-xs"}>
+                        {user.isVerified ? "Verified" : "Not Verified"}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {user.isAdmin ? (
@@ -2851,6 +2874,8 @@ function ReferralManagement() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/referral"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setAdjustPointsDialog(null);
       setAdjustmentForm({ userId: "", points: 0, reason: "" });
       toast({
@@ -3855,6 +3880,318 @@ function TestUsersManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// Disputes Management Component
+function DisputesManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedDispute, setSelectedDispute] = useState<any>(null);
+  const [resolveDialog, setResolveDialog] = useState(false);
+  const [resolution, setResolution] = useState<"customer" | "vendor" | "split">("vendor");
+  const [refundPercentage, setRefundPercentage] = useState(50);
+  const [notes, setNotes] = useState("");
+
+  const { data: disputes = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/disputes"],
+    queryFn: () => apiRequest("/api/admin/disputes"),
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: (data: { disputeId: string; resolution: string; refundPercentage?: number; notes: string }) =>
+      apiRequest(`/api/admin/disputes/${data.disputeId}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({
+          resolution: data.resolution,
+          refundPercentage: data.resolution === "split" ? data.refundPercentage : undefined,
+          notes: data.notes,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/disputes"] });
+      setResolveDialog(false);
+      setSelectedDispute(null);
+      setNotes("");
+      toast({ title: "Success", description: "Dispute resolved successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to resolve dispute", variant: "destructive" });
+    },
+  });
+
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; className: string }> = {
+      open: { variant: "default", className: "bg-yellow-100 text-yellow-800" },
+      under_review: { variant: "secondary", className: "bg-blue-100 text-blue-800" },
+      resolved: { variant: "default", className: "bg-green-100 text-green-800" },
+      closed: { variant: "outline", className: "" },
+    };
+    const config = variants[status] || variants.open;
+    return <Badge variant={config.variant} className={config.className}>{status.replace("_", " ")}</Badge>;
+  };
+
+  if (isLoading) return <div className="text-center py-8">Loading disputes...</div>;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Gavel className="w-5 h-5" />
+            Dispute Management
+          </CardTitle>
+          <CardDescription>Review and resolve customer-vendor disputes</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {disputes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Gavel className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No disputes found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Booking</TableHead>
+                  <TableHead>Raised By</TableHead>
+                  <TableHead>Reason</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {disputes.map((item: any) => (
+                  <TableRow key={item.dispute?.id || item.id}>
+                    <TableCell className="font-mono text-xs">{(item.dispute?.id || item.id)?.slice(0, 8)}...</TableCell>
+                    <TableCell>{item.booking?.bookingNumber || "N/A"}</TableCell>
+                    <TableCell>
+                      {item.raisedByUser?.firstName} {item.raisedByUser?.lastName}
+                      <br />
+                      <span className="text-xs text-muted-foreground">{item.raisedByUser?.email}</span>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">{item.dispute?.reason || item.reason}</TableCell>
+                    <TableCell>{getStatusBadge(item.dispute?.status || item.status)}</TableCell>
+                    <TableCell>CHF {parseFloat(item.escrowTx?.amount || item.amount || "0").toFixed(2)}</TableCell>
+                    <TableCell className="text-sm">
+                      {item.dispute?.createdAt || item.createdAt ? new Date(item.dispute?.createdAt || item.createdAt).toLocaleDateString() : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedDispute(item);
+                            setResolveDialog(true);
+                          }}
+                          disabled={(item.dispute?.status || item.status) === "resolved"}
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          Resolve
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Resolve Dialog */}
+      <Dialog open={resolveDialog} onOpenChange={setResolveDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Resolve Dispute</DialogTitle>
+            <DialogDescription>
+              Review the dispute details and provide a resolution.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDispute && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-muted-foreground">Reason</Label>
+                  <p className="font-medium">{selectedDispute.dispute?.reason || selectedDispute.reason}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Amount</Label>
+                  <p className="font-medium">CHF {parseFloat(selectedDispute.escrowTx?.amount || selectedDispute.amount || "0").toFixed(2)}</p>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Description</Label>
+                <p className="text-sm mt-1">{selectedDispute.dispute?.description || selectedDispute.description || "No description provided"}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Resolution</Label>
+                <Select value={resolution} onValueChange={(v: any) => setResolution(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">Full refund to customer</SelectItem>
+                    <SelectItem value="vendor">Release to vendor</SelectItem>
+                    <SelectItem value="split">Split refund</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {resolution === "split" && (
+                <div className="space-y-2">
+                  <Label>Refund to Customer: {refundPercentage}%</Label>
+                  <Input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={refundPercentage}
+                    onChange={(e) => setRefundPercentage(parseInt(e.target.value))}
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Resolution Notes</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Enter notes about the resolution..."
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResolveDialog(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (selectedDispute) {
+                  resolveMutation.mutate({
+                    disputeId: selectedDispute.dispute?.id || selectedDispute.id,
+                    resolution,
+                    refundPercentage,
+                    notes,
+                  });
+                }
+              }}
+              disabled={resolveMutation.isPending}
+            >
+              {resolveMutation.isPending ? "Resolving..." : "Resolve Dispute"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Reviews Management Component
+function ReviewsManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedReview, setSelectedReview] = useState<any>(null);
+
+  const { data: reviews = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/reviews"],
+    queryFn: () => apiRequest("/api/admin/reviews"),
+  });
+
+  const deleteReviewMutation = useMutation({
+    mutationFn: (reviewId: string) =>
+      apiRequest(`/api/admin/reviews/${reviewId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/reviews"] });
+      toast({ title: "Success", description: "Review deleted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete review", variant: "destructive" });
+    },
+  });
+
+  if (isLoading) return <div className="text-center py-8">Loading reviews...</div>;
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="w-5 h-5" />
+            Reviews Management
+          </CardTitle>
+          <CardDescription>Moderate and manage user reviews</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {reviews.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Star className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No reviews found</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Reviewer</TableHead>
+                  <TableHead>Rating</TableHead>
+                  <TableHead>Comment</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reviews.map((review: any) => (
+                  <TableRow key={review.id}>
+                    <TableCell className="max-w-[150px] truncate">{review.service?.title || "N/A"}</TableCell>
+                    <TableCell>
+                      {review.user?.firstName} {review.user?.lastName}
+                      <br />
+                      <span className="text-xs text-muted-foreground">{review.user?.email}</span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                        <span>{review.rating}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">{review.comment || "No comment"}</TableCell>
+                    <TableCell>
+                      {review.hasRemovalRequest ? (
+                        <Badge variant="destructive">Removal Requested</Badge>
+                      ) : review.vendorResponse ? (
+                        <Badge variant="outline">Has Response</Badge>
+                      ) : (
+                        <Badge variant="secondary">Active</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => {
+                            if (confirm("Are you sure you want to delete this review?")) {
+                              deleteReviewMutation.mutate(review.id);
+                            }
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, desc } from "drizzle-orm";
 import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
@@ -943,7 +943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch('/api/admin/users/:id', isAdmin, async (req, res) => {
     try {
-      const { isAdmin: adminFlag, planId } = req.body;
+      const { isAdmin: adminFlag, planId, isVerified, emailVerified } = req.body;
       
       if (adminFlag !== undefined) {
         await storage.updateUserAdmin(req.params.id, adminFlag);
@@ -951,6 +951,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (planId !== undefined) {
         await storage.updateUserPlan(req.params.id, planId);
+      }
+      
+      // Allow admin to toggle verification status
+      if (isVerified !== undefined) {
+        await storage.updateUserVerification(req.params.id, isVerified);
+      }
+      
+      // Allow admin to toggle email verification status
+      if (emailVerified !== undefined) {
+        await db.update(users)
+          .set({ emailVerified, updatedAt: new Date() })
+          .where(eq(users.id, req.params.id));
       }
       
       const user = await storage.getUser(req.params.id);
@@ -1454,7 +1466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const status = {
         twilioConfigured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN),
-        emailConfigured: !!(process.env.EMAIL_SERVICE_PROVIDER && process.env.EMAIL_SERVICE_API_KEY),
+        emailConfigured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD),
         googleMapsConfigured: !!process.env.GOOGLE_MAPS_API_KEY,
       };
       res.json(status);
@@ -2791,6 +2803,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error processing removal request:", error);
       res.status(500).json({ message: "Failed to process removal request" });
+    }
+  });
+
+  // ===========================================
+  // ADMIN REVIEWS ROUTES
+  // ===========================================
+  
+  // Admin: Get all reviews
+  app.get('/api/admin/reviews', isAdmin, async (req, res) => {
+    try {
+      const allReviews = await db.select({
+        id: reviews.id,
+        serviceId: reviews.serviceId,
+        userId: reviews.userId,
+        rating: reviews.rating,
+        comment: reviews.comment,
+        vendorResponse: reviews.vendorResponse,
+        createdAt: reviews.createdAt,
+      }).from(reviews).orderBy(desc(reviews.createdAt));
+
+      // Check if review has removal request (for "flagged" status)
+      const removalRequests = await db.select({
+        reviewId: reviewRemovalRequests.reviewId,
+        status: reviewRemovalRequests.status,
+      }).from(reviewRemovalRequests).where(eq(reviewRemovalRequests.status, 'pending'));
+      
+      const flaggedReviewIds = new Set(removalRequests.map(r => r.reviewId));
+
+      // Fetch user and service details
+      const enrichedReviews = await Promise.all(allReviews.map(async (review) => {
+        const [user] = await db.select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          email: users.email,
+        }).from(users).where(eq(users.id, review.userId)).limit(1);
+        
+        const [service] = await db.select({
+          id: services.id,
+          title: services.title,
+        }).from(services).where(eq(services.id, review.serviceId)).limit(1);
+        
+        return { 
+          ...review, 
+          user, 
+          service,
+          hasRemovalRequest: flaggedReviewIds.has(review.id),
+        };
+      }));
+
+      res.json(enrichedReviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Admin: Delete review
+  app.delete('/api/admin/reviews/:reviewId', isAdmin, async (req, res) => {
+    try {
+      // Also delete any removal requests for this review
+      await db.delete(reviewRemovalRequests).where(eq(reviewRemovalRequests.reviewId, req.params.reviewId));
+      await db.delete(reviews).where(eq(reviews.id, req.params.reviewId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      res.status(500).json({ message: "Failed to delete review" });
     }
   });
 
