@@ -3921,10 +3921,11 @@ function DisputesManagement() {
   const [refundPercentage, setRefundPercentage] = useState(50);
   const [notes, setNotes] = useState("");
 
-  const { data: disputes = [], isLoading } = useQuery<any[]>({
+  const { data: disputesData, isLoading } = useQuery<{ disputes: any[] }>({
     queryKey: ["/api/admin/disputes"],
     queryFn: () => apiRequest("/api/admin/disputes"),
   });
+  const disputes = disputesData?.disputes || [];
 
   const resolveMutation = useMutation({
     mutationFn: (data: { disputeId: string; resolution: string; refundPercentage?: number; notes: string }) =>

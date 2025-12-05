@@ -800,7 +800,7 @@ export async function acceptProposal(
 export async function getProposalsForRequest(
   requestId: string,
   customerId: string
-): Promise<Array<Proposal & { vendor: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null; averageRating: string | null } }>> {
+): Promise<Array<Proposal & { vendor: { id: string; firstName: string | null; lastName: string | null; profileImageUrl: string | null; averageRating: string | null }; linkedService: { id: string; title: string; price: string | null; images: string[]; rating: string | null } | null }>> {
   // Verify customer owns the request
   const [request] = await db
     .select()
@@ -829,10 +829,17 @@ export async function getProposalsForRequest(
       vendorStats: {
         averageRating: vendorStats.averageRating,
       },
+      linkedService: {
+        id: services.id,
+        title: services.title,
+        price: services.price,
+        images: services.images,
+      },
     })
     .from(proposals)
     .innerJoin(users, eq(proposals.vendorId, users.id))
     .leftJoin(vendorStats, eq(proposals.vendorId, vendorStats.userId))
+    .leftJoin(services, eq(proposals.serviceId, services.id))
     .where(eq(proposals.serviceRequestId, requestId))
     .orderBy(desc(proposals.createdAt));
 
@@ -842,6 +849,10 @@ export async function getProposalsForRequest(
       ...r.vendor,
       averageRating: r.vendorStats?.averageRating || null,
     },
+    linkedService: r.linkedService?.id ? {
+      ...r.linkedService,
+      rating: null, // We'll calculate this separately if needed
+    } : null,
   }));
 }
 

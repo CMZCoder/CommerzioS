@@ -254,7 +254,7 @@ async function notifyVendorOfTip(tip: typeof tips.$inferSelect) {
     type: 'tip',
     title: 'You received a tip! 🎉',
     message: `${customer?.firstName || 'A customer'} left you a CHF ${tip.amount} tip${tip.message ? `: "${tip.message}"` : ''}`,
-    actionUrl: `/bookings/${tip.bookingId}`,
+    actionUrl: `/my-bookings?booking=${tip.bookingId}`,
     metadata: {
       tipId: tip.id,
       bookingId: tip.bookingId,

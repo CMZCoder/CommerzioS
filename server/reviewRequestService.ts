@@ -39,7 +39,7 @@ export async function sendPendingReviewRequests(): Promise<number> {
         type: 'review',
         title: 'How was your experience?',
         message: 'Please take a moment to leave a review for the service you received.',
-        actionUrl: `/bookings/${booking.id}/review`,
+        actionUrl: `/bookings?booking=${booking.id}&review=true`,
         relatedEntityId: booking.id,
         relatedEntityType: 'booking',
       });

@@ -2,7 +2,7 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRoute, useLocation, Link, useSearch } from "wouter";
-import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation, MessageSquare, CalendarPlus, Copy, MessageCircle, Reply, Send } from "lucide-react";
+import { Star, MapPin, CheckCircle2, Calendar, ShieldCheck, Flag, Share2, Heart, Lock, Hash, Navigation, MessageSquare, CalendarPlus, Copy, MessageCircle, Reply, Send, AlertCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -327,7 +327,27 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   return (
     <Layout>
       <div className="bg-slate-50 min-h-screen pb-20">
-        {/* Header/Breadcrumb area could go here */}
+        {/* Archived/Inactive Service Banner */}
+        {(service.status === "expired" || service.status === "paused") && (
+          <div className="bg-amber-50 border-b border-amber-200">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center gap-3 text-amber-800">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <div>
+                  <p className="font-medium">
+                    {service.status === "expired" ? "This service listing has expired" : "This service is currently paused"}
+                  </p>
+                  <p className="text-sm text-amber-700">
+                    This is an archived preview. The vendor is no longer accepting new bookings for this service.
+                    {service.owner && (
+                      <> You can <Link href={`/users/${service.owner.id}`} className="underline font-medium">view the vendor's profile</Link> to see their other services.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -501,26 +521,35 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 
                   <div className="space-y-3">
                     {/* Book Now Button */}
-                    <Button 
-                      size="lg" 
-                      className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20 gap-2" 
-                      onClick={() => {
-                        if (!isAuthenticated) {
-                          toast({
-                            title: "Sign in required",
-                            description: "Please sign in to book this service",
-                            variant: "destructive"
-                          });
-                          setLocation("/login");
-                          return;
-                        }
-                        // Navigate to booking page or open booking modal
-                        setLocation(`/service/${serviceId}/book`);
-                      }}
-                    >
-                      <CalendarPlus className="w-5 h-5" />
-                      Book Now
-                    </Button>
+                    {service.status === "active" ? (
+                      <Button 
+                        size="lg" 
+                        className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20 gap-2" 
+                        onClick={() => {
+                          if (!isAuthenticated) {
+                            toast({
+                              title: "Sign in required",
+                              description: "Please sign in to book this service",
+                              variant: "destructive"
+                            });
+                            setLocation("/login");
+                            return;
+                          }
+                          // Navigate to booking page or open booking modal
+                          setLocation(`/service/${serviceId}/book`);
+                        }}
+                      >
+                        <CalendarPlus className="w-5 h-5" />
+                        Book Now
+                      </Button>
+                    ) : (
+                      <div className="p-4 rounded-lg bg-muted text-center">
+                        <AlertCircle className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground font-medium">
+                          Booking unavailable - this listing is {service.status}
+                        </p>
+                      </div>
+                    )}
                     
                     {/* Message Button */}
                     <Button 

@@ -3975,7 +3975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'payment',
         title: 'Refund Processed',
         message: 'The vendor has processed your TWINT refund request. The funds will be returned to your account.',
-        actionUrl: `/bookings/${bookingId}`,
+        actionUrl: `/bookings?booking=${bookingId}`,
         relatedEntityId: bookingId,
         relatedEntityType: 'booking',
       });
@@ -4019,7 +4019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'payment',
         title: 'Refund Request Declined',
         message: `Your refund request was declined by the vendor.${reason ? ` Reason: ${reason}` : ''}`,
-        actionUrl: `/bookings/${bookingId}`,
+        actionUrl: `/bookings?booking=${bookingId}`,
         relatedEntityId: bookingId,
         relatedEntityType: 'booking',
       });
@@ -4277,7 +4277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         type: 'payment',
         title: 'Partial Refund Issued',
         message: `You have received a partial refund of CHF ${amount.toFixed(2)}. ${reason || ''}`,
-        actionUrl: `/bookings/${bookingId}`,
+        actionUrl: `/bookings?booking=${bookingId}`,
         relatedEntityId: bookingId,
         relatedEntityType: 'booking',
       });

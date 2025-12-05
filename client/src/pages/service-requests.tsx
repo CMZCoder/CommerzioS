@@ -174,6 +174,14 @@ export default function ServiceRequestsPage() {
     paymentMethod: "card" as "card" | "twint" | "cash",
     paymentTiming: "upfront" as "upfront" | "on_completion",
     estimatedDuration: "",
+    serviceId: "" as string | null,  // Link to vendor's own service
+  });
+
+  // Fetch vendor's own services (for linking to proposals)
+  const { data: myServices = [] } = useQuery<any[]>({
+    queryKey: ["my-services", user?.id],
+    queryFn: () => user ? apiRequest(`/api/users/${user.id}/services`) : Promise.resolve([]),
+    enabled: !!user && activeTab === "browse",
   });
 
   // Build query params for fetching requests
@@ -304,6 +312,7 @@ export default function ServiceRequestsPage() {
         paymentMethod: "card",
         paymentTiming: "upfront",
         estimatedDuration: "",
+        serviceId: null,
       });
     },
     onError: (error: any) => {
@@ -437,17 +446,26 @@ export default function ServiceRequestsPage() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="browse">
-              Browse Requests
-              {openRequests?.total ? <Badge variant="secondary" className="ml-2">{openRequests.total}</Badge> : null}
+            <TabsTrigger value="browse" className="flex flex-col items-center gap-0.5 py-2">
+              <span className="flex items-center gap-1">
+                Browse Requests
+                {openRequests?.total ? <Badge variant="secondary" className="ml-1">{openRequests.total}</Badge> : null}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal">Find jobs</span>
             </TabsTrigger>
-            <TabsTrigger value="my-requests">
-              My Requests
-              {myRequests?.length ? <Badge variant="secondary" className="ml-2">{myRequests.length}</Badge> : null}
+            <TabsTrigger value="my-requests" className="flex flex-col items-center gap-0.5 py-2">
+              <span className="flex items-center gap-1">
+                My Requests
+                {myRequests?.length ? <Badge variant="secondary" className="ml-1">{myRequests.length}</Badge> : null}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal">View proposals received</span>
             </TabsTrigger>
-            <TabsTrigger value="my-proposals">
-              My Proposals
-              {myProposals?.length ? <Badge variant="secondary" className="ml-2">{myProposals.length}</Badge> : null}
+            <TabsTrigger value="my-proposals" className="flex flex-col items-center gap-0.5 py-2">
+              <span className="flex items-center gap-1">
+                Sent Proposals
+                {myProposals?.length ? <Badge variant="secondary" className="ml-1">{myProposals.length}</Badge> : null}
+              </span>
+              <span className="text-[10px] text-muted-foreground font-normal">Proposals I submitted</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1012,6 +1030,36 @@ export default function ServiceRequestsPage() {
                 onChange={(e) => setNewProposal({ ...newProposal, estimatedDuration: e.target.value })}
               />
             </div>
+
+            {/* Link a Service (Optional) */}
+            {myServices.length > 0 && (
+              <div className="space-y-2">
+                <Label>Link Your Service (Optional)</Label>
+                <Select
+                  value={newProposal.serviceId || ""}
+                  onValueChange={(value) => 
+                    setNewProposal({ ...newProposal, serviceId: value || null })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a service to recommend..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No linked service</SelectItem>
+                    {myServices
+                      .filter((s: any) => s.status === "active")
+                      .map((service: any) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.title} - CHF {service.price}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Linking a service shows the customer your relevant listing and builds trust.
+                </p>
+              </div>
+            )}
             
             <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg text-amber-800 text-sm">
               <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -1089,6 +1137,37 @@ export default function ServiceRequestsPage() {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Clock className="w-4 h-4" />
                         {proposal.estimatedDuration}
+                      </div>
+                    )}
+                    
+                    {/* Linked Service */}
+                    {(proposal as any).linkedService && (
+                      <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Recommended Service</p>
+                        <a 
+                          href={`/service/${(proposal as any).linkedService.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 hover:bg-muted rounded-lg transition-colors"
+                        >
+                          {(proposal as any).linkedService.images?.[0] ? (
+                            <img 
+                              src={(proposal as any).linkedService.images[0]} 
+                              alt={(proposal as any).linkedService.title}
+                              className="w-12 h-12 rounded object-cover"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded bg-muted flex items-center justify-center">
+                              <Eye className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{(proposal as any).linkedService.title}</p>
+                            {(proposal as any).linkedService.price && (
+                              <p className="text-xs text-muted-foreground">CHF {(proposal as any).linkedService.price}</p>
+                            )}
+                          </div>
+                        </a>
                       </div>
                     )}
                   </CardContent>
