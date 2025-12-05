@@ -79,6 +79,18 @@ export function SearchAutocomplete() {
     setLocation(`/service/${serviceId}`);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setIsOpen(false);
+      if (query.trim()) {
+        setLocation(`/search?q=${encodeURIComponent(query.trim())}`);
+        setQuery("");
+        setResults([]);
+      }
+    }
+  };
+
   return (
     <div ref={searchRef} className="relative w-full max-w-md" data-testid="search-autocomplete">
       <div className="relative">
@@ -88,6 +100,7 @@ export function SearchAutocomplete() {
           placeholder="Search services..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
           onFocus={() => {
             if (results.length > 0) setIsOpen(true);
           }}
@@ -116,6 +129,10 @@ export function SearchAutocomplete() {
               </div>
             </button>
           ))}
+          <div className="px-4 py-2 text-xs text-muted-foreground bg-slate-50 border-t flex items-center justify-between">
+            <span>Press <kbd className="px-1.5 py-0.5 rounded bg-slate-200 font-mono text-[10px]">Enter</kbd> to see all results</span>
+            <span>{results.length} suggestions</span>
+          </div>
         </div>
       )}
     </div>

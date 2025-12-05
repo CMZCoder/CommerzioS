@@ -1904,29 +1904,46 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   </button>
 
                   {showAccountPlans && (
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Professional Badge */}
-                      <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-                        <div className="font-semibold text-amber-900 dark:text-amber-100">Professional Badge</div>
-                        <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-2">CHF 5/mo</div>
-                        <ul className="text-sm text-amber-800 dark:text-amber-200 mt-3 space-y-1">
-                          <li>✓ Badge on all services</li>
-                          <li>✓ Build trust & credibility</li>
-                          <li>✓ Higher customer confidence</li>
-                          <li>✓ Account-wide visibility boost</li>
-                        </ul>
-                      </div>
+                    <div className="mt-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Professional Badge */}
+                        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+                          <div className="font-semibold text-amber-900 dark:text-amber-100">Professional Badge</div>
+                          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-2">CHF 5/mo</div>
+                          <ul className="text-sm text-amber-800 dark:text-amber-200 mt-3 space-y-1">
+                            <li>✓ Badge on all services</li>
+                            <li>✓ Build trust & credibility</li>
+                            <li>✓ Higher customer confidence</li>
+                            <li>✓ Account-wide visibility boost</li>
+                          </ul>
+                        </div>
 
-                      {/* Pro Account */}
-                      <div className="p-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950 dark:border-purple-800">
-                        <div className="font-semibold text-purple-900 dark:text-purple-100">Pro Account</div>
-                        <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-2">CHF 29/mo</div>
-                        <ul className="text-sm text-purple-800 dark:text-purple-200 mt-3 space-y-1">
-                          <li>✓ Everything in Professional</li>
-                          <li>✓ Featured in category</li>
-                          <li>✓ Priority customer support</li>
-                          <li>✓ Advanced analytics (coming soon)</li>
-                        </ul>
+                        {/* Pro Account */}
+                        <div className="p-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950 dark:border-purple-800">
+                          <div className="font-semibold text-purple-900 dark:text-purple-100">Pro Account</div>
+                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-2">CHF 29/mo</div>
+                          <ul className="text-sm text-purple-800 dark:text-purple-200 mt-3 space-y-1">
+                            <li>✓ Everything in Professional</li>
+                            <li>✓ Featured in category</li>
+                            <li>✓ Priority customer support</li>
+                            <li>✓ Advanced analytics (coming soon)</li>
+                          </ul>
+                        </div>
+                      </div>
+                      {/* CTA Button to Plans Page */}
+                      <div className="text-center pt-2">
+                        <Link href="/plans">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="gap-2"
+                            data-testid="button-view-all-plans"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            View All Plans & Subscribe
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                   )}
@@ -2032,7 +2049,14 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   ) : formProgress.isComplete ? (
                     "Publish Service"
                   ) : (
-                    `Complete ${(formProgress.total || 0) - (formProgress.completed || 0)} more steps`
+                    <>
+                      <span className="hidden sm:inline">
+                        Missing: {formProgress.steps.filter(s => !s.done).map(s => s.label).join(', ')}
+                      </span>
+                      <span className="sm:hidden">
+                        {formProgress.steps.filter(s => !s.done).length} steps left
+                      </span>
+                    </>
                   )
                 )}
               </Button>

@@ -773,6 +773,40 @@ export const reviewsRelations = relations(reviews, ({ one }) => ({
   }),
 }));
 
+// Customer Reviews - vendors review customers after completed bookings
+export const customerReviews = pgTable("customer_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  vendorId: varchar("vendor_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  customerId: varchar("customer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  bookingId: varchar("booking_id").notNull().references(() => bookings.id, { onDelete: "cascade" }).unique(),
+  rating: integer("rating").notNull(),
+  comment: text("comment").notNull(),
+  editCount: integer("edit_count").default(0).notNull(),
+  lastEditedAt: timestamp("last_edited_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_customer_reviews_vendor").on(table.vendorId),
+  index("idx_customer_reviews_customer").on(table.customerId),
+  index("idx_customer_reviews_booking").on(table.bookingId),
+]);
+
+export const customerReviewsRelations = relations(customerReviews, ({ one }) => ({
+  vendor: one(users, {
+    fields: [customerReviews.vendorId],
+    references: [users.id],
+    relationName: "vendorCustomerReviews",
+  }),
+  customer: one(users, {
+    fields: [customerReviews.customerId],
+    references: [users.id],
+    relationName: "customerReceivedReviews",
+  }),
+  booking: one(bookings, {
+    fields: [customerReviews.bookingId],
+    references: [bookings.id],
+  }),
+}));
+
 // Favorites table (bonus feature)
 export const favorites = pgTable("favorites", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -826,6 +860,9 @@ export type InsertAiConversation = typeof aiConversations.$inferInsert;
 
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = typeof reviews.$inferInsert;
+
+export type CustomerReview = typeof customerReviews.$inferSelect;
+export type InsertCustomerReview = typeof customerReviews.$inferInsert;
 
 export type Favorite = typeof favorites.$inferSelect;
 export type InsertFavorite = typeof favorites.$inferInsert;
@@ -1846,6 +1883,10 @@ export const chatConversations = pgTable("chat_conversations", {
   index("idx_chat_conversations_booking").on(table.bookingId),
   index("idx_chat_conversations_order").on(table.orderId),
   index("idx_chat_conversations_last_message").on(table.lastMessageAt),
+  // Unique constraint to prevent duplicate conversations between same parties for same service
+  // Note: This only prevents duplicates with the same serviceId - conversations with NULL serviceId
+  // are considered general inquiries and should also be unique per customer-vendor pair
+  unique("unique_active_conversation").on(table.customerId, table.vendorId, table.serviceId).nullsNotDistinct(),
 ]);
 
 export const chatConversationsRelations = relations(chatConversations, ({ one, many }) => ({

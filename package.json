@@ -24,7 +24,8 @@
     "lint:fix": "eslint client/src server shared --ext .ts,.tsx --fix",
     "db:push": "dotenv -e .env -- drizzle-kit push",
     "db:studio": "dotenv -e .env -- drizzle-kit studio",
-    "db:reset": "dotenv -e .env -- cross-env NODE_ENV=development tsx scripts/reset-and-seed.ts"
+    "db:reset": "dotenv -e .env -- cross-env NODE_ENV=development tsx scripts/reset-and-seed.ts",
+    "db:seed-marcel": "dotenv -e .env -- tsx scripts/seed-marcel-test-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.943.0",

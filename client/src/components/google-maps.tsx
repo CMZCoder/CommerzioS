@@ -11,6 +11,10 @@ interface GoogleMapsProps {
   maxServices?: number;
   defaultExpanded?: boolean;
   apiKey?: string;
+  /** Controlled expanded state - if provided, component becomes controlled */
+  isExpanded?: boolean;
+  /** Callback when expanded state changes - only called in controlled mode */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 interface GoogleMapsWindow extends Window {
@@ -23,9 +27,21 @@ export function GoogleMaps({
   maxServices = 5,
   defaultExpanded = false,
   apiKey,
+  isExpanded: controlledExpanded,
+  onExpandedChange,
 }: GoogleMapsProps) {
   // All hooks must be called at the top, before any conditional returns
-  const [isMapVisible, setIsMapVisible] = useState(defaultExpanded);
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
+  
+  // Use controlled state if provided, otherwise use internal state
+  const isControlled = controlledExpanded !== undefined;
+  const isMapVisible = isControlled ? controlledExpanded : internalExpanded;
+  const setIsMapVisible = isControlled 
+    ? (value: boolean | ((prev: boolean) => boolean)) => {
+        const newValue = typeof value === 'function' ? value(isMapVisible) : value;
+        onExpandedChange?.(newValue);
+      }
+    : setInternalExpanded;
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);

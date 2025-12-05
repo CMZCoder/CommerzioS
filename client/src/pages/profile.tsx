@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote, CalendarDays, Lock } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, CheckCircle, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, MessageSquare, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote, CalendarDays, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -139,7 +139,8 @@ export default function Profile() {
   const [reviewBackTarget, setReviewBackTarget] = useState<{ userId: string; userName: string; reviewId: string } | null>(null);
   const [reviewBackRating, setReviewBackRating] = useState(5);
   const [reviewBackText, setReviewBackText] = useState("");
-  const [reviewBackServiceId, setReviewBackServiceId] = useState<string | null>(null);
+  const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
+  const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
 
   const { data: myServices = [], isLoading: servicesLoading } = useQuery<ServiceWithDetails[]>({
     queryKey: ["/api/services", { ownerId: user?.id }],
@@ -159,20 +160,114 @@ export default function Profile() {
     enabled: isAuthenticated,
   });
 
-  // Fetch services the vendor provided to the reviewer through bookings (for "Review back" feature)
-  // This shows services the customer actually booked, regardless of whether they're still active
-  const { data: reviewerServices = [], isLoading: reviewerServicesLoading } = useQuery<ServiceWithDetails[]>({
-    queryKey: ["/api/services/booked-by", reviewBackTarget?.userId],
-    queryFn: () => apiRequest(`/api/services/booked-by/${reviewBackTarget?.userId}`),
-    enabled: !!reviewBackTarget?.userId && showReviewBackModal,
+  // Reviews the user has given on services
+  const { data: givenReviews = [] } = useQuery<Array<any>>({
+    queryKey: ["/api/users/me/reviews-given"],
+    queryFn: () => apiRequest("/api/users/me/reviews-given"),
+    enabled: isAuthenticated,
   });
 
-  // Mutation to create review
-  const createReviewBackMutation = useMutation({
-    mutationFn: async ({ serviceId, rating, comment }: { serviceId: string; rating: number; comment: string }) => {
-      return apiRequest(`/api/services/${serviceId}/reviews`, {
+  // Completed bookings where user can leave a service review (as customer)
+  const { data: bookingsToReviewService = [] } = useQuery<Array<any>>({
+    queryKey: ["/api/users/me/bookings-to-review-service"],
+    queryFn: () => apiRequest("/api/users/me/bookings-to-review-service"),
+    enabled: isAuthenticated,
+  });
+
+  // Completed bookings where vendor can review customer
+  const { data: bookingsToReviewCustomer = [] } = useQuery<Array<any>>({
+    queryKey: ["/api/users/me/bookings-to-review"],
+    queryFn: () => apiRequest("/api/users/me/bookings-to-review"),
+    enabled: isAuthenticated,
+  });
+
+  // Customer reviews the vendor has given
+  const { data: customerReviewsGiven = [] } = useQuery<Array<any>>({
+    queryKey: ["/api/users/me/customer-reviews-given"],
+    queryFn: () => apiRequest("/api/users/me/customer-reviews-given"),
+    enabled: isAuthenticated,
+  });
+
+  // Completed bookings on vendor's services awaiting customer review
+  const { data: bookingsPendingReview = [] } = useQuery<Array<any>>({
+    queryKey: ["/api/users/me/bookings-pending-review"],
+    queryFn: () => apiRequest("/api/users/me/bookings-pending-review"),
+    enabled: isAuthenticated,
+  });
+
+  // Stripe Connect status
+  const { data: connectStatus, isLoading: connectStatusLoading, refetch: refetchConnectStatus } = useQuery<{
+    hasAccount: boolean;
+    isOnboarded: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+  }>({
+    queryKey: ["/api/payments/connect/status"],
+    queryFn: () => apiRequest("/api/payments/connect/status"),
+    enabled: isAuthenticated,
+  });
+
+  // Create Stripe Connect account mutation
+  const createConnectAccountMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/payments/connect/create", { method: "POST" });
+    },
+    onSuccess: (data: any) => {
+      if (data.onboardingUrl) {
+        window.location.href = data.onboardingUrl;
+      } else {
+        toast({
+          title: "Account Ready",
+          description: "Your Stripe Connect account is already set up.",
+        });
+        refetchConnectStatus();
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create payment account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to create customer review (vendor reviews customer)
+  const createCustomerReviewMutation = useMutation({
+    mutationFn: async ({ bookingId, rating, comment }: { bookingId: string; rating: number; comment: string }) => {
+      return apiRequest(`/api/bookings/${bookingId}/customer-review`, {
         method: "POST",
         body: JSON.stringify({ rating, comment }),
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Review Posted!",
+        description: "Your review of the customer has been submitted.",
+      });
+      setShowReviewBackModal(false);
+      setReviewBackTarget(null);
+      setReviewBackRating(5);
+      setReviewBackText("");
+      setReviewBackBookingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/customer-reviews-given"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/bookings-to-review"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit review",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to create service review (customer reviews service)  
+  const createServiceReviewMutation = useMutation({
+    mutationFn: async ({ serviceId, bookingId, rating, comment }: { serviceId: string; bookingId?: string; rating: number; comment: string }) => {
+      return apiRequest(`/api/services/${serviceId}/reviews`, {
+        method: "POST",
+        body: JSON.stringify({ rating, comment, bookingId }),
       });
     },
     onSuccess: () => {
@@ -184,8 +279,9 @@ export default function Profile() {
       setReviewBackTarget(null);
       setReviewBackRating(5);
       setReviewBackText("");
-      setReviewBackServiceId(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/users/me/reviews-received"] });
+      setReviewBackBookingId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/reviews-given"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users/me/bookings-to-review-service"] });
     },
     onError: (error: Error) => {
       toast({
@@ -736,7 +832,7 @@ export default function Profile() {
             }} 
             className="w-full"
           >
-            <TabsList className="mb-6 bg-white p-1 border border-border">
+            <TabsList className="mb-6 bg-white p-1 border border-border flex-wrap">
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="services" data-testid="tab-my-services">My Listings</TabsTrigger>
               <TabsTrigger value="bookings" data-testid="tab-my-bookings" className="gap-1">
@@ -744,6 +840,10 @@ export default function Profile() {
                 My Bookings
               </TabsTrigger>
               <TabsTrigger value="reviews" data-testid="tab-reviews">Reviews ({receivedReviews.length})</TabsTrigger>
+              <TabsTrigger value="payments" data-testid="tab-payments" className="gap-1">
+                <Banknote className="w-3 h-3" />
+                Payments
+              </TabsTrigger>
               <TabsTrigger value="referrals" data-testid="tab-referrals" className="gap-1">
                 <Gift className="w-3 h-3" />
                 Referrals
@@ -1629,71 +1729,355 @@ export default function Profile() {
             </TabsContent>
 
             <TabsContent value="reviews" data-testid="panel-reviews" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reviews Received</CardTitle>
-                  <CardDescription>See who has reviewed your services</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {receivedReviews.length === 0 ? (
-                    <div className="text-center py-12">
-                      <p className="text-muted-foreground">No reviews yet. Keep providing excellent service!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {receivedReviews.map((review: any) => (
-                        <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 transition-colors">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <img 
-                                src={review.reviewer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.reviewer.id}`}
-                                alt={review.reviewer.firstName}
-                                className="w-10 h-10 rounded-full"
-                              />
-                              <div>
-                                <p className="font-medium">{review.reviewer.firstName} {review.reviewer.lastName}</p>
-                                <p className="text-xs text-muted-foreground">On: {review.service.title}</p>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                  <Star className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Reviews</h2>
+                  <p className="text-muted-foreground">Manage service reviews and customer feedback</p>
+                </div>
+              </div>
+
+              <Tabs value={reviewsSubTab} onValueChange={(v) => setReviewsSubTab(v as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="received" className="relative">
+                    Reviews Received
+                    {receivedReviews.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">{receivedReviews.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="given" className="relative">
+                    Reviews Given
+                    {givenReviews.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-5 px-1.5">{givenReviews.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="to-review" className="relative">
+                    To Review
+                    {(bookingsToReviewService.length + bookingsToReviewCustomer.length) > 0 && (
+                      <Badge variant="default" className="ml-1 h-5 px-1.5 bg-amber-500">{bookingsToReviewService.length + bookingsToReviewCustomer.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="pending" className="relative">
+                    Pending Review
+                    {bookingsPendingReview.length > 0 && (
+                      <Badge variant="outline" className="ml-1 h-5 px-1.5">{bookingsPendingReview.length}</Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Reviews Received - Reviews on vendor's services from customers */}
+                <TabsContent value="received" className="mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Reviews on Your Services</CardTitle>
+                      <CardDescription>Customer reviews on services you provide</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {receivedReviews.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Star className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+                          <p className="text-muted-foreground">No reviews yet. Keep providing excellent service!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {receivedReviews.map((review: any) => (
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={review.reviewer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.reviewer.id}`}
+                                    alt={review.reviewer.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{review.reviewer.firstName} {review.reviewer.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">On: {review.service.title}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {Array(review.rating).fill(0).map((_, i) => (
+                                    <span key={i} className="text-yellow-400">★</span>
+                                  ))}
+                                  {Array(5 - review.rating).fill(0).map((_, i) => (
+                                    <span key={`empty-${i}`} className="text-gray-300">★</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-sm mb-3">{review.comment}</p>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                                {review.editCount > 0 && <span>Edited {review.editCount}x</span>}
                               </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                              {Array(review.rating).fill(0).map((_, i) => (
-                                <span key={i} className="text-yellow-400">★</span>
-                              ))}
-                              {Array(5 - review.rating).fill(0).map((_, i) => (
-                                <span key={`empty-${i}`} className="text-gray-300">★</span>
-                              ))}
-                            </div>
-                          </div>
-                          <p className="text-sm mb-3">{review.comment}</p>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                            {review.editCount > 0 && <span>Edited {review.editCount}x</span>}
-                          </div>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="mt-3 w-full"
-                            onClick={() => {
-                              setReviewBackTarget({
-                                userId: review.reviewer.id,
-                                userName: `${review.reviewer.firstName} ${review.reviewer.lastName}`,
-                                reviewId: review.id
-                              });
-                              setShowReviewBackModal(true);
-                            }}
-                            data-testid={`button-review-back-${review.id}`}
-                          >
-                            Review Back
-                          </Button>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Reviews Given - Reviews the user has posted */}
+                <TabsContent value="given" className="mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Reviews You've Posted</CardTitle>
+                      <CardDescription>Reviews you've left on services (editable once)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {givenReviews.length === 0 ? (
+                        <div className="text-center py-12">
+                          <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+                          <p className="text-muted-foreground">You haven't written any reviews yet.</p>
+                          <p className="text-sm text-muted-foreground mt-1">Complete a booking and share your experience!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {givenReviews.map((review: any) => (
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={review.vendor?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.vendor?.id}`}
+                                    alt={review.vendor?.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{review.service.title}</p>
+                                    <p className="text-xs text-muted-foreground">By: {review.vendor?.firstName} {review.vendor?.lastName}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {Array(review.rating).fill(0).map((_, i) => (
+                                    <span key={i} className="text-yellow-400">★</span>
+                                  ))}
+                                  {Array(5 - review.rating).fill(0).map((_, i) => (
+                                    <span key={`empty-${i}`} className="text-gray-300">★</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-sm mb-3">{review.comment}</p>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                                <div className="flex items-center gap-2">
+                                  {review.editCount > 0 ? (
+                                    <span className="text-amber-600">Edited (no more edits)</span>
+                                  ) : (
+                                    <Badge variant="outline" className="text-xs">Can edit once</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Customer reviews given by vendor */}
+                  {customerReviewsGiven.length > 0 && (
+                    <Card className="mt-4">
+                      <CardHeader>
+                        <CardTitle className="text-lg">Customer Reviews You've Given</CardTitle>
+                        <CardDescription>Your feedback on customers who booked your services</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {customerReviewsGiven.map((review: any) => (
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={review.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.customer.id}`}
+                                    alt={review.customer.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{review.customer.firstName} {review.customer.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">For: {review.service?.title} • #{review.booking.bookingNumber}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {Array(review.rating).fill(0).map((_, i) => (
+                                    <span key={i} className="text-yellow-400">★</span>
+                                  ))}
+                                  {Array(5 - review.rating).fill(0).map((_, i) => (
+                                    <span key={`empty-${i}`} className="text-gray-300">★</span>
+                                  ))}
+                                </div>
+                              </div>
+                              <p className="text-sm mb-3">{review.comment}</p>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                <span>{new Date(review.createdAt).toLocaleDateString()}</span>
+                                {review.editCount > 0 ? (
+                                  <span className="text-amber-600">Edited (no more edits)</span>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs">Can edit once</Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
-                </CardContent>
-              </Card>
+                </TabsContent>
+
+                {/* To Review - Completed bookings awaiting review */}
+                <TabsContent value="to-review" className="mt-6 space-y-4">
+                  {/* Services to review (as customer) */}
+                  {bookingsToReviewService.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Services to Review</CardTitle>
+                        <CardDescription>Leave a review for services you've used</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {bookingsToReviewService.map((booking: any) => (
+                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={booking.vendor.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.vendor.id}`}
+                                    alt={booking.vendor.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{booking.service?.title}</p>
+                                    <p className="text-xs text-muted-foreground">By: {booking.vendor.firstName} {booking.vendor.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">Completed: {booking.completedAt ? new Date(booking.completedAt).toLocaleDateString() : 'N/A'}</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setReviewBackTarget({
+                                      type: 'service',
+                                      bookingId: booking.id,
+                                      serviceId: booking.service?.id,
+                                      serviceName: booking.service?.title,
+                                      userName: `${booking.vendor.firstName} ${booking.vendor.lastName}`,
+                                    });
+                                    setShowReviewBackModal(true);
+                                  }}
+                                >
+                                  <Star className="w-4 h-4 mr-1" />
+                                  Review
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Customers to review (as vendor) */}
+                  {bookingsToReviewCustomer.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Customers to Review</CardTitle>
+                        <CardDescription>Rate customers who booked your services</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {bookingsToReviewCustomer.map((booking: any) => (
+                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={booking.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.customer.id}`}
+                                    alt={booking.customer.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{booking.customer.firstName} {booking.customer.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">Service: {booking.service?.title}</p>
+                                    <p className="text-xs text-muted-foreground">Completed: {booking.completedAt ? new Date(booking.completedAt).toLocaleDateString() : 'N/A'}</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    setReviewBackTarget({
+                                      type: 'customer',
+                                      bookingId: booking.id,
+                                      customerId: booking.customer.id,
+                                      userName: `${booking.customer.firstName} ${booking.customer.lastName}`,
+                                      serviceName: booking.service?.title,
+                                    });
+                                    setShowReviewBackModal(true);
+                                  }}
+                                >
+                                  <Star className="w-4 h-4 mr-1" />
+                                  Review
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {bookingsToReviewService.length === 0 && bookingsToReviewCustomer.length === 0 && (
+                    <Card>
+                      <CardContent className="py-12 text-center">
+                        <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-500" />
+                        <p className="text-muted-foreground">All caught up! No pending reviews.</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+
+                {/* Pending Review - Bookings awaiting customer review */}
+                <TabsContent value="pending" className="mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Awaiting Customer Reviews</CardTitle>
+                      <CardDescription>Completed bookings where the customer hasn't left a review yet</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {bookingsPendingReview.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground/30" />
+                          <p className="text-muted-foreground">No bookings pending customer review.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {bookingsPendingReview.map((booking: any) => (
+                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                  <img 
+                                    src={booking.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.customer.id}`}
+                                    alt={booking.customer.firstName}
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                  <div>
+                                    <p className="font-medium">{booking.customer.firstName} {booking.customer.lastName}</p>
+                                    <p className="text-xs text-muted-foreground">Service: {booking.service?.title}</p>
+                                    <p className="text-xs text-muted-foreground">Completed: {booking.completedAt ? new Date(booking.completedAt).toLocaleDateString() : 'N/A'}</p>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                                  <Clock className="w-3 h-3 mr-1" />
+                                  Awaiting review
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
             </TabsContent>
 
-            {/* Bookings Tab - Redirects to dedicated bookings page */}
+            {/* Bookings Tab - Shows both customer and vendor booking options */}
             <TabsContent value="bookings" data-testid="panel-bookings" className="space-y-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
@@ -1705,21 +2089,286 @@ export default function Profile() {
                 </div>
               </div>
               
-              <Card className="border-dashed">
-                <CardContent className="py-12 text-center">
-                  <CalendarDays className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
-                  <h3 className="text-lg font-semibold mb-2">Booking Management</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    View your upcoming appointments, manage bookings, and track service history in the dedicated bookings page.
-                  </p>
-                  <Link href="/bookings">
-                    <Button className="gap-2">
-                      <CalendarDays className="w-4 h-4" />
-                      Go to My Bookings
-                    </Button>
-                  </Link>
+              <div className="grid gap-6 md:grid-cols-2">
+                {/* Customer Bookings Card */}
+                <Card className="border-dashed">
+                  <CardContent className="py-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
+                      <CalendarDays className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Services I've Booked</h3>
+                    <p className="text-muted-foreground mb-4 text-sm">
+                      View appointments where you're the customer
+                    </p>
+                    <Link href="/bookings">
+                      <Button className="gap-2">
+                        <CalendarDays className="w-4 h-4" />
+                        View My Bookings
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+
+                {/* Vendor Bookings Card - Only shown if user has services */}
+                {myServices.length > 0 && (
+                  <Card className="border-dashed border-primary/50 bg-primary/5">
+                    <CardContent className="py-8 text-center">
+                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                        <Settings className="w-6 h-6 text-primary" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">Manage Customer Bookings</h3>
+                      <p className="text-muted-foreground mb-4 text-sm">
+                        View and manage bookings for your services, set availability, and track your calendar
+                      </p>
+                      <Link href="/vendor/bookings">
+                        <Button variant="default" className="gap-2">
+                          <CalendarDays className="w-4 h-4" />
+                          Vendor Dashboard
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {myServices.length === 0 && (
+                <Card className="border-dashed">
+                  <CardContent className="py-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Tip:</strong> Once you create services, you'll be able to manage customer bookings from here.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Payments Tab */}
+            <TabsContent value="payments" data-testid="panel-payments" className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                  <Banknote className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Payment Settings</h2>
+                  <p className="text-muted-foreground">Manage how you receive payments for your services</p>
+                </div>
+              </div>
+
+              {/* Stripe Connect Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" />
+                    Stripe Connect
+                  </CardTitle>
+                  <CardDescription>
+                    Connect your Stripe account to receive card payments directly
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {connectStatusLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-muted-foreground">Loading account status...</span>
+                    </div>
+                  ) : connectStatus?.isOnboarded ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">Account Connected</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={connectStatus.chargesEnabled ? "text-green-600" : "text-amber-600"}>
+                            {connectStatus.chargesEnabled ? "✓" : "○"}
+                          </span>
+                          <span>Charges Enabled</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={connectStatus.payoutsEnabled ? "text-green-600" : "text-amber-600"}>
+                            {connectStatus.payoutsEnabled ? "✓" : "○"}
+                          </span>
+                          <span>Payouts Enabled</span>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => createConnectAccountMutation.mutate()}
+                        disabled={createConnectAccountMutation.isPending}
+                      >
+                        {createConnectAccountMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Manage Account in Stripe"
+                        )}
+                      </Button>
+                    </div>
+                  ) : connectStatus?.hasAccount ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-amber-600">
+                        <Clock className="w-5 h-5" />
+                        <span className="font-medium">Onboarding Incomplete</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Complete your Stripe Connect onboarding to start receiving payments.
+                      </p>
+                      <Button 
+                        onClick={() => createConnectAccountMutation.mutate()}
+                        disabled={createConnectAccountMutation.isPending}
+                      >
+                        {createConnectAccountMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Loading...
+                          </>
+                        ) : (
+                          "Complete Onboarding"
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Set up Stripe Connect to receive card payments directly into your bank account. 
+                        This is required if you want to accept card payments for your services.
+                      </p>
+                      <Button 
+                        onClick={() => createConnectAccountMutation.mutate()}
+                        disabled={createConnectAccountMutation.isPending}
+                      >
+                        {createConnectAccountMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating Account...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            Set Up Stripe Connect
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Payment Methods Accepted */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Accepted Payment Methods</CardTitle>
+                  <CardDescription>
+                    Choose which payment methods you accept for your services
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <CreditCard className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Card Payments</p>
+                          <p className="text-xs text-muted-foreground">Visa, Mastercard, AMEX (via Stripe)</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={user?.acceptCardPayments ?? true}
+                        onCheckedChange={(checked) => {
+                          updateProfileMutation.mutate({ acceptCardPayments: checked });
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Smartphone className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">TWINT</p>
+                          <p className="text-xs text-muted-foreground">Swiss mobile payment</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={user?.acceptTwintPayments ?? true}
+                        onCheckedChange={(checked) => {
+                          updateProfileMutation.mutate({ acceptTwintPayments: checked });
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 rounded-lg">
+                          <Banknote className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">Cash</p>
+                          <p className="text-xs text-muted-foreground">Pay on service completion</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={user?.acceptCashPayments ?? true}
+                        onCheckedChange={(checked) => {
+                          updateProfileMutation.mutate({ acceptCashPayments: checked });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* TWINT Eligibility Info */}
+              <Card className="border-purple-200 bg-purple-50/50 dark:bg-purple-900/10">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                    <Smartphone className="w-5 h-5" />
+                    About TWINT Payments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <p className="text-muted-foreground">
+                    TWINT is a trust-based payment option available to established vendors. To accept TWINT payments from customers, you need:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>At least 5 completed bookings</li>
+                    <li>Account age of 30+ days</li>
+                    <li>Average rating of 4.0+ stars</li>
+                    <li>Low dispute rate (&lt;10%)</li>
+                  </ul>
+                  <p className="text-muted-foreground">
+                    Customers must also complete at least one card payment with you before using TWINT for trust verification.
+                  </p>
+                  <p className="text-xs text-muted-foreground italic mt-2">
+                    Note: TWINT payments are limited to bookings under CHF 200 for platform protection.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Account Billing (for vendors) */}
+              {user?.paymentMethodLast4 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Billing Card on File</CardTitle>
+                    <CardDescription>
+                      Used for platform fees on cash/TWINT transactions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-3 p-3 border rounded-lg">
+                      <CreditCard className="w-5 h-5" />
+                      <div>
+                        <p className="font-medium">{user.paymentMethodBrand || "Card"} •••• {user.paymentMethodLast4}</p>
+                        <p className="text-xs text-muted-foreground">Default payment method for fees</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Referrals Tab */}
@@ -1994,21 +2643,29 @@ export default function Profile() {
         </DialogContent>
       </Dialog>
 
-      {/* Review Back Modal */}
+      {/* Review Modal - handles both service reviews and customer reviews */}
       <Dialog open={showReviewBackModal} onOpenChange={(open) => {
         setShowReviewBackModal(open);
         if (!open) {
           setReviewBackTarget(null);
           setReviewBackRating(5);
           setReviewBackText("");
-          setReviewBackServiceId(null);
+          setReviewBackBookingId(null);
         }
       }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Review {reviewBackTarget?.userName}</DialogTitle>
+            <DialogTitle>
+              {reviewBackTarget?.type === 'customer' 
+                ? `Review Customer: ${reviewBackTarget?.userName}`
+                : `Review Service: ${reviewBackTarget?.serviceName}`
+              }
+            </DialogTitle>
             <DialogDescription>
-              Leave a review for a service they booked from you
+              {reviewBackTarget?.type === 'customer'
+                ? "Share your experience with this customer"
+                : "Share your experience with this service"
+              }
             </DialogDescription>
           </DialogHeader>
           
@@ -2021,84 +2678,42 @@ export default function Profile() {
               </div>
             )}
 
-            {/* Service Selection */}
-            {reviewerServicesLoading ? (
-              <div className="text-center py-4">
-                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Loading services...</p>
-              </div>
-            ) : reviewerServices.length === 0 ? (
-              <div className="text-center py-4 bg-slate-50 rounded-lg">
-                <p className="text-muted-foreground">No completed bookings found with this customer.</p>
-                <p className="text-sm text-muted-foreground mt-1">You can only review customers who have booked your services.</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="mt-3"
-                  onClick={() => {
-                    setShowReviewBackModal(false);
-                    setLocation(`/users/${reviewBackTarget?.userId}`);
-                  }}
-                >
-                  Visit Profile
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>Select a Service They Booked</Label>
-                  <Select 
-                    value={reviewBackServiceId || ""} 
-                    onValueChange={setReviewBackServiceId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a service..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {reviewerServices.map((service) => (
-                        <SelectItem key={service.id} value={service.id}>
-                          {service.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Star Rating */}
-                <div className="space-y-2">
-                  <Label>Rating</Label>
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setReviewBackRating(star)}
-                        disabled={!user?.isVerified}
-                        className="disabled:opacity-50"
-                      >
-                        <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= reviewBackRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Review Text */}
-                <div className="space-y-2">
-                  <Label>Your Review</Label>
-                  <Textarea
-                    placeholder="Share your experience..."
-                    value={reviewBackText}
-                    onChange={(e) => setReviewBackText(e.target.value)}
+            {/* Star Rating */}
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewBackRating(star)}
                     disabled={!user?.isVerified}
-                    rows={4}
-                  />
-                </div>
-              </>
-            )}
+                    className="disabled:opacity-50"
+                  >
+                    <Star
+                      className={`w-8 h-8 cursor-pointer transition-colors ${
+                        star <= reviewBackRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Review Text */}
+            <div className="space-y-2">
+              <Label>Your Review</Label>
+              <Textarea
+                placeholder={reviewBackTarget?.type === 'customer' 
+                  ? "How was your experience with this customer? Were they respectful, punctual, easy to work with?"
+                  : "Share your experience with this service..."
+                }
+                value={reviewBackText}
+                onChange={(e) => setReviewBackText(e.target.value)}
+                disabled={!user?.isVerified}
+                rows={4}
+              />
+            </div>
           </div>
 
           <DialogFooter>
@@ -2107,22 +2722,34 @@ export default function Profile() {
             </Button>
             <Button
               onClick={() => {
-                if (reviewBackServiceId && reviewBackText) {
-                  createReviewBackMutation.mutate({
-                    serviceId: reviewBackServiceId,
-                    rating: reviewBackRating,
-                    comment: reviewBackText,
-                  });
+                if (reviewBackTarget && reviewBackText) {
+                  if (reviewBackTarget.type === 'customer') {
+                    createCustomerReviewMutation.mutate({
+                      bookingId: reviewBackTarget.bookingId,
+                      rating: reviewBackRating,
+                      comment: reviewBackText,
+                    });
+                  } else {
+                    createServiceReviewMutation.mutate({
+                      serviceId: reviewBackTarget.serviceId,
+                      bookingId: reviewBackTarget.bookingId,
+                      rating: reviewBackRating,
+                      comment: reviewBackText,
+                    });
+                  }
                 }
               }}
               disabled={
                 !user?.isVerified || 
-                !reviewBackServiceId || 
                 !reviewBackText || 
-                createReviewBackMutation.isPending
+                createCustomerReviewMutation.isPending ||
+                createServiceReviewMutation.isPending
               }
             >
-              {createReviewBackMutation.isPending ? "Posting..." : "Submit Review"}
+              {(createCustomerReviewMutation.isPending || createServiceReviewMutation.isPending) 
+                ? "Posting..." 
+                : "Submit Review"
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -129,7 +129,7 @@ export async function processAutoReleases(): Promise<AutoReleaseResult> {
           type: "payment",
           title: "Payment Received",
           message: `Payment of CHF ${escrowTx.vendorAmount} has been released to your account.`,
-          actionUrl: `/my-bookings?booking=${booking.id}`,
+          actionUrl: `/vendor/bookings?booking=${booking.id}`,
           metadata: {
             bookingId: booking.id,
             amount: escrowTx.vendorAmount,

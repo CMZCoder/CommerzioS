@@ -308,34 +308,60 @@ export async function getOrCreateConversation(params: {
     serviceId: params.serviceId,
   });
   
-  const [conversation] = await db.insert(chatConversations)
-    .values({
-      customerId: params.customerId,
-      vendorId: params.vendorId,
-      bookingId: params.bookingId,
-      orderId: params.orderId,
-      serviceId: params.serviceId,
-      status: 'active',
-    })
-    .returning();
-  
-  console.log(`[getOrCreateConversation] Created conversation:`, {
-    id: conversation.id,
-    customerId: conversation.customerId,
-    vendorId: conversation.vendorId,
-    status: conversation.status,
-  });
-  
-  // Fetch relations for the new conversation
-  const fullConversation = await getConversationById(conversation.id, params.customerId) as typeof chatConversations.$inferSelect;
-  console.log(`[getOrCreateConversation] Returning conversation with relations:`, {
-    id: fullConversation?.id,
-    hasVendor: !!fullConversation?.vendorId,
-    hasCustomer: !!fullConversation?.customerId,
-    hasService: !!fullConversation?.serviceId,
-  });
-  
-  return fullConversation;
+  try {
+    const [conversation] = await db.insert(chatConversations)
+      .values({
+        customerId: params.customerId,
+        vendorId: params.vendorId,
+        bookingId: params.bookingId,
+        orderId: params.orderId,
+        serviceId: params.serviceId,
+        status: 'active',
+      })
+      .returning();
+    
+    console.log(`[getOrCreateConversation] Created conversation:`, {
+      id: conversation.id,
+      customerId: conversation.customerId,
+      vendorId: conversation.vendorId,
+      status: conversation.status,
+    });
+    
+    // Fetch relations for the new conversation
+    const fullConversation = await getConversationById(conversation.id, params.customerId) as typeof chatConversations.$inferSelect;
+    console.log(`[getOrCreateConversation] Returning conversation with relations:`, {
+      id: fullConversation?.id,
+      hasVendor: !!fullConversation?.vendorId,
+      hasCustomer: !!fullConversation?.customerId,
+      hasService: !!fullConversation?.serviceId,
+    });
+    
+    return fullConversation;
+  } catch (error: any) {
+    // Handle unique constraint violation (race condition - another request created it first)
+    if (error.code === '23505' || error.message?.includes('unique_active_conversation')) {
+      console.log(`[getOrCreateConversation] Unique constraint violation - conversation was created by concurrent request, fetching it`);
+      
+      // Re-fetch the existing conversation that was created by another request
+      const [existingConversation] = await db.select()
+        .from(chatConversations)
+        .where(and(
+          eq(chatConversations.customerId, params.customerId),
+          eq(chatConversations.vendorId, params.vendorId),
+          params.serviceId 
+            ? eq(chatConversations.serviceId, params.serviceId)
+            : sql`${chatConversations.serviceId} IS NULL`
+        ))
+        .limit(1);
+      
+      if (existingConversation) {
+        return await getConversationById(existingConversation.id, params.customerId) as typeof chatConversations.$inferSelect;
+      }
+    }
+    
+    // Re-throw other errors
+    throw error;
+  }
 }
 
 /**

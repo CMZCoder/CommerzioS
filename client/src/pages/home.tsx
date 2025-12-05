@@ -42,6 +42,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [useLocationPermissions, setUseLocationPermissions] = useState(false);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const locationPermissionProcessingRef = useRef(false);
   const nearbyServicesSectionRef = useRef<HTMLElement>(null);
   
@@ -210,6 +211,9 @@ export default function Home() {
       
       clearSuggestions();
       setLocationSearchQuery("");
+      
+      // Auto-expand the map when a location is found
+      setIsMapExpanded(true);
 
       // Scroll to nearby services section after location is set
       setTimeout(() => {
@@ -870,8 +874,9 @@ export default function Home() {
               services={nearbyServices}
               userLocation={searchLocation}
               maxServices={10}
-              defaultExpanded={false}
               apiKey={mapsConfig?.apiKey || ""}
+              isExpanded={isMapExpanded}
+              onExpandedChange={setIsMapExpanded}
             />
             
             {nearbyLoading ? (

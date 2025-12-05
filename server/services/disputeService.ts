@@ -107,7 +107,7 @@ export async function createDispute(params: CreateDisputeParams): Promise<Escrow
 
   // Notify the other party
   const otherPartyId = userRole === "customer" ? booking.vendorId : booking.customerId;
-  const otherPartyUrl = userRole === "customer" ? `/my-bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`;
+  const otherPartyUrl = userRole === "customer" ? `/vendor/bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`;
   await createNotification({
     userId: otherPartyId,
     type: "payment",
@@ -377,7 +377,7 @@ export async function resolveDispute(params: ResolveDisputeParams): Promise<Escr
       type: "payment",
       title: "Dispute Resolved",
       message: vendorMessage,
-      actionUrl: `/vendor/bookings/${booking.id}`,
+      actionUrl: `/vendor/bookings?booking=${booking.id}`,
     });
 
     console.log(`[Dispute] Resolved dispute ${disputeId} as ${resolution}`);

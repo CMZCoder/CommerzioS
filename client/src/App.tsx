@@ -22,6 +22,7 @@ import Privacy from "@/pages/privacy";
 import { AdminPage } from "@/pages/admin";
 import EscrowManagementPage from "@/pages/admin/escrow-management";
 import HashtagResults from "@/pages/hashtag-results";
+import SearchResults from "@/pages/search";
 import UserProfile from "@/pages/user-profile";
 import PlansPage from "@/pages/plans";
 import LoginPage from "@/pages/login";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/service/:id/book" component={BookServicePage} />
       <Route path="/users/:userId" component={UserProfile} />
       <Route path="/hashtags/:hashtag" component={HashtagResults} />
+      <Route path="/search" component={SearchResults} />
       <Route path="/profile" component={Profile} />
       <Route path="/dashboard" component={Profile} />
       <Route path="/settings" component={Profile} />

@@ -659,7 +659,7 @@ export async function notifyBookingUpdate(
     pending: {
       title: "New Booking Request",
       message: `You have a new booking request for "${serviceName}"`,
-      actionUrl: `/my-bookings?booking=${bookingId}&tab=pending`,
+      actionUrl: `/vendor/bookings?booking=${bookingId}&tab=pending`,
     },
     accepted: {
       title: "Booking Confirmed! 🎉",
@@ -684,14 +684,14 @@ export async function notifyBookingUpdate(
     cancelled: {
       title: "Booking Cancelled",
       message: `A booking for "${serviceName}" has been cancelled`,
-      actionUrl: isVendor ? `/my-bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
+      actionUrl: isVendor ? `/vendor/bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
     },
   };
 
   const content = statusMessages[status] || {
     title: "Booking Update",
     message: `Your booking for "${serviceName}" has been updated to ${status}`,
-    actionUrl: isVendor ? `/my-bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
+    actionUrl: isVendor ? `/vendor/bookings?booking=${bookingId}` : `/bookings?booking=${bookingId}`,
   };
 
   await createNotification({
