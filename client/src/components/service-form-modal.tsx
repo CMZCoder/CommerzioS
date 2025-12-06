@@ -73,7 +73,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const contextActions = usePageContextActions();
   const initializedRef = useRef(false);
   const isEditMode = !!service;
-  
+
   const [formData, setFormData] = useState<FormData | null>(isEditMode ? null : {
     title: "",
     description: "",
@@ -145,7 +145,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // Calculate form completion progress
   const formProgress = useMemo(() => {
     if (!formData) return { percentage: 0, steps: [], isComplete: false };
-    
+
     const steps = [
       { id: 'images', label: 'Photos', done: formData.images.length > 0, icon: Camera },
       { id: 'title', label: 'Title', done: !!formData.title?.trim(), icon: Sparkles },
@@ -158,11 +158,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       ] : []),
       { id: 'pricing', label: 'Pricing', done: formData.priceType === 'fixed' ? !!formData.price : formData.priceType === 'list' ? formData.priceList.length > 0 : !!formData.priceText, icon: DollarSign },
     ];
-    
+
     const completed = steps.filter(s => s.done).length;
     const percentage = Math.round((completed / steps.length) * 100);
     const isComplete = completed === steps.length;
-    
+
     return { percentage, steps, completed, total: steps.length, isComplete };
   }, [formData, contactsEnabled, contactsRequired]);
 
@@ -171,13 +171,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const currentTabIndex = tabs.indexOf(activeTab as typeof tabs[number]);
   const isFirstTab = currentTabIndex === 0;
   const isLastTab = currentTabIndex === tabs.length - 1;
-  
+
   const goToNextTab = () => {
     if (!isLastTab) {
       setActiveTab(tabs[currentTabIndex + 1]);
     }
   };
-  
+
   const goToPreviousTab = () => {
     if (!isFirstTab) {
       setActiveTab(tabs[currentTabIndex - 1]);
@@ -210,7 +210,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // Track form progress (only in create mode)
   useEffect(() => {
     if (!open || isEditMode || !formData) return;
-    
+
     contextActions.updateFormProgress("hasTitle", !!formData.title?.trim());
     contextActions.updateFormProgress("hasDescription", !!formData.description?.trim());
     contextActions.updateFormProgress("hasCategory", !!formData.categoryId);
@@ -218,12 +218,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     contextActions.updateFormProgress("imageCount", formData.images?.length || 0);
     contextActions.updateFormProgress("hasLocation", formData.locations?.some((l: string) => l.trim()));
     contextActions.updateFormProgress("hasContact", formData.contacts?.some((c: Contact) => c.phone?.trim() || c.email?.trim()));
-    
-    const hasPrice = formData.priceType === "fixed" 
-      ? !!formData.price 
-      : formData.priceType === "text" 
-      ? !!formData.priceText?.trim() 
-      : formData.priceList?.length > 0;
+
+    const hasPrice = formData.priceType === "fixed"
+      ? !!formData.price
+      : formData.priceType === "text"
+        ? !!formData.priceText?.trim()
+        : formData.priceList?.length > 0;
     contextActions.updateFormProgress("hasPrice", hasPrice);
   }, [formData, open, isEditMode]);
 
@@ -233,7 +233,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       // Initialize with fallback contacts from service data immediately
       // New structure: each contact has both phone and email fields
       const fallbackContacts: Contact[] = [];
-      
+
       if (service.contactPhone || service.contactEmail) {
         fallbackContacts.push({
           phone: service.contactPhone || "",
@@ -261,10 +261,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         selectedPromotionalPackage: null,
         acceptedPaymentMethods: (service as any).acceptedPaymentMethods || ["card", "twint", "cash"],
       });
-      
+
       initializedRef.current = true;
     }
-    
+
     if (!open) {
       initializedRef.current = false;
     }
@@ -293,19 +293,19 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // Initialize contacts and locations with user's profile data (only in create mode)
   // This runs only ONCE when the form opens, not on every render
   const initializedContactsRef = useRef(false);
-  
+
   useEffect(() => {
     if (isEditMode || !user || !open || !formData) return;
     if (initializedContactsRef.current) return; // Only initialize once
-    
+
     let hasChanges = false;
     const updates: Partial<FormData> = {};
-    
+
     // Initialize locations with user's main address
     if (formData.locations.length === 0 && userAddresses.length > 0) {
       const mainAddress = userAddresses.find((a: any) => a.isMain) || userAddresses[0];
       if (mainAddress) {
-        const fullAddress = mainAddress.fullAddress || 
+        const fullAddress = mainAddress.fullAddress ||
           `${mainAddress.street}, ${mainAddress.postalCode} ${mainAddress.city}`;
         if (fullAddress?.trim()) {
           updates.locations = [fullAddress];
@@ -313,11 +313,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         }
       }
     }
-    
+
     // Initialize contacts - create ONE contact with both phone and email fields
     if (formData.contacts.length === 0) {
       const userName = `${user.firstName} ${user.lastName}`.trim();
-      
+
       // Create a single contact with both phone and email (new structure)
       const singleContact: Contact = {
         phone: user.phoneNumber || "",
@@ -326,11 +326,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         isPrimary: true,
         isVerified: user.phoneVerified || user.emailVerified,
       };
-      
+
       updates.contacts = [singleContact];
       hasChanges = true;
     }
-    
+
     if (hasChanges) {
       setFormData((prev: FormData | null) => ({ ...prev!, ...updates }));
       initializedContactsRef.current = true;
@@ -374,19 +374,36 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         }),
       });
 
-      // Save individual contacts
-      for (const contact of data.contacts) {
-        if (contact.phone?.trim() || contact.email?.trim()) {
-          await apiRequest(`/api/services/${serviceData.id}/contacts`, {
-            method: "POST",
-            body: JSON.stringify({
-              phone: contact.phone || undefined,
-              email: contact.email || undefined,
-              name: contact.name || undefined,
-              role: contact.role || undefined,
-              isPrimary: contact.isPrimary || false,
-            }),
-          });
+      // Save individual contacts (only for active status or when contacts have values)
+      // Transform from new structure (phone/email) to API schema (contactType/value)
+      if (status === "active") {
+        for (const contact of data.contacts) {
+          // Save phone contact if present
+          if (contact.phone?.trim()) {
+            await apiRequest(`/api/services/${serviceData.id}/contacts`, {
+              method: "POST",
+              body: JSON.stringify({
+                contactType: "phone",
+                value: contact.phone.trim(),
+                name: contact.name || undefined,
+                role: contact.role || undefined,
+                isPrimary: contact.isPrimary || false,
+              }),
+            });
+          }
+          // Save email contact if present
+          if (contact.email?.trim()) {
+            await apiRequest(`/api/services/${serviceData.id}/contacts`, {
+              method: "POST",
+              body: JSON.stringify({
+                contactType: "email",
+                value: contact.email.trim(),
+                name: contact.name || undefined,
+                role: contact.role || undefined,
+                isPrimary: contact.isPrimary || false,
+              }),
+            });
+          }
         }
       }
 
@@ -447,19 +464,35 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         }
       }
 
-      // Save new contacts
+      // Save new contacts - transform to API schema (contactType/value)
       for (const contact of data.contacts) {
-        if (!contact.id && (contact.phone?.trim() || contact.email?.trim())) {
-          await apiRequest(`/api/services/${service?.id}/contacts`, {
-            method: "POST",
-            body: JSON.stringify({
-              phone: contact.phone || undefined,
-              email: contact.email || undefined,
-              name: contact.name || undefined,
-              role: contact.role || undefined,
-              isPrimary: contact.isPrimary || false,
-            }),
-          });
+        if (!contact.id) {
+          // Save phone contact if present
+          if (contact.phone?.trim()) {
+            await apiRequest(`/api/services/${service?.id}/contacts`, {
+              method: "POST",
+              body: JSON.stringify({
+                contactType: "phone",
+                value: contact.phone.trim(),
+                name: contact.name || undefined,
+                role: contact.role || undefined,
+                isPrimary: contact.isPrimary || false,
+              }),
+            });
+          }
+          // Save email contact if present
+          if (contact.email?.trim()) {
+            await apiRequest(`/api/services/${service?.id}/contacts`, {
+              method: "POST",
+              body: JSON.stringify({
+                contactType: "email",
+                value: contact.email.trim(),
+                name: contact.name || undefined,
+                role: contact.role || undefined,
+                isPrimary: contact.isPrimary || false,
+              }),
+            });
+          }
         }
       }
 
@@ -550,7 +583,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const updateContact = (index: number, field: keyof Contact, value: string | boolean) => {
     setFormData((prev: FormData | null) => {
       if (!prev) return prev;
-      
+
       return {
         ...prev,
         contacts: prev.contacts.map((contact: Contact, i: number) => {
@@ -684,7 +717,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // AI Suggest All - unified call for title, description, category, subcategory, and hashtags
   const handleAISuggestAll = async () => {
     if (!formData) return;
-    
+
     if (formData.images.length === 0) {
       toast({
         title: "Images Required",
@@ -694,10 +727,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       return;
     }
 
-    const validImages = formData.images.filter((img: string) => 
+    const validImages = formData.images.filter((img: string) =>
       typeof img === 'string' && (
-        img.startsWith('/objects/') || 
-        img.startsWith('http://') || 
+        img.startsWith('/objects/') ||
+        img.startsWith('http://') ||
         img.startsWith('https://')
       )
     );
@@ -781,7 +814,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
     setPreviousFormState(null);
     setIsManualOverride(true);
-    
+
     toast({
       title: "Changes Reverted",
       description: "AI suggestions have been undone.",
@@ -859,7 +892,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // Scroll to first error field
   const scrollToFirstError = (errors: { field: string; message: string }[]) => {
     if (errors.length === 0) return;
-    
+
     const firstError = errors[0];
     const fieldRefs: Record<string, React.RefObject<any>> = {
       title: titleRef,
@@ -871,7 +904,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       contact: contactRef,
       price: priceRef,
     };
-    
+
     // Switch to the correct tab first
     const tabMapping: Record<string, string> = {
       title: 'main',
@@ -883,12 +916,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       contact: 'location',
       price: 'pricing',
     };
-    
+
     const targetTab = tabMapping[firstError.field] || 'main';
     if (activeTab !== targetTab) {
       setActiveTab(targetTab);
     }
-    
+
     // Scroll after a short delay to allow tab switch
     setTimeout(() => {
       const ref = fieldRefs[firstError.field];
@@ -901,9 +934,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData) return;
-    
+
     const validLocations = formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim());
     // New structure: contact is valid if it has phone OR email
     const validContacts = formData.contacts.filter((c: Contact) => c.phone?.trim() || c.email?.trim());
@@ -946,31 +979,31 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     } else {
       // Collect all validation errors
       const errors: { field: string; message: string }[] = [];
-      
+
       // Validate title with minimum length
       if (!formData.title) {
         errors.push({ field: "title", message: "Service title is required" });
       } else if (formData.title.trim().length < 5) {
         errors.push({ field: "title", message: "Title must be at least 5 characters" });
       }
-      
+
       // Validate description with minimum length
       if (!formData.description) {
         errors.push({ field: "description", message: "Service description is required" });
       } else if (formData.description.trim().length < 20) {
         errors.push({ field: "description", message: "Description must be at least 20 characters" });
       }
-      
+
       if (!formData.categoryId) errors.push({ field: "category", message: "Category selection is required" });
       if (!formData.subcategoryId) errors.push({ field: "subcategoryId", message: "Subcategory selection is required" });
       if (validLocations.length === 0) errors.push({ field: "location", message: "Add at least one service location" });
       if (contactsRequired && validContacts.length === 0) errors.push({ field: "contact", message: "Add at least one contact method" });
-      
+
       // Price validation based on type
       if (formData.priceType === 'fixed' && (!formData.price || parseFloat(formData.price) <= 0)) {
         errors.push({ field: "price", message: "Please enter a valid price" });
       }
-      
+
       if (errors.length > 0) {
         // Mark all error fields as touched
         const touchedUpdate: Record<string, boolean> = {};
@@ -981,10 +1014,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         });
         setTouchedFields(prev => ({ ...prev, ...touchedUpdate }));
         setFieldErrors(prev => ({ ...prev, ...errorUpdate }));
-        
+
         // Scroll to first error field
         scrollToFirstError(errors);
-        
+
         const fieldName = errors[0].field;
         const fieldLabels: Record<string, string> = {
           title: "Main Info",
@@ -1048,11 +1081,11 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     if (!formData || isEditMode) return false;
     // Only consider content the user has actually typed/uploaded
     // Title, description, images, category are definitely user-entered
-    const hasUserContent = 
-           formData.title.trim() !== '' ||
-           formData.description.trim() !== '' ||
-           formData.images.length > 0 ||
-           formData.categoryId !== '';
+    const hasUserContent =
+      formData.title.trim() !== '' ||
+      formData.description.trim() !== '' ||
+      formData.images.length > 0 ||
+      formData.categoryId !== '';
     return hasUserContent;
   }, [formData, isEditMode]);
 
@@ -1083,12 +1116,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   // Handle beforeunload for page navigation
   useEffect(() => {
     if (!open || !hasUnsavedChanges || draftSaved) return;
-    
+
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = '';
     };
-    
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [open, hasUnsavedChanges, draftSaved]);
@@ -1103,13 +1136,13 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
               {isEditMode ? "Edit Service" : "Create Your Listing"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              {isEditMode 
-                ? "Update your service details below" 
+              {isEditMode
+                ? "Update your service details below"
                 : "Fill in the details to publish your service"
               }
             </DialogDescription>
           </DialogHeader>
-          
+
           {/* Progress Bar - only show in create mode */}
           {!isEditMode && formData && (
             <div className="space-y-2">
@@ -1120,19 +1153,18 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 <span className="font-medium text-primary">{formProgress.percentage}%</span>
               </div>
               <Progress value={formProgress.percentage} className="h-2" />
-              
+
               {/* Step indicators */}
               <div className="flex items-center justify-between pt-2">
                 {formProgress.steps.map((step) => (
-                  <div 
-                    key={step.id} 
+                  <div
+                    key={step.id}
                     className={`flex flex-col items-center gap-1 ${step.done ? 'text-primary' : 'text-muted-foreground'}`}
                   >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      step.done 
-                        ? 'bg-primary/10 text-primary' 
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step.done
+                      ? 'bg-primary/10 text-primary'
+                      : 'bg-muted text-muted-foreground'
+                      }`}>
                       {step.done ? (
                         <CheckCircle2 className="w-4 h-4" />
                       ) : (
@@ -1273,7 +1305,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <p className="text-sm text-muted-foreground">Describe your service</p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="title">Service Title * <span className="text-xs text-muted-foreground">(min. 5 characters)</span></Label>
                   <Input
@@ -1330,28 +1362,28 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
               <div ref={categoryRef}>
                 <CategorySubcategorySelector
-                categoryId={formData.categoryId}
-                subcategoryId={formData.subcategoryId}
-                onCategoryChange={handleCategoryChange}
-                onSubcategoryChange={handleSubcategoryChange}
-                isManualOverride={isManualOverride}
-                aiSuggestion={aiSuggestion}
-                onResetToAI={handleResetToAI}
-                isAiLoading={isAiCategoryLoading}
-              />
-              {onSuggestCategory && !isEditMode && (
-                <p className="text-sm text-muted-foreground">
-                  Can't find the right category?{" "}
-                  <button
-                    type="button"
-                    onClick={onSuggestCategory}
-                    className="text-primary hover:underline font-medium"
-                    data-testid="button-suggest-category-inline"
-                  >
-                    Suggest a new one
-                  </button>
-                </p>
-              )}
+                  categoryId={formData.categoryId}
+                  subcategoryId={formData.subcategoryId}
+                  onCategoryChange={handleCategoryChange}
+                  onSubcategoryChange={handleSubcategoryChange}
+                  isManualOverride={isManualOverride}
+                  aiSuggestion={aiSuggestion}
+                  onResetToAI={handleResetToAI}
+                  isAiLoading={isAiCategoryLoading}
+                />
+                {onSuggestCategory && !isEditMode && (
+                  <p className="text-sm text-muted-foreground">
+                    Can't find the right category?{" "}
+                    <button
+                      type="button"
+                      onClick={onSuggestCategory}
+                      className="text-primary hover:underline font-medium"
+                      data-testid="button-suggest-category-inline"
+                    >
+                      Suggest a new one
+                    </button>
+                  </p>
+                )}
               </div>
 
               {/* Hashtags Section */}
@@ -1471,7 +1503,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <p className="text-xs text-muted-foreground">Click to add/remove addresses, or search for new ones below</p>
                   </div>
                 )}
-                
+
                 {addressErrors.length > 0 && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -1574,16 +1606,15 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <p className="text-sm text-muted-foreground">How would you like to price your service?</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-3">
                   {(["fixed", "list", "text"] as PricingType[]).map((type) => (
                     <label
                       key={type}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                        formData.priceType === type
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50'
-                      }`}
+                      className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.priceType === type
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border hover:border-primary/50'
+                        }`}
                     >
                       <input
                         type="radio"
@@ -1727,15 +1758,14 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <p className="text-sm text-muted-foreground">How would you like to get paid for this service?</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Card Payment */}
                   <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.acceptedPaymentMethods.includes("card")
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("card")
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                   >
                     <Checkbox
                       checked={formData.acceptedPaymentMethods.includes("card")}
@@ -1759,11 +1789,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
                   {/* TWINT Payment */}
                   <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.acceptedPaymentMethods.includes("twint")
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("twint")
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                   >
                     <Checkbox
                       checked={formData.acceptedPaymentMethods.includes("twint")}
@@ -1787,11 +1816,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
                   {/* Cash Payment */}
                   <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.acceptedPaymentMethods.includes("cash")
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("cash")
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                   >
                     <Checkbox
                       checked={formData.acceptedPaymentMethods.includes("cash")}
@@ -1835,11 +1863,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   {/* Standard - Free */}
                   <div
                     onClick={() => setFormData({ ...formData, selectedPromotionalPackage: null })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.selectedPromotionalPackage === null
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === null
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                     data-testid="package-standard"
                   >
                     <div className="font-semibold">Standard Listing</div>
@@ -1854,11 +1881,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   {/* Featured Service */}
                   <div
                     onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "featured" })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${
-                      formData.selectedPromotionalPackage === "featured"
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${formData.selectedPromotionalPackage === "featured"
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                     data-testid="package-featured"
                   >
                     <div className="absolute -top-2 left-4 bg-primary text-white text-xs px-2 py-1 rounded-full">Popular</div>
@@ -1874,11 +1900,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   {/* Premium Service */}
                   <div
                     onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "premium" })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      formData.selectedPromotionalPackage === "premium"
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                    }`}
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === "premium"
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/50'
+                      }`}
                     data-testid="package-premium"
                   >
                     <div className="font-semibold">Premium Service</div>
@@ -1986,7 +2011,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
             >
               Cancel
             </Button>
-            
+
             {/* Show Next button if not on last tab, otherwise show Publish/Update */}
             {!isLastTab ? (
               <Button
@@ -2050,7 +2075,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
               Select hashtags to add to your service (max 3 total)
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {suggestedHashtags.length > 0 ? (
               <>
@@ -2058,7 +2083,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   {suggestedHashtags.map((tag: string) => {
                     const isAdded = formData.hashtags.includes(tag);
                     const canAdd = formData.hashtags.length < 3;
-                    
+
                     return (
                       <Badge
                         key={tag}
@@ -2087,7 +2112,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 No hashtag suggestions available
               </p>
             )}
-            
+
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
