@@ -43,7 +43,7 @@ export default function Profile() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
-  
+
   // Extract tab from URL search params
   const getTabFromUrl = () => {
     const search = window.location.search;
@@ -64,15 +64,15 @@ export default function Profile() {
       const event = e as CustomEvent;
       setActiveTab(event.detail.tab);
     };
-    
+
     // Handle browser back/forward
     const handlePopState = () => {
       setActiveTab(getTabFromUrl());
     };
-    
+
     window.addEventListener('profileTabChange', handleTabChange);
     window.addEventListener('popstate', handlePopState);
-    
+
     return () => {
       window.removeEventListener('profileTabChange', handleTabChange);
       window.removeEventListener('popstate', handlePopState);
@@ -83,7 +83,7 @@ export default function Profile() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [activeTab]);
-  
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingService, setEditingService] = useState<ServiceWithDetails | null>(null);
   const [showCategorySuggestionModal, setShowCategorySuggestionModal] = useState(false);
@@ -100,16 +100,16 @@ export default function Profile() {
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
-  
+
   const [mainLocationName, setMainLocationName] = useState(user?.preferredLocationName || "");
   const [mainLocationLat, setMainLocationLat] = useState(user?.locationLat ? parseFloat(user.locationLat as any) : null);
   const [mainLocationLng, setMainLocationLng] = useState(user?.locationLng ? parseFloat(user.locationLng as any) : null);
-  
+
   const [editingAddress, setEditingAddress] = useState<SelectAddress | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<string | null>(null);
   const [isAddressValidated, setIsAddressValidated] = useState(false);
-  
+
   const [addressForm, setAddressForm] = useState({
     label: "",
     street: "",
@@ -149,7 +149,7 @@ export default function Profile() {
   const [reviewBackText, setReviewBackText] = useState("");
   const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
   const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
-  
+
   // Multi-criteria ratings for comprehensive reviews
   const [serviceRating, setServiceRating] = useState(5);
   const [communicationRating, setCommunicationRating] = useState(5);
@@ -158,7 +158,7 @@ export default function Profile() {
   const [customerCommunicationRating, setCustomerCommunicationRating] = useState(5);
   const [customerPunctualityRating, setCustomerPunctualityRating] = useState(5);
   const [customerRespectRating, setCustomerRespectRating] = useState(5);
-  
+
   // Edit review modal
   const [showEditReviewModal, setShowEditReviewModal] = useState(false);
   const [editingReview, setEditingReview] = useState<any>(null);
@@ -257,10 +257,17 @@ export default function Profile() {
 
   // Mutation to create customer review (vendor reviews customer)
   const createCustomerReviewMutation = useMutation({
-    mutationFn: async ({ bookingId, rating, comment }: { bookingId: string; rating: number; comment: string }) => {
+    mutationFn: async ({ bookingId, rating, comment, communicationRating, punctualityRating, respectRating }: {
+      bookingId: string;
+      rating: number;
+      comment: string;
+      communicationRating?: number;
+      punctualityRating?: number;
+      respectRating?: number;
+    }) => {
       return apiRequest(`/api/bookings/${bookingId}/customer-review`, {
         method: "POST",
-        body: JSON.stringify({ rating, comment }),
+        body: JSON.stringify({ rating, comment, communicationRating, punctualityRating, respectRating }),
       });
     },
     onSuccess: () => {
@@ -287,10 +294,19 @@ export default function Profile() {
 
   // Mutation to create service review (customer reviews service)  
   const createServiceReviewMutation = useMutation({
-    mutationFn: async ({ serviceId, bookingId, rating, comment }: { serviceId: string; bookingId?: string; rating: number; comment: string }) => {
+    mutationFn: async ({ serviceId, bookingId, rating, comment, qualityRating, communicationRating, punctualityRating, valueRating }: {
+      serviceId: string;
+      bookingId?: string;
+      rating: number;
+      comment: string;
+      qualityRating?: number;
+      communicationRating?: number;
+      punctualityRating?: number;
+      valueRating?: number;
+    }) => {
       return apiRequest(`/api/services/${serviceId}/reviews`, {
         method: "POST",
-        body: JSON.stringify({ rating, comment, bookingId }),
+        body: JSON.stringify({ rating, comment, bookingId, qualityRating, communicationRating, punctualityRating, valueRating }),
       });
     },
     onSuccess: () => {
@@ -404,8 +420,8 @@ export default function Profile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { 
-      firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; 
+    mutationFn: async (data: {
+      firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string;
       locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string;
       acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean;
     }) => {
@@ -653,7 +669,7 @@ export default function Profile() {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate phone number if provided
     if (phoneNumber && !validateSwissPhoneNumber(phoneNumber)) {
       toast({
@@ -663,13 +679,13 @@ export default function Profile() {
       });
       return;
     }
-    
+
     updateProfileMutation.mutate({ firstName, lastName, phoneNumber });
   };
 
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate street contains a number
     const hasStreetNumber = /\d/.test(addressForm.street);
     if (!hasStreetNumber) {
@@ -680,7 +696,7 @@ export default function Profile() {
       });
       return;
     }
-    
+
     // Enforce validated address for new addresses only (not when editing)
     if (!editingAddress && !isAddressValidated) {
       toast({
@@ -690,10 +706,10 @@ export default function Profile() {
       });
       return;
     }
-    
+
     // Note: When editing, we allow saving without re-validation since it's already a saved address
     // Users can manually update fields if needed
-    
+
     if (editingAddress) {
       updateAddressMutation.mutate({ id: editingAddress.id, data: addressForm });
     } else {
@@ -714,7 +730,7 @@ export default function Profile() {
     setIsAddressValidated(false);
   };
 
-    const startEditAddress = (address: SelectAddress) => {
+  const startEditAddress = (address: SelectAddress) => {
     setEditingAddress(address);
     setAddressForm({
       label: address.label || "",
@@ -860,8 +876,8 @@ export default function Profile() {
               <h1 className="text-3xl font-bold text-slate-900">Profile</h1>
               <p className="text-slate-500">Manage your services and account settings</p>
             </div>
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               className="gap-2 shadow-md shadow-primary/20"
               onClick={() => setShowCreateModal(true)}
               data-testid="button-post-new-service"
@@ -870,12 +886,12 @@ export default function Profile() {
             </Button>
           </div>
 
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onValueChange={(value) => {
               setActiveTab(value); // Set state first
               setLocation(`/profile?tab=${value}`); // Then update URL
-            }} 
+            }}
             className="w-full"
           >
             <TabsList className="mb-6 bg-white p-1 border border-border flex-wrap">
@@ -1012,7 +1028,7 @@ export default function Profile() {
                       <Label>Profile Picture</Label>
                       <div className="flex flex-col items-center gap-4 mt-3">
                         <Avatar className="w-20 h-20 ring-4 ring-slate-100">
-                          <AvatarImage 
+                          <AvatarImage
                             src={user?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
                             alt={`${user?.firstName} ${user?.lastName}`}
                           />
@@ -1083,8 +1099,8 @@ export default function Profile() {
                         </p>
                       )}
                     </div>
-                    <Button 
-                      type="submit" 
+                    <Button
+                      type="submit"
                       disabled={updateProfileMutation.isPending}
                       data-testid="button-save-profile"
                     >
@@ -1104,9 +1120,9 @@ export default function Profile() {
                   <div>
                     <Label>Email</Label>
                     <div className="flex items-center gap-2 mt-2">
-                      <Input 
-                        value={user.email || ""} 
-                        disabled 
+                      <Input
+                        value={user.email || ""}
+                        disabled
                         className="bg-muted"
                         data-testid="input-email-readonly"
                       />
@@ -1141,14 +1157,14 @@ export default function Profile() {
                   <div>
                     <Label>Password</Label>
                     <div className="flex items-center gap-2 mt-2">
-                      <Input 
-                        type="password" 
-                        value="••••••••" 
-                        disabled 
+                      <Input
+                        type="password"
+                        value="••••••••"
+                        disabled
                         className="bg-muted"
                         data-testid="input-password-readonly"
                       />
-                      <Button 
+                      <Button
                         variant="outline"
                         onClick={() => setShowChangePasswordDialog(true)}
                         className="gap-2"
@@ -1182,8 +1198,8 @@ export default function Profile() {
                       if (!a.isPrimary && b.isPrimary) return 1;
                       return 0;
                     }).map((address) => (
-                      <div 
-                        key={address.id} 
+                      <div
+                        key={address.id}
                         className="border rounded-lg p-4 space-y-2"
                         data-testid={`address-card-${address.id}`}
                       >
@@ -1235,7 +1251,7 @@ export default function Profile() {
                           <Input
                             id="label"
                             value={addressForm.label}
-                            onChange={(e) => setAddressForm({...addressForm, label: e.target.value})}
+                            onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
                             placeholder="e.g., Home, Office"
                             data-testid="input-address-label"
                           />
@@ -1267,7 +1283,7 @@ export default function Profile() {
                             <Input
                               id="postalCode"
                               value={addressForm.postalCode}
-                              onChange={(e) => setAddressForm({...addressForm, postalCode: e.target.value})}
+                              onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
                               placeholder="e.g., 8000"
                               data-testid="input-address-postalCode"
                             />
@@ -1277,7 +1293,7 @@ export default function Profile() {
                             <Input
                               id="city"
                               value={addressForm.city}
-                              onChange={(e) => setAddressForm({...addressForm, city: e.target.value})}
+                              onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
                               placeholder="e.g., Zurich"
                               data-testid="input-address-city"
                             />
@@ -1288,7 +1304,7 @@ export default function Profile() {
                           <Input
                             id="canton"
                             value={addressForm.canton}
-                            onChange={(e) => setAddressForm({...addressForm, canton: e.target.value})}
+                            onChange={(e) => setAddressForm({ ...addressForm, canton: e.target.value })}
                             placeholder="e.g., Zurich"
                             data-testid="input-address-canton"
                           />
@@ -1298,23 +1314,23 @@ export default function Profile() {
                             id="isPrimary"
                             type="checkbox"
                             checked={addressForm.isPrimary}
-                            onChange={(e) => setAddressForm({...addressForm, isPrimary: e.target.checked})}
+                            onChange={(e) => setAddressForm({ ...addressForm, isPrimary: e.target.checked })}
                             className="w-4 h-4"
                             data-testid="checkbox-address-isPrimary"
                           />
                           <Label htmlFor="isPrimary">Set as primary address</Label>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            type="submit" 
+                          <Button
+                            type="submit"
                             disabled={!addressForm.street || !addressForm.city || updateAddressMutation.isPending}
                             data-testid="button-save-address"
                           >
                             {updateAddressMutation.isPending ? "Saving..." : "Save Address"}
                           </Button>
                           <Button
-                            type="button" 
-                            variant="outline" 
+                            type="button"
+                            variant="outline"
                             onClick={cancelAddressForm}
                             data-testid="button-cancel-address"
                           >
@@ -1329,7 +1345,7 @@ export default function Profile() {
                           <Input
                             id="label"
                             value={addressForm.label}
-                            onChange={(e) => setAddressForm({...addressForm, label: e.target.value})}
+                            onChange={(e) => setAddressForm({ ...addressForm, label: e.target.value })}
                             placeholder="e.g., Home, Office"
                             data-testid="input-address-label"
                           />
@@ -1360,7 +1376,7 @@ export default function Profile() {
                             <Input
                               id="postalCode"
                               value={addressForm.postalCode}
-                              onChange={(e) => setAddressForm({...addressForm, postalCode: e.target.value})}
+                              onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
                               placeholder="e.g., 8000"
                               data-testid="input-address-postalCode"
                               disabled
@@ -1371,7 +1387,7 @@ export default function Profile() {
                             <Input
                               id="city"
                               value={addressForm.city}
-                              onChange={(e) => setAddressForm({...addressForm, city: e.target.value})}
+                              onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
                               placeholder="e.g., Zurich"
                               data-testid="input-address-city"
                               disabled
@@ -1383,7 +1399,7 @@ export default function Profile() {
                           <Input
                             id="canton"
                             value={addressForm.canton}
-                            onChange={(e) => setAddressForm({...addressForm, canton: e.target.value})}
+                            onChange={(e) => setAddressForm({ ...addressForm, canton: e.target.value })}
                             placeholder="e.g., Zurich"
                             data-testid="input-address-canton"
                             disabled
@@ -1394,23 +1410,23 @@ export default function Profile() {
                             id="isPrimary"
                             type="checkbox"
                             checked={addressForm.isPrimary}
-                            onChange={(e) => setAddressForm({...addressForm, isPrimary: e.target.checked})}
+                            onChange={(e) => setAddressForm({ ...addressForm, isPrimary: e.target.checked })}
                             className="w-4 h-4"
                             data-testid="checkbox-address-isPrimary"
                           />
                           <Label htmlFor="isPrimary">Set as primary address</Label>
                         </div>
                         <div className="flex gap-2">
-                          <Button 
-                            type="submit" 
+                          <Button
+                            type="submit"
                             disabled={!isAddressValidated || createAddressMutation.isPending}
                             data-testid="button-save-address"
                           >
                             {createAddressMutation.isPending ? "Saving..." : "Save Address"}
                           </Button>
                           <Button
-                            type="button" 
-                            variant="outline" 
+                            type="button"
+                            variant="outline"
                             onClick={cancelAddressForm}
                             data-testid="button-cancel-address"
                           >
@@ -1419,7 +1435,7 @@ export default function Profile() {
                         </div>
                       </form>
                     ) : (
-                      <Button 
+                      <Button
                         onClick={() => setShowAddressForm(true)}
                         className="w-full"
                         variant="outline"
@@ -1450,7 +1466,7 @@ export default function Profile() {
                     <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
                       Accepted Payment Methods
                     </h4>
-                    
+
                     <div className="grid gap-4">
                       <div className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center gap-3">
@@ -1525,7 +1541,7 @@ export default function Profile() {
                     <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
                       Booking Mode
                     </h4>
-                    
+
                     <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-100 rounded-lg">
@@ -1534,7 +1550,7 @@ export default function Profile() {
                         <div>
                           <Label htmlFor="require-approval" className="font-medium">Require Booking Approval</Label>
                           <p className="text-sm text-muted-foreground">
-                            {user.requireBookingApproval 
+                            {user.requireBookingApproval
                               ? "You must manually approve each booking request"
                               : "Bookings are confirmed instantly when slots are available"
                             }
@@ -1550,16 +1566,16 @@ export default function Profile() {
                         data-testid="switch-require-approval"
                       />
                     </div>
-                    
+
                     <p className="text-xs text-muted-foreground">
-                      💡 Tip: If you maintain your calendar availability, instant booking provides a better customer experience. 
+                      💡 Tip: If you maintain your calendar availability, instant booking provides a better customer experience.
                       Enable approval only if you need to review each request before accepting.
                     </p>
                   </div>
                 </CardContent>
               </Card>
             </TabsContent>
-            
+
             <TabsContent value="services" data-testid="panel-my-services" className="space-y-6">
               {/* Fallback plan object when user.plan is null */}
               {(() => {
@@ -1673,7 +1689,7 @@ export default function Profile() {
 
               <div className="bg-white rounded-xl border border-border shadow-sm p-6">
                 <h2 className="text-xl font-semibold mb-6">Active Listings</h2>
-                
+
                 {servicesLoading ? (
                   <div className="text-center py-12">
                     <p className="text-muted-foreground">Loading your services...</p>
@@ -1684,92 +1700,92 @@ export default function Profile() {
                       const expired = isExpired(service.expiresAt);
                       return (
                         <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-                           <div className="w-full md:w-48 aspect-video bg-slate-200 rounded-md overflow-hidden shrink-0 relative">
-                              <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
-                              {expired && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                  <Badge variant="destructive">Expired</Badge>
-                                </div>
-                              )}
-                           </div>
-                           <div className="flex-1 py-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <h3 className="font-bold text-lg">{service.title}</h3>
-                                <Badge variant={service.status === 'active' && !expired ? 'default' : 'secondary'}>
-                                  {expired ? 'Expired' : service.status}
-                                </Badge>
+                          <div className="w-full md:w-48 aspect-video bg-slate-200 rounded-md overflow-hidden shrink-0 relative">
+                            <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
+                            {expired && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Badge variant="destructive">Expired</Badge>
                               </div>
-                              <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
-                              <div className="flex items-center gap-4 text-sm text-slate-500">
-                                 <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
-                                 <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
-                                   <Clock className="w-3 h-3" />
-                                   Expires: {new Date(service.expiresAt).toLocaleDateString()}
-                                 </span>
-                              </div>
-                           </div>
-                           <div className="flex md:flex-col gap-2 justify-center shrink-0">
-                              {expired ? (
-                                <Button 
-                                  className="w-full" 
-                                  size="sm" 
-                                  onClick={() => handleRenew(service.id)}
-                                  disabled={renewServiceMutation.isPending}
-                                >
-                                  <RefreshCw className="w-3 h-3 mr-2" /> 
-                                  {renewServiceMutation.isPending ? "Renewing..." : "Renew"}
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    onClick={() => setEditingService(service)}
-                                    data-testid={`button-edit-service-${service.id}`}
-                                  >
-                                    Edit
-                                  </Button>
-                                  {service.status === 'active' ? (
-                                    <Button 
-                                      variant="secondary" 
-                                      size="sm" 
-                                      onClick={() => handlePause(service.id)}
-                                      disabled={updateServiceMutation.isPending}
-                                      data-testid={`button-pause-service-${service.id}`}
-                                    >
-                                      Pause
-                                    </Button>
-                                  ) : (
-                                    <Button 
-                                      variant="default" 
-                                      size="sm" 
-                                      onClick={() => handleStatusChange(service.id, 'active')}
-                                      disabled={updateServiceMutation.isPending}
-                                    >
-                                      Activate
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                              <Button 
-                                variant="destructive" 
-                                size="sm" 
-                                onClick={() => handleDelete(service.id)}
-                                disabled={deleteServiceMutation.isPending}
-                                data-testid={`button-delete-service-${service.id}`}
+                            )}
+                          </div>
+                          <div className="flex-1 py-1">
+                            <div className="flex items-start justify-between mb-2">
+                              <h3 className="font-bold text-lg">{service.title}</h3>
+                              <Badge variant={service.status === 'active' && !expired ? 'default' : 'secondary'}>
+                                {expired ? 'Expired' : service.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
+                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                              <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
+                              <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
+                                <Clock className="w-3 h-3" />
+                                Expires: {new Date(service.expiresAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                            {expired ? (
+                              <Button
+                                className="w-full"
+                                size="sm"
+                                onClick={() => handleRenew(service.id)}
+                                disabled={renewServiceMutation.isPending}
                               >
-                                Delete
+                                <RefreshCw className="w-3 h-3 mr-2" />
+                                {renewServiceMutation.isPending ? "Renewing..." : "Renew"}
                               </Button>
-                           </div>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingService(service)}
+                                  data-testid={`button-edit-service-${service.id}`}
+                                >
+                                  Edit
+                                </Button>
+                                {service.status === 'active' ? (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => handlePause(service.id)}
+                                    disabled={updateServiceMutation.isPending}
+                                    data-testid={`button-pause-service-${service.id}`}
+                                  >
+                                    Pause
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleStatusChange(service.id, 'active')}
+                                    disabled={updateServiceMutation.isPending}
+                                  >
+                                    Activate
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDelete(service.id)}
+                              disabled={deleteServiceMutation.isPending}
+                              data-testid={`button-delete-service-${service.id}`}
+                            >
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                   <div className="text-center py-12">
-                      <p className="text-muted-foreground">You haven't posted any services yet.</p>
-                      <Button variant="link" className="mt-2" onClick={() => setShowCreateModal(true)}>Create your first post</Button>
-                   </div>
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">You haven't posted any services yet.</p>
+                    <Button variant="link" className="mt-2" onClick={() => setShowCreateModal(true)}>Create your first post</Button>
+                  </div>
                 )}
               </div>
             </TabsContent>
@@ -1832,7 +1848,7 @@ export default function Profile() {
                             <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
-                                  <img 
+                                  <img
                                     src={review.reviewer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.reviewer.id}`}
                                     alt={review.reviewer.firstName}
                                     className="w-10 h-10 rounded-full"
@@ -1854,7 +1870,7 @@ export default function Profile() {
                                   </div>
                                 </div>
                               </div>
-                              
+
                               {/* Multi-criteria breakdown */}
                               {(review.qualityRating || review.communicationRating || review.punctualityRating || review.valueRating) && (
                                 <div className="mb-3 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg text-xs">
@@ -1890,7 +1906,7 @@ export default function Profile() {
                                   </div>
                                 </div>
                               )}
-                              
+
                               <p className="text-sm mb-3">{review.comment}</p>
                               <div className="flex items-center justify-between text-xs text-muted-foreground">
                                 <span>{new Date(review.createdAt).toLocaleDateString()}</span>
@@ -1924,7 +1940,7 @@ export default function Profile() {
                             <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
-                                  <img 
+                                  <img
                                     src={review.vendor?.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.vendor?.id}`}
                                     alt={review.vendor?.firstName}
                                     className="w-10 h-10 rounded-full"
@@ -1987,7 +2003,7 @@ export default function Profile() {
                             <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
-                                  <img 
+                                  <img
                                     src={review.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.customer.id}`}
                                     alt={review.customer.firstName}
                                     className="w-10 h-10 rounded-full"
@@ -2051,7 +2067,7 @@ export default function Profile() {
                             <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
-                                  <img 
+                                  <img
                                     src={booking.vendor.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.vendor.id}`}
                                     alt={booking.vendor.firstName}
                                     className="w-10 h-10 rounded-full"
@@ -2099,7 +2115,7 @@ export default function Profile() {
                             <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
-                                  <img 
+                                  <img
                                     src={booking.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.customer.id}`}
                                     alt={booking.customer.firstName}
                                     className="w-10 h-10 rounded-full"
@@ -2150,7 +2166,7 @@ export default function Profile() {
                     <CardHeader>
                       <CardTitle className="text-lg">Awaiting Customer Reviews</CardTitle>
                       <CardDescription>
-                        Completed bookings where the customer hasn't left a review yet. 
+                        Completed bookings where the customer hasn't left a review yet.
                         You can request a review up to 2 times with a 3-day cooldown.
                       </CardDescription>
                     </CardHeader>
@@ -2163,16 +2179,16 @@ export default function Profile() {
                       ) : (
                         <div className="space-y-4">
                           {bookingsPendingReview.map((booking: any) => {
-                            const canRequest = (booking.vendorReviewRequestCount || 0) < 2 && 
-                              (!booking.vendorLastReviewRequestAt || 
-                               new Date().getTime() - new Date(booking.vendorLastReviewRequestAt).getTime() > 3 * 24 * 60 * 60 * 1000);
+                            const canRequest = (booking.vendorReviewRequestCount || 0) < 2 &&
+                              (!booking.vendorLastReviewRequestAt ||
+                                new Date().getTime() - new Date(booking.vendorLastReviewRequestAt).getTime() > 3 * 24 * 60 * 60 * 1000);
                             const requestCount = booking.vendorReviewRequestCount || 0;
-                            
+
                             return (
                               <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                                 <div className="flex items-start justify-between">
                                   <div className="flex items-center gap-3">
-                                    <img 
+                                    <img
                                       src={booking.customer.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${booking.customer.id}`}
                                       alt={booking.customer.firstName}
                                       className="w-10 h-10 rounded-full"
@@ -2200,7 +2216,7 @@ export default function Profile() {
                                         className="gap-1"
                                       >
                                         <Mail className="w-3 h-3" />
-                                        {canRequest ? "Request Review" : 
+                                        {canRequest ? "Request Review" :
                                           requestCount >= 2 ? "Max requests sent" : "Cooldown active"}
                                       </Button>
                                     </div>
@@ -2233,7 +2249,7 @@ export default function Profile() {
                   <p className="text-muted-foreground">Comprehensive booking management for customers and vendors</p>
                 </div>
               </div>
-              
+
               {/* Main unified bookings card */}
               <Card className="border-primary/30 bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/20 dark:to-green-950/20">
                 <CardContent className="py-8 text-center">
@@ -2252,7 +2268,7 @@ export default function Profile() {
                   </Link>
                 </CardContent>
               </Card>
-              
+
               {/* Quick access cards */}
               <div className="grid gap-6 md:grid-cols-2">
                 {/* Customer Bookings Card */}
@@ -2338,7 +2354,7 @@ export default function Profile() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card className="border-l-4 border-l-blue-500">
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
@@ -2353,7 +2369,7 @@ export default function Profile() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <Card className="border-l-4 border-l-amber-500">
                   <CardContent className="py-4">
                     <div className="flex items-center justify-between">
@@ -2457,8 +2473,8 @@ export default function Profile() {
                           <span>Payouts Enabled</span>
                         </div>
                       </div>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => createConnectAccountMutation.mutate()}
                         disabled={createConnectAccountMutation.isPending}
@@ -2482,7 +2498,7 @@ export default function Profile() {
                       <p className="text-sm text-muted-foreground">
                         Complete your Stripe Connect onboarding to start receiving payments.
                       </p>
-                      <Button 
+                      <Button
                         onClick={() => createConnectAccountMutation.mutate()}
                         disabled={createConnectAccountMutation.isPending}
                       >
@@ -2499,10 +2515,10 @@ export default function Profile() {
                   ) : (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
-                        Set up Stripe Connect to receive card payments directly into your bank account. 
+                        Set up Stripe Connect to receive card payments directly into your bank account.
                         This is required if you want to accept card payments for your services.
                       </p>
-                      <Button 
+                      <Button
                         onClick={() => createConnectAccountMutation.mutate()}
                         disabled={createConnectAccountMutation.isPending}
                       >
@@ -2589,7 +2605,7 @@ export default function Profile() {
               </Card>
 
               {/* Escrow Dashboard for Vendors */}
-              {services && services.length > 0 && (
+              {myServices && myServices.length > 0 && (
                 <VendorEscrowDashboard />
               )}
 
@@ -2665,8 +2681,8 @@ export default function Profile() {
         </div>
       </div>
 
-      <CreateServiceModal 
-        open={showCreateModal} 
+      <CreateServiceModal
+        open={showCreateModal}
         onOpenChange={(open) => {
           setShowCreateModal(open);
           if (!open) {
@@ -2678,9 +2694,9 @@ export default function Profile() {
         onCategoryCreated={setSelectedCategoryId}
         preselectedCategoryId={selectedCategoryId}
       />
-      <EditServiceModal 
-        open={!!editingService} 
-        onOpenChange={(open) => !open && setEditingService(null)} 
+      <EditServiceModal
+        open={!!editingService}
+        onOpenChange={(open) => !open && setEditingService(null)}
         service={editingService}
       />
       <CategorySuggestionModal
@@ -2927,7 +2943,7 @@ export default function Profile() {
         <DialogContent className="sm:max-w-2xl lg:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="text-xl">
-              {reviewBackTarget?.type === 'customer' 
+              {reviewBackTarget?.type === 'customer'
                 ? `Review Customer: ${reviewBackTarget?.userName}`
                 : `Review Service: ${reviewBackTarget?.serviceName}`
               }
@@ -2939,7 +2955,7 @@ export default function Profile() {
               }
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto">
             {/* Verification Check */}
             {user && !user.isVerified && (
@@ -2969,9 +2985,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= serviceRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= serviceRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -2996,9 +3011,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= communicationRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= communicationRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3023,9 +3037,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= punctualityRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= punctualityRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3050,9 +3063,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= valueRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= valueRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3071,9 +3083,8 @@ export default function Profile() {
                           return (
                             <Star
                               key={star}
-                              className={`w-5 h-5 ${
-                                star <= Math.round(avg) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                              }`}
+                              className={`w-5 h-5 ${star <= Math.round(avg) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                                }`}
                             />
                           );
                         })}
@@ -3107,9 +3118,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= customerCommunicationRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= customerCommunicationRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3134,9 +3144,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= customerPunctualityRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= customerPunctualityRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3161,9 +3170,8 @@ export default function Profile() {
                         className="disabled:opacity-50"
                       >
                         <Star
-                          className={`w-6 h-6 cursor-pointer transition-colors ${
-                            star <= customerRespectRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                          }`}
+                          className={`w-6 h-6 cursor-pointer transition-colors ${star <= customerRespectRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                            }`}
                         />
                       </button>
                     ))}
@@ -3182,9 +3190,8 @@ export default function Profile() {
                           return (
                             <Star
                               key={star}
-                              className={`w-5 h-5 ${
-                                star <= Math.round(avg) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                              }`}
+                              className={`w-5 h-5 ${star <= Math.round(avg) ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                                }`}
                             />
                           );
                         })}
@@ -3201,14 +3208,14 @@ export default function Profile() {
             {/* Review Text with Templates */}
             <div className="space-y-3">
               <Label className="text-base font-medium">Written Review</Label>
-              
+
               {/* Review Templates - Adaptive based on overall rating */}
               {(() => {
                 // Calculate overall rating for both types
                 const overallRating = reviewBackTarget?.type === 'customer'
                   ? (customerCommunicationRating + customerPunctualityRating + customerRespectRating) / 3
                   : (serviceRating + communicationRating + punctualityRating + valueRating) / 4;
-                
+
                 // Define templates for service reviews
                 const serviceTemplates = {
                   positive: [
@@ -3230,7 +3237,7 @@ export default function Profile() {
                     "Service was below standard. Would suggest improvements in quality and reliability.",
                   ],
                 };
-                
+
                 // Define templates for customer reviews
                 const customerTemplates = {
                   positive: [
@@ -3252,25 +3259,24 @@ export default function Profile() {
                     "Difficult to work with. Would recommend clearer communication and more punctuality.",
                   ],
                 };
-                
+
                 const templates = reviewBackTarget?.type === 'customer' ? customerTemplates : serviceTemplates;
-                const currentTemplates = overallRating >= 4 
-                  ? templates.positive 
-                  : overallRating >= 2.5 
-                    ? templates.neutral 
+                const currentTemplates = overallRating >= 4
+                  ? templates.positive
+                  : overallRating >= 2.5
+                    ? templates.neutral
                     : templates.negative;
                 const templateType = overallRating >= 4 ? 'Positive' : overallRating >= 2.5 ? 'Neutral' : 'Critical';
-                
+
                 return (
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        overallRating >= 4 
-                          ? 'bg-green-100 text-green-700' 
-                          : overallRating >= 2.5 
-                            ? 'bg-amber-100 text-amber-700' 
-                            : 'bg-red-100 text-red-700'
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${overallRating >= 4
+                        ? 'bg-green-100 text-green-700'
+                        : overallRating >= 2.5
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                        }`}>
                         {templateType} Templates
                       </span>
                       <span>Click to use or edit:</span>
@@ -3290,9 +3296,9 @@ export default function Profile() {
                   </div>
                 );
               })()}
-              
+
               <Textarea
-                placeholder={reviewBackTarget?.type === 'customer' 
+                placeholder={reviewBackTarget?.type === 'customer'
                   ? "Share additional details about your experience with this customer..."
                   : "Share additional details about your experience with this service..."
                 }
@@ -3325,7 +3331,7 @@ export default function Profile() {
                   } else {
                     const overallRating = Math.round((serviceRating + communicationRating + punctualityRating + valueRating) / 4);
                     createServiceReviewMutation.mutate({
-                      serviceId: reviewBackTarget.serviceId,
+                      serviceId: reviewBackTarget.serviceId!,
                       bookingId: reviewBackTarget.bookingId,
                       rating: overallRating,
                       comment: reviewBackText,
@@ -3338,14 +3344,14 @@ export default function Profile() {
                 }
               }}
               disabled={
-                !user?.isVerified || 
-                !reviewBackText || 
+                !user?.isVerified ||
+                !reviewBackText ||
                 createCustomerReviewMutation.isPending ||
                 createServiceReviewMutation.isPending
               }
             >
-              {(createCustomerReviewMutation.isPending || createServiceReviewMutation.isPending) 
-                ? "Posting..." 
+              {(createCustomerReviewMutation.isPending || createServiceReviewMutation.isPending)
+                ? "Posting..."
                 : "Submit Review"
               }
             </Button>
@@ -3372,7 +3378,7 @@ export default function Profile() {
               </div>
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             {/* Star Rating */}
             <div className="space-y-2">
@@ -3385,9 +3391,8 @@ export default function Profile() {
                     onClick={() => setEditReviewRating(star)}
                   >
                     <Star
-                      className={`w-8 h-8 cursor-pointer transition-colors ${
-                        star <= editReviewRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-                      }`}
+                      className={`w-8 h-8 cursor-pointer transition-colors ${star <= editReviewRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                        }`}
                     />
                   </button>
                 ))}
@@ -3414,10 +3419,10 @@ export default function Profile() {
               onClick={async () => {
                 if (editingReview && editReviewText) {
                   try {
-                    const endpoint = editingReview.type === 'customer' 
+                    const endpoint = editingReview.type === 'customer'
                       ? `/api/customer-reviews/${editingReview.id}`
                       : `/api/reviews/${editingReview.id}`;
-                    
+
                     const res = await fetchApi(endpoint, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
@@ -3426,17 +3431,17 @@ export default function Profile() {
                         comment: editReviewText,
                       }),
                     });
-                    
+
                     if (!res.ok) {
                       const error = await res.json();
                       throw new Error(error.message || 'Failed to update review');
                     }
-                    
+
                     toast({
                       title: "Review updated",
                       description: "Your review has been updated successfully.",
                     });
-                    
+
                     // Refresh reviews
                     queryClient.invalidateQueries({ queryKey: ["/api/users/me/reviews-given"] });
                     queryClient.invalidateQueries({ queryKey: ["/api/users/me/customer-reviews-given"] });
