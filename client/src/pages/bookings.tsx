@@ -36,9 +36,9 @@ import {
 import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { fetchApi } from '@/lib/config';
-import { 
+import {
   Calendar,
-  Clock, 
+  Clock,
   MapPin,
   MessageSquare,
   Phone,
@@ -96,50 +96,50 @@ interface Booking {
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: React.ReactNode; description: string }> = {
-  pending: { 
-    label: "Pending", 
+  pending: {
+    label: "Pending",
     color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
     icon: <Clock className="w-4 h-4" />,
     description: "Waiting for vendor response"
   },
-  accepted: { 
-    label: "Accepted", 
+  accepted: {
+    label: "Accepted",
     color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
     icon: <CheckCircle2 className="w-4 h-4" />,
     description: "Vendor accepted your request"
   },
-  alternative_proposed: { 
-    label: "Alternative Proposed", 
+  alternative_proposed: {
+    label: "Alternative Proposed",
     color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
     icon: <RefreshCw className="w-4 h-4" />,
     description: "Vendor proposed a different time"
   },
-  confirmed: { 
-    label: "Confirmed", 
+  confirmed: {
+    label: "Confirmed",
     color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
     icon: <CheckCircle2 className="w-4 h-4" />,
     description: "Booking is confirmed"
   },
-  in_progress: { 
-    label: "In Progress", 
+  in_progress: {
+    label: "In Progress",
     color: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400",
     icon: <Loader2 className="w-4 h-4 animate-spin" />,
     description: "Service is being performed"
   },
-  completed: { 
-    label: "Completed", 
+  completed: {
+    label: "Completed",
     color: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300",
     icon: <CheckCircle2 className="w-4 h-4" />,
     description: "Service completed"
   },
-  cancelled: { 
-    label: "Cancelled", 
+  cancelled: {
+    label: "Cancelled",
     color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     icon: <XCircle className="w-4 h-4" />,
     description: "Booking was cancelled"
   },
-  rejected: { 
-    label: "Rejected", 
+  rejected: {
+    label: "Rejected",
     color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
     icon: <XCircle className="w-4 h-4" />,
     description: "Vendor declined the request"
@@ -270,7 +270,7 @@ export default function BookingsPage() {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-950 dark:to-indigo-950">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-zinc-900 to-slate-950">
         <div className="container max-w-6xl mx-auto py-8 px-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
@@ -282,10 +282,10 @@ export default function BookingsPage() {
               </Link>
               <div>
                 <h1 className="text-3xl font-bold flex items-center gap-3">
-                  <CalendarDays className="h-8 w-8 text-indigo-600" />
+                  <CalendarDays className="h-8 w-8 text-amber-400" />
                   My Bookings
                 </h1>
-                <p className="text-muted-foreground mt-1">
+                <p className="text-slate-400 mt-1">
                   Track and manage your service bookings
                 </p>
               </div>
@@ -294,7 +294,7 @@ export default function BookingsPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-white dark:bg-slate-900">
+            <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-zinc-900/50 backdrop-blur-xl border border-zinc-800">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="pending" className="gap-1">
                 <Clock className="w-3 h-3" />
@@ -335,12 +335,12 @@ export default function BookingsPage() {
               ) : bookings.length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="w-20 h-20 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mb-4">
-                      <Package className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
+                    <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center mb-4">
+                      <Package className="w-10 h-10 text-amber-400" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">No bookings yet</h3>
-                    <p className="text-muted-foreground max-w-sm mb-6">
-                      {activeTab === 'all' 
+                    <h3 className="text-xl font-semibold mb-2 text-white">No bookings yet</h3>
+                    <p className="text-slate-400 max-w-sm mb-6">
+                      {activeTab === 'all'
                         ? "You haven't made any bookings yet. Browse services and book your first appointment!"
                         : `No ${activeTab.replace('_', ' ')} bookings found.`}
                     </p>
@@ -357,7 +357,7 @@ export default function BookingsPage() {
                     const isUpcoming = isFuture(new Date(booking.requestedStartTime));
 
                     return (
-                      <Card 
+                      <Card
                         key={booking.id}
                         className={cn(
                           "overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]",
@@ -370,8 +370,8 @@ export default function BookingsPage() {
                             {/* Service Image */}
                             <div className="w-28 h-full relative flex-shrink-0">
                               {booking.service?.images?.[0] ? (
-                                <img 
-                                  src={booking.service.images[0]} 
+                                <img
+                                  src={booking.service.images[0]}
                                   alt={booking.service.title}
                                   className="w-full h-full object-cover min-h-[120px]"
                                 />
@@ -428,7 +428,7 @@ export default function BookingsPage() {
 
                               {/* Price */}
                               {booking.totalPrice && (
-                                <p className="mt-2 font-semibold text-indigo-600 dark:text-indigo-400">
+                                <p className="mt-2 font-semibold text-amber-400">
                                   {booking.currency} {parseFloat(booking.totalPrice).toFixed(2)}
                                 </p>
                               )}
@@ -490,8 +490,8 @@ export default function BookingsPage() {
                   <Card className="overflow-hidden">
                     <CardContent className="p-0 flex items-center gap-3">
                       {selectedBooking.service?.images?.[0] ? (
-                        <img 
-                          src={selectedBooking.service.images[0]} 
+                        <img
+                          src={selectedBooking.service.images[0]}
                           alt={selectedBooking.service.title}
                           className="w-20 h-20 object-cover"
                         />
@@ -597,7 +597,7 @@ export default function BookingsPage() {
                         </p>
                       )}
                       <div className="flex gap-2">
-                        <Button 
+                        <Button
                           onClick={() => acceptAlternativeMutation.mutate(selectedBooking.id)}
                           disabled={acceptAlternativeMutation.isPending}
                           className="flex-1"
@@ -609,8 +609,8 @@ export default function BookingsPage() {
                           )}
                           Accept
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => setShowCancelDialog(true)}
                           className="flex-1"
                         >
@@ -681,8 +681,8 @@ export default function BookingsPage() {
               <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
                 {/* Cancel button for pending/accepted bookings */}
                 {['pending', 'accepted', 'confirmed'].includes(selectedBooking.status) && (
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     onClick={() => setShowCancelDialog(true)}
                     className="w-full sm:w-auto"
                   >
@@ -692,8 +692,8 @@ export default function BookingsPage() {
                 )}
                 {/* Open Dispute button for completed/in_progress bookings */}
                 {['completed', 'in_progress'].includes(selectedBooking.status) && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => setShowDisputeModal(true)}
                     className="w-full sm:w-auto border-amber-500 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                   >
@@ -701,8 +701,8 @@ export default function BookingsPage() {
                     Open Dispute
                   </Button>
                 )}
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setSelectedBooking(null)}
                   className="w-full sm:w-auto"
                 >
