@@ -41,6 +41,7 @@ import ServiceRequestsPage from "@/pages/service-requests";
 
 // UI Preview pages
 import UI2PreviewPage from "@/pages/ui2/index";
+import RedesignPreviewPage from "@/pages/redesign/index";
 import Redesign2PreviewPage from "@/pages/redesign2/index";
 import Redesign3PreviewPage from "@/pages/redesign3/index";
 import Redesign4PreviewPage from "@/pages/redesign4/index";
@@ -111,6 +112,7 @@ function Router() {
       <Route path="/vendor/bookings" component={VendorBookingsPage} />
       <Route path="/my-bookings" component={VendorBookingsPage} />
       {/* UI Preview routes */}
+      <Route path="/redesign/:page?" component={RedesignPreviewPage} />
       <Route path="/ui2/:page?" component={UI2PreviewPage} />
       <Route path="/redesign2/:page?" component={Redesign2PreviewPage} />
       <Route path="/redesign3/:page?" component={Redesign3PreviewPage} />

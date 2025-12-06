@@ -1,15 +1,15 @@
 import { Switch, Route, useLocation, Link } from "wouter";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { 
+import {
   Search, MapPin, Bell, User, Menu, Heart, MessageCircle,
   ChevronDown, Plus, Home, Briefcase, Calendar, Settings, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
-  DropdownMenuSeparator, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -24,12 +24,18 @@ import Redesign2Chat from "./chat";
 import Redesign2Favorites from "./favorites";
 import Redesign2Notifications from "./notifications";
 import Redesign2Referrals from "./referrals";
+import Redesign2ServiceRequests from "./service-requests";
+import Redesign2Disputes from "./disputes";
+import Redesign2Plans from "./plans";
+import Redesign2HelpCenter from "./help-center";
+import Redesign2Contact from "./contact";
+import Redesign2VendorBookings from "./vendor-bookings";
 
 // Glassmorphism Layout
 function Redesign2Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
   const { data: user } = useQuery<any>({
     queryKey: ["/api/auth/user"],
   });
@@ -82,11 +88,10 @@ function Redesign2Layout({ children }: { children: React.ReactNode }) {
             <nav className="hidden md:flex items-center gap-1">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href}>
-                  <a className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
-                    isActive(item.href)
+                  <a className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${isActive(item.href)
                       ? "bg-white/10 text-white backdrop-blur-sm border border-white/20 shadow-lg"
                       : "text-white/60 hover:text-white hover:bg-white/5"
-                  }`}>
+                    }`}>
                     <item.icon className="w-4 h-4 inline mr-2" />
                     {item.label}
                   </a>
@@ -108,7 +113,7 @@ function Redesign2Layout({ children }: { children: React.ReactNode }) {
                       ) : null}
                     </Button>
                   </Link>
-                  
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" className="flex items-center gap-2 text-white hover:bg-white/10 rounded-xl px-2">
@@ -177,11 +182,10 @@ function Redesign2Layout({ children }: { children: React.ReactNode }) {
                   <nav className="flex flex-col gap-2 mt-8">
                     {navItems.map((item) => (
                       <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}>
-                        <a className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                          isActive(item.href)
+                        <a className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive(item.href)
                             ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-white/10"
                             : "text-white/60 hover:text-white hover:bg-white/5"
-                        }`}>
+                          }`}>
                           <item.icon className="w-5 h-5" />
                           {item.label}
                         </a>
@@ -249,9 +253,8 @@ function Redesign2Layout({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
-              <a className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl ${
-                isActive(item.href) ? "text-purple-400" : "text-white/50"
-              }`}>
+              <a className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl ${isActive(item.href) ? "text-purple-400" : "text-white/50"
+                }`}>
                 <item.icon className="w-5 h-5" />
                 <span className="text-xs">{item.label}</span>
               </a>
@@ -274,10 +277,16 @@ export default function Redesign2Router() {
         <Route path="/redesign2/service/:id" component={Redesign2Service} />
         <Route path="/redesign2/profile" component={Redesign2Profile} />
         <Route path="/redesign2/my-bookings" component={Redesign2MyBookings} />
+        <Route path="/redesign2/vendor-bookings" component={Redesign2VendorBookings} />
         <Route path="/redesign2/chat" component={Redesign2Chat} />
         <Route path="/redesign2/favorites" component={Redesign2Favorites} />
         <Route path="/redesign2/notifications" component={Redesign2Notifications} />
         <Route path="/redesign2/referrals" component={Redesign2Referrals} />
+        <Route path="/redesign2/service-requests" component={Redesign2ServiceRequests} />
+        <Route path="/redesign2/disputes" component={Redesign2Disputes} />
+        <Route path="/redesign2/plans" component={Redesign2Plans} />
+        <Route path="/redesign2/help-center" component={Redesign2HelpCenter} />
+        <Route path="/redesign2/contact" component={Redesign2Contact} />
       </Switch>
     </Redesign2Layout>
   );
