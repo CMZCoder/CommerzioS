@@ -39,6 +39,14 @@ import CustomerBookingsPage from "@/pages/bookings";
 import DisputesPage from "@/pages/disputes";
 import ServiceRequestsPage from "@/pages/service-requests";
 
+// UI Preview pages
+import UI2PreviewPage from "@/pages/ui2/index";
+import Redesign2PreviewPage from "@/pages/redesign2/index";
+import Redesign3PreviewPage from "@/pages/redesign3/index";
+import Redesign4PreviewPage from "@/pages/redesign4/index";
+import Redesign5PreviewPage from "@/pages/redesign5/index";
+
+
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
 
@@ -102,6 +110,12 @@ function Router() {
       {/* Vendor routes */}
       <Route path="/vendor/bookings" component={VendorBookingsPage} />
       <Route path="/my-bookings" component={VendorBookingsPage} />
+      {/* UI Preview routes */}
+      <Route path="/ui2/:page?" component={UI2PreviewPage} />
+      <Route path="/redesign2/:page?" component={Redesign2PreviewPage} />
+      <Route path="/redesign3/:page?" component={Redesign3PreviewPage} />
+      <Route path="/redesign4/:page?" component={Redesign4PreviewPage} />
+      <Route path="/redesign5/:page?" component={Redesign5PreviewPage} />
       <Route component={NotFound} />
     </Switch>
   );
