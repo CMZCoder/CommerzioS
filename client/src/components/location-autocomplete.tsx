@@ -218,7 +218,7 @@ export function LocationAutocomplete({
           {isOpen && suggestions.length > 0 && (
             <div
               id={`${testIdPrefix}-suggestions`}
-              className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg border z-50 max-h-80 overflow-y-auto"
+              className="absolute top-full mt-2 w-full bg-card rounded-lg shadow-lg border z-50 max-h-80 overflow-y-auto"
               role="listbox"
               data-testid={`${testIdPrefix}-dropdown`}
             >
@@ -230,8 +230,8 @@ export function LocationAutocomplete({
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={`w-full text-left px-4 py-3 border-b last:border-b-0 transition-colors ${
                     selectedIndex === index
-                      ? 'bg-slate-100 dark:bg-slate-700'
-                      : 'hover:bg-slate-50 dark:hover:bg-slate-750'
+                      ? 'bg-muted'
+                      : 'hover:bg-accent'
                   }`}
                   role="option"
                   aria-selected={selectedIndex === index}
@@ -258,7 +258,7 @@ export function LocationAutocomplete({
 
           {isOpen && !isLoading && query.length >= 2 && suggestions.length === 0 && (
             <div
-              className="absolute top-full mt-2 w-full bg-white dark:bg-slate-800 rounded-lg shadow-lg border z-50 px-4 py-8 text-center"
+              className="absolute top-full mt-2 w-full bg-card rounded-lg shadow-lg border z-50 px-4 py-8 text-center"
               data-testid={`${testIdPrefix}-no-results`}
             >
               <MapPin className="w-8 h-8 mx-auto text-muted-foreground mb-2" />

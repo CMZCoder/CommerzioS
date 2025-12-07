@@ -326,7 +326,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen pb-20">
+      <div className="bg-muted min-h-screen pb-20">
         {/* Archived/Inactive Service Banner */}
         {(service.status === "expired" || service.status === "paused") && (
           <div className="bg-amber-50 border-b border-amber-200">
@@ -354,8 +354,8 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
             
             {/* Left Column: Images & Details */}
             <div className="lg:col-span-2 space-y-8">
-              <div className="rounded-2xl overflow-hidden bg-white shadow-sm border border-border">
-                <div className="aspect-video bg-slate-100 relative flex items-center justify-center">
+              <div className="rounded-2xl overflow-hidden bg-card shadow-sm border border-border">
+                <div className="aspect-video bg-muted relative flex items-center justify-center">
                   {service.images && service.images.length > 0 ? (
                     <img 
                       src={service.images[0]} 
@@ -377,7 +377,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                     </div>
                   </div>
                   
-                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">{service.title}</h1>
+                  <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{service.title}</h1>
                   
                   <div className="flex items-center gap-6 pb-6 border-b border-border">
                     <div className="flex items-center gap-1">
@@ -393,7 +393,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 
                   <div className="py-6">
                     <h3 className="text-xl font-semibold mb-4">About this Service</h3>
-                    <p className="text-slate-600 leading-relaxed text-lg">
+                    <p className="text-muted-foreground leading-relaxed text-lg">
                       {service.description}
                     </p>
                   </div>
@@ -421,7 +421,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
               </div>
 
               {/* Location Map Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-border p-6 md:p-8">
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6 md:p-8">
                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <MapPin className="w-5 h-5 text-primary" />
                   Where to find this service
@@ -431,14 +431,14 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
               </div>
 
               {/* Reviews Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-border p-6 md:p-8">
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-xl font-semibold flex items-center gap-2">
                     Reviews <Badge variant="secondary" className="rounded-full">{reviews.length}</Badge>
                   </h3>
                 </div>
                 
-                <div ref={reviewFormRef} className="mb-8 p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <div ref={reviewFormRef} className="mb-8 p-6 bg-muted rounded-xl border border-dashed border-border">
                   <h4 className="font-semibold mb-2">Write a Review</h4>
                   {isAuthenticated && user ? (
                     <div className="space-y-4">
@@ -459,7 +459,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                           >
                             <Star
                               className={`w-6 h-6 cursor-pointer transition-colors ${
-                                star <= rating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+                                star <= rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/50'
                               }`}
                             />
                           </button>
@@ -470,7 +470,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         value={reviewText}
                         onChange={(e) => setReviewText(e.target.value)}
                         disabled={!user.isVerified}
-                        className="bg-white"
+                        className="bg-card"
                       />
                       <div className="flex justify-end">
                         <Button 
@@ -491,7 +491,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 
                 <div className="space-y-6">
                   {reviewsLoading ? (
-                    <p className="text-slate-500 italic">Loading reviews...</p>
+                    <p className="text-muted-foreground italic">Loading reviews...</p>
                   ) : reviews.length > 0 ? (
                     reviews.map(review => (
                       <ReviewItem
@@ -502,7 +502,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       />
                     ))
                   ) : (
-                    <p className="text-slate-500 italic">No reviews yet. Be the first to review!</p>
+                    <p className="text-muted-foreground italic">No reviews yet. Be the first to review!</p>
                   )}
                 </div>
               </div>
@@ -513,7 +513,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
               <div className="sticky top-24 space-y-6">
                 
                 {/* Price Card */}
-                <div className="bg-white rounded-2xl shadow-lg border border-border p-6">
+                <div className="bg-card rounded-2xl shadow-lg border border-border p-6">
                   <div className="flex items-baseline gap-1 mb-6">
                     <span className="text-4xl font-bold text-primary">CHF {service.price}</span>
                     <span className="text-muted-foreground font-medium">/{service.priceUnit}</span>
@@ -579,7 +579,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         Show Contact Info
                       </Button>
                     ) : (
-                      <div className="bg-slate-50 p-4 rounded-lg border border-primary/20 space-y-2 animate-in fade-in zoom-in-95">
+                      <div className="bg-muted p-4 rounded-lg border border-primary/20 space-y-2 animate-in fade-in zoom-in-95">
                         <p className="font-medium text-primary">Contact Information:</p>
                         {service.contactPhone && <p className="flex items-center gap-2"><span className="font-bold">Phone:</span> {service.contactPhone}</p>}
                         {service.contactEmail && <p className="flex items-center gap-2"><span className="font-bold">Email:</span> {service.contactEmail}</p>}
@@ -647,7 +647,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                 </div>
 
                 {/* Provider Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-border p-6">
+                <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                   <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Service Provider</h4>
                   <div className="flex items-center gap-4 mb-4">
                     <img 
@@ -676,7 +676,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       Identity Verified
                     </div>
                   ) : (
-                     <div className="flex items-center gap-2 text-sm text-slate-500 bg-slate-50 p-3 rounded-lg">
+                     <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
                       <ShieldCheck className="w-5 h-5" />
                       Identity Not Verified
                     </div>
@@ -767,15 +767,15 @@ function ReviewItem({
         </div>
         <div className="flex">
           {[...Array(5)].map((_, i) => (
-            <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+            <Star key={i} className={`w-4 h-4 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'}`} />
           ))}
         </div>
       </div>
-      <p className="text-slate-600 pl-13 mb-3">{review.comment}</p>
+      <p className="text-muted-foreground pl-13 mb-3">{review.comment}</p>
       
       {/* Vendor Response */}
       {review.vendorResponse && (
-        <div className="ml-8 mt-3 p-4 bg-slate-50 rounded-lg border-l-4 border-primary">
+        <div className="ml-8 mt-3 p-4 bg-muted rounded-lg border-l-4 border-primary">
           <div className="flex items-center gap-2 mb-2">
             <Reply className="w-4 h-4 text-primary" />
             <span className="font-semibold text-sm text-primary">Provider Response</span>
@@ -785,7 +785,7 @@ function ReviewItem({
               </span>
             )}
           </div>
-          <p className="text-sm text-slate-600">{review.vendorResponse}</p>
+          <p className="text-sm text-muted-foreground">{review.vendorResponse}</p>
         </div>
       )}
       

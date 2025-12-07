@@ -231,7 +231,7 @@ export function ProposalActionHeader({
 
   if (userRole === "customer" && isActionable) {
     return (
-      <div className={`bg-white border-b sticky top-0 z-10 ${className}`}>
+      <div className={`bg-card border-b sticky top-0 z-10 ${className}`}>
         <div className="container mx-auto px-4 py-4">
           {/* Price and Payment Info */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
@@ -358,7 +358,7 @@ export function ProposalActionHeader({
 
   if (userRole === "vendor") {
     return (
-      <div className={`bg-white border-b sticky top-0 z-10 ${className}`}>
+      <div className={`bg-card border-b sticky top-0 z-10 ${className}`}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Status Badge */}

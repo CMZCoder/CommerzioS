@@ -392,7 +392,7 @@ export default function BookServicePage() {
                         ? "bg-primary text-white" 
                         : step > s.id 
                           ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-slate-100 text-muted-foreground dark:bg-slate-800"
+                          : "bg-muted text-muted-foreground"
                     )}>
                       {step > s.id ? (
                         <CheckCircle2 className="w-4 h-4" />
@@ -611,7 +611,7 @@ export default function BookServicePage() {
                     <CardContent className="p-6 space-y-6">
                       {/* Booking Summary */}
                       <div className="space-y-4">
-                        <div className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                        <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
                           <Calendar className="w-5 h-5 text-primary mt-0.5" />
                           <div>
                             <p className="font-medium">Date & Time</p>
@@ -633,7 +633,7 @@ export default function BookServicePage() {
                         </div>
 
                         {selectedOption && (
-                          <div className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
                             <CreditCard className="w-5 h-5 text-primary mt-0.5" />
                             <div>
                               <p className="font-medium">Package</p>
@@ -643,7 +643,7 @@ export default function BookServicePage() {
                         )}
 
                         {(formData.customerPhone || formData.customerAddress || formData.customerMessage) && (
-                          <div className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                          <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
                             <User className="w-5 h-5 text-primary mt-0.5" />
                             <div className="space-y-1">
                               <p className="font-medium">Your Details</p>
@@ -660,7 +660,7 @@ export default function BookServicePage() {
                           </div>
                         )}
                         
-                        <div className="flex items-start gap-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+                        <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
                           <Wallet className="w-5 h-5 text-primary mt-0.5" />
                           <div>
                             <p className="font-medium">Payment Method</p>
@@ -693,7 +693,7 @@ export default function BookServicePage() {
                 )}
 
                 {/* Footer Navigation */}
-                <CardFooter className="border-t bg-slate-50/50 dark:bg-slate-900/50 p-4 flex justify-between">
+                <CardFooter className="border-t bg-muted/50 p-4 flex justify-between">
                   {step > 1 ? (
                     <Button variant="outline" onClick={handleBack}>
                       <ArrowLeft className="w-4 h-4 mr-2" />
@@ -757,7 +757,7 @@ export default function BookServicePage() {
                     ) : (
                       <a 
                         href={`/service/${serviceId}`}
-                        className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                        className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-accent transition-colors cursor-pointer"
                       >
                         <Sparkles className="w-8 h-8 text-muted-foreground" />
                       </a>

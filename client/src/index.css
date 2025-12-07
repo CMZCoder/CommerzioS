@@ -20,6 +20,10 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
@@ -28,43 +32,70 @@
   --color-chart-3: hsl(var(--chart-3));
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
   --font-sans: "Plus Jakarta Sans", "Inter", sans-serif;
 }
 
+/* ========================================
+   LIGHT THEME (Default) - V0 Inspired
+   Clean whites, blue primary, teal accent
+   with glassmorphism effects
+   ======================================== */
 :root {
-  /* Commerzio Services Brand Theme */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
+  /* Core backgrounds */
+  --background: 210 40% 98%;           /* Clean off-white */
+  --foreground: 222 47% 11%;           /* Deep navy text */
   
-  --card: 0 0% 100%;
+  /* Card surfaces with glass support */
+  --card: 0 0% 100%;                   /* Pure white cards */
   --card-foreground: 222 47% 11%;
   
+  /* Popover/dropdown surfaces */
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   
-  --primary: 220 85% 48%; /* Commerzio Blue #1a56db */
-  --primary-foreground: 210 40% 98%;
+  /* Primary - Commerzio Blue (V0 inspired deep blue) */
+  --primary: 220 85% 48%;              /* #1a56db - Brand Blue */
+  --primary-foreground: 0 0% 100%;
   
-  --secondary: 210 40% 96.1%;
+  /* Secondary - Subtle backgrounds */
+  --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215 20% 55%;
+  /* Muted - Subtle text and backgrounds */
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 20% 45%;
   
-  --accent: 175 55% 42%; /* Service Teal #2ba89c */
+  /* Accent - Service Teal (V0 inspired) */
+  --accent: 175 55% 42%;               /* #2ba89c - Teal */
   --accent-foreground: 0 0% 100%;
   
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  /* Semantic colors */
+  --success: 150 60% 40%;
+  --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 100%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
   
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
+  /* Borders and inputs */
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
   --ring: 220 85% 48%;
   
+  /* Radius - V0 inspired rounded corners */
   --radius: 0.625rem;
   
   /* Commerzio Brand Colors */
@@ -72,39 +103,73 @@
   --commerzio-teal: 175 55% 42%;
   --commerzio-navy: 222 47% 11%;
   
-  --chart-1: 220 85% 48%;
-  --chart-2: 175 55% 42%;
-  --chart-3: 197 37% 24%;
-  --chart-4: 43 74% 66%;
-  --chart-5: 27 87% 67%;
+  /* Chart colors - V0 palette */
+  --chart-1: 220 85% 48%;              /* Primary blue */
+  --chart-2: 175 55% 42%;              /* Teal */
+  --chart-3: 197 37% 24%;              /* Deep cyan */
+  --chart-4: 43 74% 66%;               /* Warm gold */
+  --chart-5: 27 87% 67%;               /* Coral orange */
+  
+  /* Sidebar - V0 inspired */
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-primary: 220 85% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 40% 96%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 91%;
+  --sidebar-ring: 220 85% 48%;
+  
+  /* Glassmorphism variables */
+  --glass-bg: 0 0% 100% / 0.8;
+  --glass-border: 0 0% 100% / 0.2;
+  --glass-shadow: 222 47% 11% / 0.1;
 }
 
+/* ========================================
+   DARK THEME - V0 Inspired
+   Deep blue-tinted backgrounds, lighter
+   primaries, enhanced glassmorphism
+   ======================================== */
 .dark {
-  --background: 222 47% 11%;
-  --foreground: 210 40% 98%;
+  /* Core backgrounds - Deep blue-tinted darks */
+  --background: 222 47% 11%;           /* Deep navy */
+  --foreground: 210 40% 98%;           /* Off-white text */
   
-  --card: 222 47% 14%;
+  /* Card surfaces - Slightly elevated */
+  --card: 222 40% 14%;                 /* Slightly lighter than bg */
   --card-foreground: 210 40% 98%;
   
-  --popover: 222 47% 14%;
+  /* Popover surfaces */
+  --popover: 222 40% 14%;
   --popover-foreground: 210 40% 98%;
   
-  --primary: 217 91% 60%; /* Lighter Commerzio Blue for dark mode */
+  /* Primary - Lighter blue for dark mode (V0 style) */
+  --primary: 217 91% 60%;              /* Brighter blue */
   --primary-foreground: 222 47% 11%;
   
-  --secondary: 217 33% 17%;
+  /* Secondary */
+  --secondary: 217 33% 20%;
   --secondary-foreground: 210 40% 98%;
   
+  /* Muted */
   --muted: 217 33% 17%;
   --muted-foreground: 215 20% 65%;
   
-  --accent: 174 60% 50%; /* Lighter Service Teal for dark mode */
+  /* Accent - Lighter teal for dark mode */
+  --accent: 174 60% 50%;
   --accent-foreground: 222 47% 11%;
   
-  --destructive: 0 63% 31%;
+  /* Semantic colors - Adjusted for dark */
+  --success: 150 60% 50%;
+  --success-foreground: 222 47% 11%;
+  --warning: 38 92% 60%;
+  --warning-foreground: 222 47% 11%;
+  --destructive: 0 63% 45%;
   --destructive-foreground: 210 40% 98%;
   
-  --border: 217 33% 20%;
+  /* Borders and inputs */
+  --border: 217 33% 24%;
   --input: 217 33% 20%;
   --ring: 217 91% 60%;
   
@@ -112,14 +177,45 @@
   --commerzio-blue: 217 91% 60%;
   --commerzio-teal: 174 60% 50%;
   --commerzio-navy: 222 47% 11%;
+  
+  /* Chart colors - Brighter for dark mode */
+  --chart-1: 217 91% 60%;
+  --chart-2: 174 60% 50%;
+  --chart-3: 197 60% 50%;
+  --chart-4: 43 84% 70%;
+  --chart-5: 27 92% 70%;
+  
+  /* Sidebar - Dark mode */
+  --sidebar: 222 40% 14%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 217 91% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 217 33% 20%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217 33% 24%;
+  --sidebar-ring: 217 91% 60%;
+  
+  /* Glassmorphism variables - Dark mode */
+  --glass-bg: 222 47% 11% / 0.7;
+  --glass-border: 210 40% 98% / 0.1;
+  --glass-shadow: 0 0% 0% / 0.3;
 }
 
 @layer base {
   * {
-    @apply border-border;
+    @apply border-border outline-ring/50;
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    /* Smooth theme transitions */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  /* Smooth transitions for theme switching on all elements */
+  *, *::before, *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 0.15s;
+    transition-timing-function: ease;
   }
   
   /* Platform-wide text overflow prevention */
@@ -161,6 +257,174 @@
   }
 }
 
+/* ========================================
+   GLASSMORPHISM UTILITY CLASSES
+   V0 inspired glass effects with blur
+   ======================================== */
+
+/* Glass panel - Primary glassmorphism effect */
+.glass {
+  background: hsl(var(--glass-bg));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--glass-border));
+  box-shadow: 0 8px 32px hsl(var(--glass-shadow));
+}
+
+/* Glass card - For cards with glass effect */
+.glass-card {
+  background: hsl(var(--card) / 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: 
+    0 4px 6px -1px hsl(var(--glass-shadow)),
+    0 2px 4px -2px hsl(var(--glass-shadow));
+}
+
+/* Glass nav - For sticky navigation with blur */
+.glass-nav {
+  background: hsl(var(--background) / 0.8);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Glass dropdown - For dropdown menus */
+.glass-dropdown {
+  background: hsl(var(--popover) / 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid hsl(var(--border) / 0.3);
+  box-shadow: 
+    0 10px 40px hsl(var(--glass-shadow)),
+    0 0 0 1px hsl(var(--border) / 0.1);
+}
+
+/* Glass modal - For modal overlays */
+.glass-modal {
+  background: hsl(var(--card) / 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid hsl(var(--border) / 0.3);
+  box-shadow: 0 25px 50px -12px hsl(var(--glass-shadow));
+}
+
+/* Glass hero - For hero section backgrounds */
+.glass-hero {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.1) 0%,
+    hsl(var(--accent) / 0.05) 50%,
+    hsl(var(--primary) / 0.1) 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Dark mode specific glass adjustments */
+.dark .glass {
+  background: hsl(var(--background) / 0.6);
+  border-color: hsl(var(--border) / 0.3);
+}
+
+.dark .glass-card {
+  background: hsl(var(--card) / 0.7);
+  box-shadow: 
+    0 4px 6px -1px hsl(0 0% 0% / 0.3),
+    0 2px 4px -2px hsl(0 0% 0% / 0.2),
+    inset 0 1px 0 hsl(var(--border) / 0.1);
+}
+
+.dark .glass-nav {
+  background: hsl(var(--background) / 0.7);
+  border-color: hsl(var(--border) / 0.3);
+}
+
+.dark .glass-dropdown {
+  background: hsl(var(--popover) / 0.9);
+  border-color: hsl(var(--border) / 0.2);
+  box-shadow: 
+    0 10px 40px hsl(0 0% 0% / 0.4),
+    inset 0 1px 0 hsl(var(--border) / 0.1);
+}
+
+/* ========================================
+   GRADIENT UTILITIES - V0 Inspired
+   ======================================== */
+
+/* Primary gradient - Brand blue gradient */
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+}
+
+/* Hero gradient - For hero sections */
+.gradient-hero {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.15) 0%,
+    hsl(var(--accent) / 0.1) 50%,
+    hsl(var(--primary) / 0.15) 100%
+  );
+}
+
+/* Card hover gradient */
+.gradient-card-hover {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--card)) 0%,
+    hsl(var(--muted) / 0.5) 100%
+  );
+}
+
+/* CTA band gradient */
+.gradient-cta {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary) / 0.8) 50%,
+    hsl(var(--accent)) 100%
+  );
+}
+
+/* ========================================
+   HOVER EFFECTS - V0 Inspired
+   ======================================== */
+
+/* Hover lift effect */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px hsl(var(--glass-shadow));
+}
+
+/* Hover scale effect */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Card hover with glow */
+.hover-glow {
+  transition: box-shadow 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 
+    0 0 0 1px hsl(var(--primary) / 0.1),
+    0 8px 30px hsl(var(--primary) / 0.15);
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
 /* Enhanced animations */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
@@ -188,14 +452,33 @@
   animation: fadeIn 0.3s ease-out forwards;
 }
 
+/* Pulse glow animation */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px hsl(var(--primary) / 0);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
 /* Grid background pattern for hero sections */
 .bg-grid-white\/5 {
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
+/* Dark mode grid pattern */
+.dark .bg-grid-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
 /* Focus visible improvements for accessibility */
 *:focus-visible {
-  outline: 2px solid hsl(var(--primary));
+  outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

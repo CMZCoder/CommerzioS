@@ -294,7 +294,7 @@ export default function BookingsPage() {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-white dark:bg-slate-900">
+            <TabsList className="flex flex-wrap gap-1 h-auto p-1 bg-card">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="pending" className="gap-1">
                 <Clock className="w-3 h-3" />
@@ -474,7 +474,7 @@ export default function BookingsPage() {
 
               <div className="space-y-6">
                 {/* Status */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
                   <span className="text-sm text-muted-foreground">Status</span>
                   <Badge className={getStatusInfo(selectedBooking.status).color}>
                     {getStatusInfo(selectedBooking.status).icon}
@@ -496,7 +496,7 @@ export default function BookingsPage() {
                           className="w-20 h-20 object-cover"
                         />
                       ) : (
-                        <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <div className="w-20 h-20 bg-muted flex items-center justify-center">
                           <Package className="w-8 h-8 text-muted-foreground" />
                         </div>
                       )}
@@ -641,7 +641,7 @@ export default function BookingsPage() {
                       <MessageSquare className="w-4 h-4" /> Messages
                     </h4>
                     {selectedBooking.customerMessage && (
-                      <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                      <div className="p-3 rounded-lg bg-muted">
                         <p className="text-xs text-muted-foreground mb-1">Your message</p>
                         <p className="text-sm">{selectedBooking.customerMessage}</p>
                       </div>

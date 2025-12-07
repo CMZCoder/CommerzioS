@@ -209,23 +209,23 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                   onClick={scrollPrev}
                   disabled={!canScrollPrev}
                   className={cn(
-                    "absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-white/90 shadow-md transition-all duration-200",
-                    canScrollPrev ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                    "absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200",
+                    canScrollPrev ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
                   )}
                   aria-label="Previous image"
                 >
-                  <ChevronLeft className="w-4 h-4 text-gray-700" />
+                  <ChevronLeft className="w-4 h-4 text-foreground" />
                 </button>
                 <button
                   onClick={scrollNext}
                   disabled={!canScrollNext}
                   className={cn(
-                    "absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-white/90 shadow-md transition-all duration-200",
-                    canScrollNext ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                    "absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200",
+                    canScrollNext ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
                   )}
                   aria-label="Next image"
                 >
-                  <ChevronRight className="w-4 h-4 text-gray-700" />
+                  <ChevronRight className="w-4 h-4 text-foreground" />
                 </button>
                 
                 {/* Image indicators */}
@@ -249,8 +249,8 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "absolute top-2 right-2 z-10 p-1.5 rounded-full bg-white/90 shadow-md transition-all duration-200",
-                      isAuthenticated ? "hover:bg-white hover:scale-110" : "cursor-pointer opacity-80"
+                      "absolute top-2 right-2 z-10 p-1.5 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200",
+                      isAuthenticated ? "hover:bg-card hover:scale-110" : "cursor-pointer opacity-80"
                     )}
                     onClick={(e) => {
                       e.preventDefault();
@@ -265,7 +265,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                     <Heart 
                       className={cn(
                         "w-3.5 h-3.5 transition-all duration-100",
-                        isSaved ? "fill-red-500 text-red-500" : "text-gray-400"
+                        isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
                       )}
                     />
                   </button>
@@ -285,7 +285,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
             </h3>
             
             <div className="flex items-center gap-1.5 text-xs">
-              <div className={`flex items-center ${service.reviewCount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
+              <div className={`flex items-center ${service.reviewCount > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
                 <Star className="w-3 h-3 fill-current" />
                 <span className="ml-0.5 font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "0"}</span>
               </div>
@@ -367,23 +367,23 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
               onClick={scrollPrev}
               disabled={!canScrollPrev}
               className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 shadow-lg transition-all duration-200",
-                canScrollPrev ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                "absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-lg transition-all duration-200",
+                canScrollPrev ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
               )}
               aria-label="Previous image"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-700" />
+              <ChevronLeft className="w-5 h-5 text-foreground" />
             </button>
             <button
               onClick={scrollNext}
               disabled={!canScrollNext}
               className={cn(
-                "absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/90 shadow-lg transition-all duration-200",
-                canScrollNext ? "opacity-100 hover:bg-white hover:scale-110" : "opacity-0 pointer-events-none"
+                "absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-lg transition-all duration-200",
+                canScrollNext ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
               )}
               aria-label="Next image"
             >
-              <ChevronRight className="w-5 h-5 text-gray-700" />
+              <ChevronRight className="w-5 h-5 text-foreground" />
             </button>
             
             {/* Image indicators */}
@@ -405,7 +405,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
             {service.category.name}
           </Badge>
           {service.distance !== undefined && (
-            <Badge variant="secondary" className="bg-blue-500/90 text-white backdrop-blur-sm font-medium shadow-sm">
+            <Badge variant="secondary" className="bg-primary/90 text-primary-foreground backdrop-blur-sm font-medium shadow-sm">
               {service.distance.toFixed(1)} km away
             </Badge>
           )}
@@ -420,8 +420,8 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
             <TooltipTrigger asChild>
               <button
                 className={cn(
-                  "absolute top-3 right-3 z-10 p-2 rounded-full bg-white/90 shadow-md transition-all duration-200",
-                  isAuthenticated ? "hover:bg-white hover:scale-110" : "cursor-pointer opacity-80"
+                  "absolute top-3 right-3 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200",
+                  isAuthenticated ? "hover:bg-card hover:scale-110" : "cursor-pointer opacity-80"
                 )}
                 onClick={(e) => {
                   e.preventDefault();
@@ -436,7 +436,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                 <Heart 
                   className={cn(
                     "w-5 h-5 transition-all duration-100",
-                    isSaved ? "fill-red-500 text-red-500" : "text-gray-400"
+                    isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
                   )}
                 />
               </button>

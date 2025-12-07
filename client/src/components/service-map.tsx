@@ -308,9 +308,9 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
   // Show loading state while geocoding
   if ((!service.locationLat || !service.locationLng) && isGeocoding) {
     return (
-      <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-        <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-2 animate-pulse" />
-        <p className="text-slate-500">Loading map...</p>
+      <div className="text-center py-8 bg-muted rounded-lg border border-dashed border-border">
+        <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-2 animate-pulse" />
+        <p className="text-muted-foreground">Loading map...</p>
         {service.locations && service.locations.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
             Geocoding: {service.locations[0]}
@@ -323,9 +323,9 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
   // Show error state if no coordinates available after geocoding attempt
   if (!serviceLat || !serviceLng) {
     return (
-      <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-200">
-        <MapPin className="w-12 h-12 text-slate-300 mx-auto mb-2" />
-        <p className="text-slate-500">Location not specified</p>
+      <div className="text-center py-8 bg-muted rounded-lg border border-dashed border-border">
+        <MapPin className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+        <p className="text-muted-foreground">Location not specified</p>
         {service.locations && service.locations.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
             Serving: {service.locations.join(', ')}
@@ -391,7 +391,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
         {/* Loading overlay for route calculation */}
         {isCalculatingRoute && (
           <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-10">
-            <div className="bg-white rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
+            <div className="bg-card rounded-lg px-4 py-2 shadow-lg flex items-center gap-2">
               <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
               <span className="text-sm font-medium">Calculating route...</span>
             </div>
@@ -401,7 +401,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
 
       {/* Directions Panel */}
       {showDirections && directionsResult && (
-        <div className="mb-4 bg-white rounded-lg border border-border p-4 max-h-64 overflow-hidden">
+        <div className="mb-4 bg-card rounded-lg border border-border p-4 max-h-64 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-sm flex items-center gap-2">
               <Route className="w-4 h-4" />

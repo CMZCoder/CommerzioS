@@ -113,12 +113,12 @@ export function SearchAutocomplete() {
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-lg border z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full mt-2 w-full bg-card rounded-lg shadow-lg border z-50 max-h-96 overflow-y-auto">
           {results.map((result) => (
             <button
               key={result.id}
               onClick={() => handleSelect(result.id)}
-              className="w-full text-left px-4 py-3 hover:bg-slate-50 border-b last:border-b-0 transition-colors"
+              className="w-full text-left px-4 py-3 hover:bg-accent border-b last:border-b-0 transition-colors"
               data-testid={`search-result-${result.id}`}
             >
               <div className="font-medium text-sm">{result.title}</div>

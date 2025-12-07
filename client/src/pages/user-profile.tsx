@@ -74,10 +74,10 @@ export default function UserProfile() {
 
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen pb-20">
+      <div className="bg-muted min-h-screen pb-20">
         <div className="container mx-auto px-4 py-8">
           {/* Profile Header */}
-          <div className="bg-white rounded-2xl shadow-sm border border-border p-8 mb-8">
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-8 mb-8">
             <div className="flex flex-col items-center text-center">
               {/* Profile Image */}
               <img
@@ -129,7 +129,7 @@ export default function UserProfile() {
           </div>
 
           {/* Services Section */}
-          <div className="bg-white rounded-2xl shadow-sm border border-border p-8 mb-8">
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-8 mb-8">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 Services
@@ -172,7 +172,7 @@ export default function UserProfile() {
           </div>
 
           {/* Reviews Section */}
-          <div className="bg-white rounded-2xl shadow-sm border border-border p-8">
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
             <div className="flex items-center gap-2 mb-6">
               <h2 className="text-2xl font-bold">Reviews</h2>
               <Badge variant="secondary" className="rounded-full" data-testid="badge-reviews-count">
@@ -213,13 +213,13 @@ export default function UserProfile() {
                           <Star
                             key={i}
                             className={`w-4 h-4 ${
-                              i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'
+                              i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/30'
                             }`}
                           />
                         ))}
                       </div>
                     </div>
-                    <p className="text-slate-600" data-testid={`review-comment-${review.id}`}>
+                    <p className="text-muted-foreground" data-testid={`review-comment-${review.id}`}>
                       {review.comment}
                     </p>
                   </div>

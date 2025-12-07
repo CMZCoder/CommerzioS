@@ -622,14 +622,14 @@ export default function Home() {
 
   return (
     <Layout>
-      <section className="relative bg-slate-900 text-white overflow-hidden">
+      <section className="relative bg-gradient-to-br from-primary/95 via-primary to-accent/80 dark:from-background dark:via-background dark:to-primary/20 text-primary-foreground dark:text-foreground overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src={heroImg} 
             alt="Hero Background" 
-            className="w-full h-full object-cover opacity-40"
+            className="w-full h-full object-cover opacity-30 dark:opacity-20"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/50 via-slate-900/60 to-slate-50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/40 to-background dark:from-background/50 dark:via-background/60 dark:to-background" />
         </div>
 
         <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
@@ -639,17 +639,17 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 text-primary-foreground text-sm font-medium mb-4 border border-white/20 backdrop-blur-sm shadow-lg">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-card/20 dark:bg-card/30 backdrop-blur-md text-primary-foreground dark:text-foreground text-sm font-medium mb-4 border border-border/30 shadow-lg">
                 <Sparkles className="w-4 h-4" />
                 AI-Powered Service Marketplace
               </span>
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight text-primary-foreground dark:text-foreground">
                 Find Trusted Professionals
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-accent to-success">
                   for Any Service
                 </span>
               </h1>
-              <p className="text-base md:text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+              <p className="text-base md:text-lg text-primary-foreground/80 dark:text-muted-foreground mb-8 max-w-2xl mx-auto">
                 Connect with verified service providers across Switzerland. 
                 Book instantly with secure payments and complete peace of mind.
               </p>
@@ -662,17 +662,17 @@ export default function Home() {
               className="space-y-6"
             >
               {/* Find Services Near You */}
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 shadow-2xl">
+              <div className="glass-card rounded-2xl p-6 shadow-2xl">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   {/* Location Search */}
                   <div className="md:col-span-6 relative">
-                    <Label htmlFor="hero-location-search" className="text-white text-sm font-medium mb-2 block">
+                    <Label htmlFor="hero-location-search" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
                       Location
                     </Label>
                     <div className="relative">
                       <div className="flex gap-2">
                         <div className="relative flex-1">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           <Input
                             id="hero-location-search"
                             type="text"
@@ -685,7 +685,7 @@ export default function Home() {
                               }
                             }}
                             disabled={isGeocoding || isGettingLocation}
-                            className="pl-10 bg-white/95 border-white/30 text-slate-900 placeholder:text-slate-500"
+                            className="pl-10 bg-card/95 dark:bg-card/80 border-border text-foreground placeholder:text-muted-foreground"
                             data-testid="input-hero-location-search"
                             autoComplete="off"
                           />
@@ -705,19 +705,19 @@ export default function Home() {
                       </div>
                       
                       {addressSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto glass-dropdown">
                           {addressSuggestions.map((suggestion, idx) => (
                             <button
                               key={idx}
                               onClick={() => handleLocationSearch(suggestion)}
-                              className="w-full text-left px-4 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                              className="w-full text-left px-4 py-2 hover:bg-muted border-b border-border/50 last:border-b-0 transition-colors"
                               data-testid={`suggestion-hero-address-${idx}`}
                             >
                               <div className="flex items-start gap-2">
-                                <MapPin className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
-                                  <p className="text-xs text-slate-500 truncate">{suggestion.display_name}</p>
+                                  <p className="text-sm font-medium text-foreground truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{suggestion.display_name}</p>
                                 </div>
                               </div>
                             </button>
@@ -726,8 +726,8 @@ export default function Home() {
                       )}
 
                       {isLoadingSuggestions && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 p-3">
-                          <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 p-3 glass-dropdown">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             Loading suggestions...
                           </div>
@@ -738,7 +738,7 @@ export default function Home() {
 
                   {/* Radius Selector */}
                   <div className="md:col-span-3">
-                    <Label htmlFor="hero-radius-select" className="text-white text-sm font-medium mb-2 block">
+                    <Label htmlFor="hero-radius-select" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
                       Radius
                     </Label>
                     <Select 
@@ -747,7 +747,7 @@ export default function Home() {
                     >
                       <SelectTrigger 
                         id="hero-radius-select" 
-                        className="bg-white/95 border-white/30 text-slate-900"
+                        className="bg-card/95 dark:bg-card/80 border-border text-foreground"
                         data-testid="select-hero-radius"
                       >
                         <SelectValue />
@@ -764,10 +764,10 @@ export default function Home() {
 
                   {/* Location Permissions Toggle */}
                   <div className="md:col-span-3">
-                    <Label htmlFor="hero-location-permissions" className="text-white text-sm font-medium mb-2 block">
+                    <Label htmlFor="hero-location-permissions" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
                       Use My Location
                     </Label>
-                    <div className="flex items-center h-10 px-4 bg-white/95 border border-white/30 rounded-md">
+                    <div className="flex items-center h-10 px-4 bg-card/95 dark:bg-card/80 border border-border rounded-md">
                       <Switch
                         id="hero-location-permissions"
                         checked={useLocationPermissions}
@@ -776,7 +776,7 @@ export default function Home() {
                         data-testid="switch-hero-location-permissions"
                       />
                       {isGettingLocation && (
-                        <Loader2 className="w-4 h-4 animate-spin ml-2 text-slate-600" />
+                        <Loader2 className="w-4 h-4 animate-spin ml-2 text-muted-foreground" />
                       )}
                       <span className="ml-2 text-sm text-slate-700">
                         {isGettingLocation ? "Getting..." : useLocationPermissions ? "On" : "Off"}

@@ -238,19 +238,19 @@ export default function PlansPage() {
             and enjoy the flexibility to upgrade or downgrade your plan at any time.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-            <div className="p-4 bg-slate-50 rounded-lg">
+            <div className="p-4 bg-muted rounded-lg">
               <h3 className="font-semibold mb-2">14-Day Listings</h3>
               <p className="text-muted-foreground">
                 All plans include renewable listings with flexible duration options.
               </p>
             </div>
-            <div className="p-4 bg-slate-50 rounded-lg">
+            <div className="p-4 bg-muted rounded-lg">
               <h3 className="font-semibold mb-2">No Hidden Fees</h3>
               <p className="text-muted-foreground">
                 Transparent pricing with no surprise charges or commission fees.
               </p>
             </div>
-            <div className="p-4 bg-slate-50 rounded-lg">
+            <div className="p-4 bg-muted rounded-lg">
               <h3 className="font-semibold mb-2">Cancel Anytime</h3>
               <p className="text-muted-foreground">
                 Flexible plans that you can upgrade, downgrade, or cancel at any time.

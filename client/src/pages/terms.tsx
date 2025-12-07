@@ -289,7 +289,7 @@ export default function Terms() {
               {/* Contact Information */}
               <section>
                 <h2 className="text-2xl font-bold text-foreground mb-4">14. Contact Information</h2>
-                <div className="bg-slate-50 rounded-lg p-6">
+                <div className="bg-muted rounded-lg p-6">
                   <p className="font-semibold text-foreground mb-2">Commerzio Services AG</p>
                   <p>Bahnhofstrasse 1</p>
                   <p>8001 Zürich</p>

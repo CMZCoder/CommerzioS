@@ -7,6 +7,7 @@ import { FloatingChatWidget } from "@/components/floating-chat-widget";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConfirmDialogProvider } from "@/hooks/useConfirmDialog";
 import { usePageContext } from "@/hooks/use-page-context";
+import { ThemeProvider } from "@/components/theme-provider";
 import { createContext, useContext } from "react";
 import type { PageContextActions } from "@/hooks/use-page-context";
 import NotFound from "@/pages/not-found";
@@ -116,17 +117,19 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <ConfirmDialogProvider>
-            <PageContextActionsContext.Provider value={contextActions}>
-              <Toaster />
-              <Router />
-              <FloatingChatWidget pageContext={pageContext} />
-            </PageContextActionsContext.Provider>
-          </ConfirmDialogProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <ThemeProvider defaultTheme="light">
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <ConfirmDialogProvider>
+              <PageContextActionsContext.Provider value={contextActions}>
+                <Toaster />
+                <Router />
+                <FloatingChatWidget pageContext={pageContext} />
+              </PageContextActionsContext.Provider>
+            </ConfirmDialogProvider>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

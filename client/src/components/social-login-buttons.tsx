@@ -58,7 +58,7 @@ export function SocialLoginButtons({ mode = "login" }: SocialLoginButtonsProps) 
       <Button
         variant="outline"
         type="button"
-        className="h-11 hover:bg-slate-50 transition-colors"
+        className="h-11 hover:bg-accent transition-colors"
         onClick={() => handleSocialLogin("google")}
       >
         <GoogleIcon />
@@ -68,7 +68,7 @@ export function SocialLoginButtons({ mode = "login" }: SocialLoginButtonsProps) 
       <Button
         variant="outline"
         type="button"
-        className="h-11 hover:bg-slate-50 transition-colors"
+        className="h-11 hover:bg-accent transition-colors"
         onClick={() => handleSocialLogin("twitter")}
       >
         <TwitterIcon />
@@ -78,7 +78,7 @@ export function SocialLoginButtons({ mode = "login" }: SocialLoginButtonsProps) 
       <Button
         variant="outline"
         type="button"
-        className="h-11 hover:bg-slate-50 transition-colors"
+        className="h-11 hover:bg-accent transition-colors"
         onClick={() => handleSocialLogin("facebook")}
       >
         <FacebookIcon />

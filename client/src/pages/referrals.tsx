@@ -326,10 +326,10 @@ export default function ReferralsPage() {
       <div className="container mx-auto py-8 px-4">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground">
             Referral Program
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">
+          <p className="text-muted-foreground mt-2">
             Invite friends and earn rewards for every referral
           </p>
         </div>
@@ -418,7 +418,7 @@ export default function ReferralsPage() {
                 <Gift className="h-6 w-6 text-green-500" />
               </div>
             ) : (
-              <div className="text-center py-4 text-gray-500">
+              <div className="text-center py-4 text-muted-foreground">
                 <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p>You joined independently</p>
                 <p className="text-sm">Start inviting friends to grow your network!</p>
@@ -451,7 +451,7 @@ export default function ReferralsPage() {
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-muted-foreground mt-2">
                   Your code: <strong className="font-mono">{stats?.referralCode}</strong>
                   <Button variant="ghost" size="sm" onClick={copyReferralCode} className="ml-2 h-6 px-2">
                     <Copy className="h-3 w-3" />
@@ -478,7 +478,7 @@ export default function ReferralsPage() {
                 <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 X
               </Button>
-              <Button variant="outline" size="sm" onClick={shareByEmail} className="text-gray-600 hover:bg-gray-50">
+              <Button variant="outline" size="sm" onClick={shareByEmail} className="text-muted-foreground hover:bg-accent">
                 <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                 Email
               </Button>
@@ -528,20 +528,20 @@ export default function ReferralsPage() {
                       <CollapsibleContent>
                         <div className="mt-2 space-y-2 pl-8">
                           {myNetwork.level1.referrals.length > 0 ? myNetwork.level1.referrals.map((r) => (
-                            <div key={r.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded border">
+                            <div key={r.id} className="flex items-center justify-between p-3 bg-card rounded border">
                               <div className="flex items-center gap-2">
                                 <div className="h-8 w-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center text-white text-sm">
                                   {r.firstName?.charAt(0) || "U"}
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium">{r.firstName} {r.lastName}</p>
-                                  <p className="text-xs text-gray-500">{new Date(r.createdAt).toLocaleDateString()}</p>
+                                  <p className="text-xs text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</p>
                                 </div>
                               </div>
                               <Badge variant={r.status === "active" ? "default" : "secondary"} className="text-xs">{r.status}</Badge>
                             </div>
                           )) : (
-                            <p className="text-sm text-gray-500 py-2">No direct referrals yet</p>
+                            <p className="text-sm text-muted-foreground py-2">No direct referrals yet</p>
                           )}
                         </div>
                       </CollapsibleContent>
@@ -563,23 +563,23 @@ export default function ReferralsPage() {
                         <CollapsibleContent>
                           <div className="mt-2 space-y-2 pl-8">
                             {myNetwork.level2.referrals.length > 0 ? myNetwork.level2.referrals.slice(0, 20).map((r) => (
-                              <div key={r.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded border">
+                              <div key={r.id} className="flex items-center justify-between p-3 bg-card rounded border">
                                 <div className="flex items-center gap-2">
                                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-sm">
                                     {r.firstName?.charAt(0) || "U"}
                                   </div>
                                   <div>
                                     <p className="text-sm font-medium">{r.firstName} {r.lastName}</p>
-                                    <p className="text-xs text-gray-500">via {r.referredByName}</p>
+                                    <p className="text-xs text-muted-foreground">via {r.referredByName}</p>
                                   </div>
                                 </div>
                                 <Badge variant={r.status === "active" ? "default" : "secondary"} className="text-xs">{r.status}</Badge>
                               </div>
                             )) : (
-                              <p className="text-sm text-gray-500 py-2">No level 2 referrals yet</p>
+                              <p className="text-sm text-muted-foreground py-2">No level 2 referrals yet</p>
                             )}
                             {myNetwork.level2.count > 20 && (
-                              <p className="text-xs text-gray-400 text-center">+ {myNetwork.level2.count - 20} more</p>
+                              <p className="text-xs text-muted-foreground text-center">+ {myNetwork.level2.count - 20} more</p>
                             )}
                           </div>
                         </CollapsibleContent>
@@ -602,23 +602,23 @@ export default function ReferralsPage() {
                         <CollapsibleContent>
                           <div className="mt-2 space-y-2 pl-8">
                             {myNetwork.level3.referrals.length > 0 ? myNetwork.level3.referrals.slice(0, 10).map((r) => (
-                              <div key={r.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded border">
+                              <div key={r.id} className="flex items-center justify-between p-3 bg-card rounded border">
                                 <div className="flex items-center gap-2">
                                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center text-white text-sm">
                                     {r.firstName?.charAt(0) || "U"}
                                   </div>
                                   <div>
                                     <p className="text-sm font-medium">{r.firstName} {r.lastName}</p>
-                                    <p className="text-xs text-gray-500">via {r.referredByName}</p>
+                                    <p className="text-xs text-muted-foreground">via {r.referredByName}</p>
                                   </div>
                                 </div>
                                 <Badge variant={r.status === "active" ? "default" : "secondary"} className="text-xs">{r.status}</Badge>
                               </div>
                             )) : (
-                              <p className="text-sm text-gray-500 py-2">No level 3 referrals yet</p>
+                              <p className="text-sm text-muted-foreground py-2">No level 3 referrals yet</p>
                             )}
                             {myNetwork.level3.count > 10 && (
-                              <p className="text-xs text-gray-400 text-center">+ {myNetwork.level3.count - 10} more</p>
+                              <p className="text-xs text-muted-foreground text-center">+ {myNetwork.level3.count - 10} more</p>
                             )}
                           </div>
                         </CollapsibleContent>
@@ -627,11 +627,11 @@ export default function ReferralsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">
                       No referrals yet
                     </h3>
-                    <p className="text-gray-500 mb-4">
+                    <p className="text-muted-foreground mb-4">
                       Share your referral link to start building your network!
                     </p>
                     <Button onClick={shareReferralLink}>
@@ -710,7 +710,7 @@ export default function ReferralsPage() {
                     </TableBody>
                   </Table>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-50" />
                     <p>No commission events yet</p>
                     <p className="text-sm">Earn commissions when your referrals make purchases</p>
@@ -751,7 +751,7 @@ export default function ReferralsPage() {
                           </div>
                           <div>
                             <p className="font-medium">{formatAction(entry.action)}</p>
-                            <p className="text-sm text-gray-500">
+                            <p className="text-sm text-muted-foreground">
                               {entry.description || new Date(entry.createdAt).toLocaleDateString()}
                             </p>
                           </div>
@@ -762,7 +762,7 @@ export default function ReferralsPage() {
                           }`}>
                             {entry.points > 0 ? "+" : ""}{entry.points}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-muted-foreground">
                             Balance: {entry.balanceAfter}
                           </p>
                         </div>
@@ -771,11 +771,11 @@ export default function ReferralsPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <History className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">
                       No points activity yet
                     </h3>
-                    <p className="text-gray-500">
+                    <p className="text-muted-foreground">
                       Start referring friends to earn your first points!
                     </p>
                   </div>
@@ -846,46 +846,46 @@ export default function ReferralsPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                       <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                         <Users className="h-5 w-5 text-green-600" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">Refer a Friend</p>
-                        <p className="text-sm text-gray-500">When someone signs up</p>
+                        <p className="text-sm text-muted-foreground">When someone signs up</p>
                       </div>
                       <Badge variant="secondary">+{config?.pointsPerReferral || 100}</Badge>
                     </div>
 
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                       <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                         <Gift className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">Referral's First Purchase</p>
-                        <p className="text-sm text-gray-500">When they buy a service</p>
+                        <p className="text-sm text-muted-foreground">When they buy a service</p>
                       </div>
                       <Badge variant="secondary">+{config?.pointsPerFirstPurchase || 50}</Badge>
                     </div>
 
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                       <div className="h-10 w-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
                         <TrendingUp className="h-5 w-5 text-purple-600" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">Create a Service</p>
-                        <p className="text-sm text-gray-500">List your own service</p>
+                        <p className="text-sm text-muted-foreground">List your own service</p>
                       </div>
                       <Badge variant="secondary">+{config?.pointsPerServiceCreation || 25}</Badge>
                     </div>
 
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                       <div className="h-10 w-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
                         <Star className="h-5 w-5 text-yellow-600" />
                       </div>
                       <div className="flex-1">
                         <p className="font-medium">Write a Review</p>
-                        <p className="text-sm text-gray-500">Review a service</p>
+                        <p className="text-sm text-muted-foreground">Review a service</p>
                       </div>
                       <Badge variant="secondary">+{config?.pointsPerReview || 10}</Badge>
                     </div>

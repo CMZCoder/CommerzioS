@@ -809,7 +809,7 @@ export function GoogleMaps({
 
   if (closestServices.length === 0) {
     return (
-      <div className="text-center text-slate-500 py-4" data-testid="text-no-services-map">
+      <div className="text-center text-muted-foreground py-4" data-testid="text-no-services-map">
         No services with locations available to display on the map.
       </div>
     );
@@ -858,19 +858,19 @@ export function GoogleMaps({
             animate={{ height: 400, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="overflow-hidden rounded-lg border border-slate-200"
+            className="overflow-hidden rounded-lg border border-border"
           >
             {mapLoadError ? (
-              <div className="relative w-full h-full bg-slate-50 flex items-center justify-center p-8" style={{ minHeight: "400px" }}>
+              <div className="relative w-full h-full bg-muted flex items-center justify-center p-8" style={{ minHeight: "400px" }}>
                 <div className="text-center max-w-md">
                   <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">Map Could Not Be Loaded</h3>
-                  <p className="text-sm text-slate-600 mb-4">{mapLoadError}</p>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Map Could Not Be Loaded</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{mapLoadError}</p>
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       <strong>Quick Fix:</strong> Disable your ad blocker or privacy extension for this site, then refresh the page.
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       You can still use the "Get Directions" buttons on service cards to open Google Maps directly.
                     </p>
                   </div>
@@ -891,7 +891,7 @@ export function GoogleMaps({
                     size="icon"
                     variant="secondary"
                     onClick={handleZoomIn}
-                    className="bg-white hover:bg-slate-50 shadow-lg"
+                    className="bg-card hover:bg-accent shadow-lg"
                     data-testid="button-zoom-in"
                   >
                     <ZoomIn className="w-4 h-4" />
@@ -900,7 +900,7 @@ export function GoogleMaps({
                     size="icon"
                     variant="secondary"
                     onClick={handleZoomOut}
-                    className="bg-white hover:bg-slate-50 shadow-lg"
+                    className="bg-card hover:bg-accent shadow-lg"
                     data-testid="button-zoom-out"
                   >
                     <ZoomOut className="w-4 h-4" />

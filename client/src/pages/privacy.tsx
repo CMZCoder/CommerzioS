@@ -41,7 +41,7 @@ export default function Privacy() {
               {/* Data Controller */}
               <section>
                 <h2 className="text-2xl font-bold text-foreground mb-4">2. Data Controller</h2>
-                <div className="bg-slate-50 rounded-lg p-6">
+                <div className="bg-muted rounded-lg p-6">
                   <p className="font-semibold text-foreground mb-2">Commerzio Services AG</p>
                   <p>Bahnhofstrasse 1</p>
                   <p>8001 Zürich</p>
@@ -372,7 +372,7 @@ export default function Privacy() {
                   If you have concerns about how we handle your personal data, you have the right to lodge a complaint 
                   with the Swiss Federal Data Protection and Information Commissioner (FDPIC):
                 </p>
-                <div className="bg-slate-50 rounded-lg p-6">
+                <div className="bg-muted rounded-lg p-6">
                   <p className="font-semibold text-foreground mb-2">
                     Federal Data Protection and Information Commissioner (FDPIC)
                   </p>

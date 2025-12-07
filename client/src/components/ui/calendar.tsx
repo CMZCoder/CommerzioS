@@ -53,12 +53,12 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "h-9 w-9 md:h-10 md:w-10 select-none p-0 aria-disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+          "h-9 w-9 md:h-10 md:w-10 select-none p-0 aria-disabled:opacity-50 hover:bg-accent transition-colors",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "h-9 w-9 md:h-10 md:w-10 select-none p-0 aria-disabled:opacity-50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+          "h-9 w-9 md:h-10 md:w-10 select-none p-0 aria-disabled:opacity-50 hover:bg-accent transition-colors",
           defaultClassNames.button_next
         ),
         month_caption: cn(
@@ -78,7 +78,7 @@ function Calendar({
           defaultClassNames.dropdown
         ),
         caption_label: cn(
-          "select-none font-semibold text-slate-800 dark:text-slate-200",
+          "select-none font-semibold text-foreground",
           captionLayout === "label"
             ? "text-base md:text-lg"
             : "[&>svg]:text-muted-foreground flex h-10 items-center gap-1 rounded-md pl-2 pr-1 text-base [&>svg]:size-4",

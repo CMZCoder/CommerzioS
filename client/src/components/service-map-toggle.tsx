@@ -258,7 +258,7 @@ export function ServiceMapToggle({
   // Show helpful message if no services with locations
   if (closestServices.length === 0) {
     return (
-      <div className="text-center text-slate-500 py-4" data-testid="text-no-services-map">
+      <div className="text-center text-muted-foreground py-4" data-testid="text-no-services-map">
         No services with locations available to display on the map.
       </div>
     );
@@ -295,7 +295,7 @@ export function ServiceMapToggle({
             animate={{ height: 400, opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="overflow-hidden rounded-lg border border-slate-200"
+            className="overflow-hidden rounded-lg border border-border"
           >
             <div className="relative w-full h-full">
               <div
@@ -310,7 +310,7 @@ export function ServiceMapToggle({
                   size="icon"
                   variant="secondary"
                   onClick={handleZoomIn}
-                  className="bg-white hover:bg-slate-50 shadow-lg"
+                  className="bg-card hover:bg-accent shadow-lg"
                   data-testid="button-zoom-in"
                 >
                   <ZoomIn className="w-4 h-4" />
@@ -319,7 +319,7 @@ export function ServiceMapToggle({
                   size="icon"
                   variant="secondary"
                   onClick={handleZoomOut}
-                  className="bg-white hover:bg-slate-50 shadow-lg"
+                  className="bg-card hover:bg-accent shadow-lg"
                   data-testid="button-zoom-out"
                 >
                   <ZoomOut className="w-4 h-4" />

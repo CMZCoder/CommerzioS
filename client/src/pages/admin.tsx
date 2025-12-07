@@ -365,7 +365,7 @@ function UsersManagement() {
       warned: { variant: "secondary", className: "bg-yellow-100 text-yellow-700" },
       suspended: { variant: "secondary", className: "bg-orange-100 text-orange-700" },
       banned: { variant: "secondary", className: "bg-red-100 text-red-700" },
-      kicked: { variant: "secondary", className: "bg-gray-100 text-gray-700" },
+      kicked: { variant: "secondary", className: "bg-muted text-muted-foreground" },
     };
     const config = statusColors[status] || statusColors.active;
     return <Badge variant={config.variant} className={config.className}>{status}</Badge>;

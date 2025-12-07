@@ -1265,8 +1265,8 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
               {/* Title & Description */}
               <div className="rounded-xl border p-6 space-y-4">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-slate-600" />
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-muted-foreground" />
                   </div>
                   <div>
                     <h3 className="font-semibold">Title & Description</h3>

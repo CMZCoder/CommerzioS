@@ -554,7 +554,7 @@ export default function MyBookingsPage() {
                 />
               </div>
             ) : (
-              <div className="w-full sm:w-20 h-20 flex-shrink-0 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center">
+              <div className="w-full sm:w-20 h-20 flex-shrink-0 bg-muted rounded-lg flex items-center justify-center">
                 <Package className="w-8 h-8 text-muted-foreground" />
               </div>
             )}
@@ -677,7 +677,7 @@ export default function MyBookingsPage() {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+            <TabsList className="flex flex-wrap h-auto gap-1 p-1 bg-card rounded-lg shadow-sm">
               {isVendor && (
                 <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">
                   <LayoutDashboard className="w-4 h-4" />
@@ -1317,7 +1317,7 @@ export default function MyBookingsPage() {
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <CheckCircle2 className="w-5 h-5 text-slate-500" />
+                    <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
                     Completed Bookings
                   </CardTitle>
                   <CardDescription>All your past bookings (as customer and vendor)</CardDescription>
@@ -1394,7 +1394,7 @@ export default function MyBookingsPage() {
               
               {/* Service Requests Subtabs */}
               <Tabs value={serviceRequestsSubTab} onValueChange={setServiceRequestsSubTab} className="space-y-4">
-                <TabsList className="grid grid-cols-2 md:grid-cols-4 h-auto gap-1 p-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm">
+                <TabsList className="grid grid-cols-2 md:grid-cols-4 h-auto gap-1 p-1 bg-card rounded-lg shadow-sm">
                   <TabsTrigger value="my-requests" className="gap-2 text-xs md:text-sm">
                     <FileText className="w-4 h-4" />
                     My Requests
@@ -1783,7 +1783,7 @@ export default function MyBookingsPage() {
                       <CardContent>
                         <div className="space-y-3">
                           {savedRequests.slice(0, 3).map((request: any) => (
-                            <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-white dark:bg-slate-900 shadow-sm">
+                            <div key={request.id} className="flex items-center justify-between p-3 rounded-lg bg-card shadow-sm">
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-medium truncate">{request.title}</h4>
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
@@ -1987,7 +1987,7 @@ export default function MyBookingsPage() {
               </DialogHeader>
               
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
                   <span className="text-sm text-muted-foreground">Status</span>
                   <Badge className={statusConfig[selectedBooking.status]?.color}>
                     {statusConfig[selectedBooking.status]?.icon}
@@ -2008,7 +2008,7 @@ export default function MyBookingsPage() {
                         className="w-16 h-16 object-cover rounded"
                       />
                     ) : (
-                      <div className="w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center">
+                      <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
                         <Package className="w-8 h-8 text-muted-foreground" />
                       </div>
                     )}

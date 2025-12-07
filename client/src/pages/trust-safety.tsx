@@ -99,7 +99,7 @@ export default function TrustSafety() {
                     <li>Services prohibited by Swiss law</li>
                   </ul>
                 </div>
-                <div className="bg-slate-100 rounded-lg p-4 mt-4">
+                <div className="bg-muted rounded-lg p-4 mt-4">
                   <p className="text-sm font-medium text-foreground mb-2">How to Report:</p>
                   <p className="text-sm">
                     Click the "Report" button on any listing or user profile, or contact our safety team directly at{" "}
@@ -205,7 +205,7 @@ export default function TrustSafety() {
                   </div>
                 </div>
 
-                <div className="bg-slate-100 rounded-lg p-4 mt-4">
+                <div className="bg-muted rounded-lg p-4 mt-4">
                   <p className="text-sm">
                     <strong className="text-foreground">Important:</strong> AI decisions are FINAL and BINDING with no appeals within the platform. 
                     You can choose "External Resolution" to handle the dispute through mediation, arbitration, or Swiss courts - 

@@ -26,15 +26,15 @@ export function CategoryFilterBar({
   const [showAllCategories, setShowAllCategories] = useState(false);
 
   return (
-    <div className="w-full bg-white border-b shadow-sm">
+    <div className="w-full bg-card border-b shadow-sm">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-slate-700">Filter by Category</h3>
+          <h3 className="text-sm font-semibold text-muted-foreground">Filter by Category</h3>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="h-7 px-2 hover:bg-slate-100 transition-colors"
+            className="h-7 px-2 hover:bg-accent transition-colors"
             data-testid="button-toggle-categories"
           >
             {isExpanded ? (
@@ -60,7 +60,7 @@ export function CategoryFilterBar({
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="overflow-x-auto overflow-y-hidden pb-3 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:transition-colors">
+              <div className="overflow-x-auto overflow-y-hidden pb-3 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-border/80 [&::-webkit-scrollbar-thumb]:transition-colors">
                 <div className="flex gap-2 min-w-max">
                   {/* All Services Button */}
                   <motion.button
@@ -71,7 +71,7 @@ export function CategoryFilterBar({
                       "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all text-xs font-medium whitespace-nowrap",
                       selectedCategory === null
                         ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
+                        : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:bg-accent"
                     )}
                     data-testid="category-filter-all"
                   >
@@ -90,7 +90,7 @@ export function CategoryFilterBar({
                         "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 transition-all text-xs font-medium whitespace-nowrap",
                         selectedCategory === category.id
                           ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-white text-slate-700 border-slate-200 hover:border-primary/50 hover:bg-slate-50"
+                          : "bg-card text-muted-foreground border-border hover:border-primary/50 hover:bg-accent"
                       )}
                       data-testid={`category-filter-${category.slug}`}
                     >
@@ -104,7 +104,7 @@ export function CategoryFilterBar({
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setShowAllCategories(true)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-border bg-muted hover:border-border/80 hover:bg-accent transition-all text-sm font-medium whitespace-nowrap text-muted-foreground"
                       data-testid="button-show-more-categories"
                     >
                       <span>Show More</span>
@@ -118,7 +118,7 @@ export function CategoryFilterBar({
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => setShowAllCategories(false)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-slate-300 bg-slate-50 hover:border-slate-400 hover:bg-slate-100 transition-all text-sm font-medium whitespace-nowrap text-slate-600"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border-2 border-dashed border-border bg-muted hover:border-border/80 hover:bg-accent transition-all text-sm font-medium whitespace-nowrap text-muted-foreground"
                       data-testid="button-show-less-categories"
                     >
                       <ChevronUp className="w-4 h-4" />

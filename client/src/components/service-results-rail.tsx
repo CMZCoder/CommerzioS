@@ -60,9 +60,9 @@ export function ServiceResultsRail({
 
   if (services.length === 0) {
     return (
-      <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center" data-testid={`${dataTestIdPrefix}-empty`}>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">{emptyMessage}</h3>
-        <p className="text-slate-500 text-sm">{emptyDescription}</p>
+      <div className="bg-muted border border-border rounded-lg p-8 text-center" data-testid={`${dataTestIdPrefix}-empty`}>
+        <h3 className="text-lg font-semibold text-foreground mb-2">{emptyMessage}</h3>
+        <p className="text-muted-foreground text-sm">{emptyDescription}</p>
       </div>
     );
   }
@@ -83,14 +83,14 @@ export function ServiceResultsRail({
             className="relative"
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Scroll horizontally to see more services →
               </p>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-muted-foreground">
                 {services.length} result{services.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-primary/80 [&::-webkit-scrollbar-thumb]:transition-colors">
+            <div className="overflow-x-auto overflow-y-hidden -mx-4 px-4 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-border hover:[&::-webkit-scrollbar-thumb]:bg-primary/80 [&::-webkit-scrollbar-thumb]:transition-colors">
               <div className="flex gap-4 pb-4 min-w-min" data-testid={`${dataTestIdPrefix}-rail-compact`}>
                 {displayedServices.map((service) => (
                   <motion.div

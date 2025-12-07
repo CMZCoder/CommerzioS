@@ -31,12 +31,12 @@ export default function HowItWorks() {
                 Connect with Trusted Professionals in
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400"> Switzerland</span>
               </h1>
-              <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+              <p className="text-xl text-white/70 mb-8 max-w-2xl mx-auto">
                 Whether you need a service or want to offer one, our platform makes it easy to connect, book, and get things done.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/">
-                  <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 gap-2 shadow-xl">
+                  <Button size="lg" className="bg-card text-foreground hover:bg-muted gap-2 shadow-xl">
                     <Search className="w-5 h-5" />
                     Find Services
                   </Button>
@@ -54,7 +54,7 @@ export default function HowItWorks() {
       </section>
 
       {/* Trust Indicators */}
-      <section className="py-8 bg-white border-b">
+      <section className="py-8 bg-card border-b">
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export default function HowItWorks() {
       </section>
 
       {/* For Customers Section */}
-      <section className="py-20 bg-slate-50">
+      <section className="py-20 bg-muted">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <Badge className="mb-4">For Customers</Badge>
@@ -109,7 +109,7 @@ export default function HowItWorks() {
                       <div className={`w-12 h-12 rounded-xl ${item.color} flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform`}>
                         <item.icon className="w-6 h-6" />
                       </div>
-                      <span className="text-4xl font-bold text-slate-200">{item.step}</span>
+                      <span className="text-4xl font-bold text-muted-foreground/30">{item.step}</span>
                     </div>
                     <CardTitle className="text-xl">{item.title}</CardTitle>
                   </CardHeader>
@@ -124,7 +124,7 @@ export default function HowItWorks() {
       </section>
 
       {/* For Providers Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-card">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -142,7 +142,7 @@ export default function HowItWorks() {
                     { icon: Clock, title: "Easy Management", desc: "Manage bookings, availability, and messages all in one place. Renew listings with one click." },
                     { icon: CreditCard, title: "Secure Payments", desc: "Accept Card, TWINT, or cash. Funds held safely in escrow until service is complete." },
                   ].map((item) => (
-                    <div key={item.title} className="flex gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+                    <div key={item.title} className="flex gap-4 p-4 rounded-xl bg-muted hover:bg-accent transition-colors">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <item.icon className="w-5 h-5 text-primary" />
                       </div>
@@ -178,7 +178,7 @@ export default function HowItWorks() {
                     </li>
                   </ul>
                   <Link href="/register">
-                    <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-slate-100">
+                    <Button size="lg" className="w-full bg-card text-foreground hover:bg-muted">
                       Create Free Account
                       <ArrowRight className="w-5 h-5 ml-2" />
                     </Button>
@@ -199,7 +199,7 @@ export default function HowItWorks() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/">
-              <Button size="lg" className="bg-white text-primary hover:bg-slate-100 shadow-xl" data-testid="link-browse-services">
+              <Button size="lg" className="bg-card text-primary hover:bg-accent shadow-xl" data-testid="link-browse-services">
                 Browse Services
               </Button>
             </Link>

@@ -869,12 +869,12 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen py-10">
+      <div className="bg-muted min-h-screen py-10">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Profile</h1>
-              <p className="text-slate-500">Manage your services and account settings</p>
+              <h1 className="text-3xl font-bold text-foreground">Profile</h1>
+              <p className="text-muted-foreground">Manage your services and account settings</p>
             </div>
             <Button
               size="lg"
@@ -894,7 +894,7 @@ export default function Profile() {
             }}
             className="w-full"
           >
-            <TabsList className="mb-6 bg-white p-1 border border-border flex-wrap">
+            <TabsList className="mb-6 bg-card p-1 border border-border flex-wrap">
               <TabsTrigger value="profile" data-testid="tab-profile">Profile</TabsTrigger>
               <TabsTrigger value="services" data-testid="tab-my-services">My Listings</TabsTrigger>
               <TabsTrigger value="bookings" data-testid="tab-my-bookings" className="gap-1">
@@ -918,7 +918,7 @@ export default function Profile() {
 
             {/* Sub-toggles for Profile Section Navigation */}
             {activeTab === "profile" && (
-              <div className="mb-6 bg-white p-1 border border-border rounded-lg flex gap-1 flex-wrap">
+              <div className="mb-6 bg-card p-1 border border-border rounded-lg flex gap-1 flex-wrap">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -980,22 +980,22 @@ export default function Profile() {
                       )}
                       <button
                         onClick={() => scrollToSection(personalInfoRef)}
-                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-slate-100 rounded"
+                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-accent rounded"
                         data-testid="button-edit-name"
                         aria-label="Edit name"
                       >
-                        <Pencil className="w-4 h-4 text-slate-500" />
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
                       </button>
                     </div>
                     <div className="flex items-center gap-2 group">
                       <p className="text-muted-foreground">{user?.email}</p>
                       <button
                         onClick={() => scrollToSection(accountInfoRef)}
-                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-slate-100 rounded"
+                        className="opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 md:opacity-0 transition-opacity cursor-pointer p-1 hover:bg-accent rounded"
                         data-testid="button-edit-email"
                         aria-label="Edit email"
                       >
-                        <Pencil className="w-4 h-4 text-slate-500" />
+                        <Pencil className="w-4 h-4 text-muted-foreground" />
                       </button>
                     </div>
                     <div className="flex gap-2 flex-wrap justify-center mt-4">
@@ -1245,7 +1245,7 @@ export default function Profile() {
                     ))}
 
                     {editingAddress ? (
-                      <form onSubmit={handleAddressSubmit} className="border rounded-lg p-4 space-y-4 bg-slate-50">
+                      <form onSubmit={handleAddressSubmit} className="border rounded-lg p-4 space-y-4 bg-muted">
                         <div>
                           <Label htmlFor="label">Label</Label>
                           <Input
@@ -1339,7 +1339,7 @@ export default function Profile() {
                         </div>
                       </form>
                     ) : showAddressForm ? (
-                      <form onSubmit={handleAddressSubmit} className="border rounded-lg p-4 space-y-4 bg-slate-50">
+                      <form onSubmit={handleAddressSubmit} className="border rounded-lg p-4 space-y-4 bg-muted">
                         <div>
                           <Label htmlFor="label">Label</Label>
                           <Input
@@ -1542,7 +1542,7 @@ export default function Profile() {
                       Booking Mode
                     </h4>
 
-                    <div className="flex items-center justify-between p-4 border rounded-lg bg-slate-50">
+                    <div className="flex items-center justify-between p-4 border rounded-lg bg-muted">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-amber-100 rounded-lg">
                           <Clock className="w-5 h-5 text-amber-600" />
@@ -1594,7 +1594,7 @@ export default function Profile() {
                 return (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+                      <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-primary/10 rounded-full text-primary">
                             <BarChart3 className="w-6 h-6" />
@@ -1605,7 +1605,7 @@ export default function Profile() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm" data-testid="card-current-plan">
+                      <div className="bg-card p-6 rounded-xl border border-border shadow-sm" data-testid="card-current-plan">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-4">
                             <div className="p-3 bg-green-50 rounded-full text-green-600">
@@ -1666,7 +1666,7 @@ export default function Profile() {
                           )}
                         </div>
                       </div>
-                      <div className="bg-white p-6 rounded-xl border border-border shadow-sm">
+                      <div className="bg-card p-6 rounded-xl border border-border shadow-sm">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-amber-50 rounded-full text-amber-600">
                             <Settings className="w-6 h-6" />
@@ -1687,7 +1687,7 @@ export default function Profile() {
                 );
               })()}
 
-              <div className="bg-white rounded-xl border border-border shadow-sm p-6">
+              <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                 <h2 className="text-xl font-semibold mb-6">Active Listings</h2>
 
                 {servicesLoading ? (
@@ -1699,8 +1699,8 @@ export default function Profile() {
                     {myServices.map(service => {
                       const expired = isExpired(service.expiresAt);
                       return (
-                        <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-                          <div className="w-full md:w-48 aspect-video bg-slate-200 rounded-md overflow-hidden shrink-0 relative">
+                        <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-accent transition-colors">
+                          <div className="w-full md:w-48 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
                             <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
                             {expired && (
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
@@ -1716,7 +1716,7 @@ export default function Profile() {
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
-                            <div className="flex items-center gap-4 text-sm text-slate-500">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
                               <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
                                 <Clock className="w-3 h-3" />
@@ -1845,7 +1845,7 @@ export default function Profile() {
                       ) : (
                         <div className="space-y-4">
                           {receivedReviews.map((review: any) => (
-                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
                                   <img
@@ -1873,7 +1873,7 @@ export default function Profile() {
 
                               {/* Multi-criteria breakdown */}
                               {(review.qualityRating || review.communicationRating || review.punctualityRating || review.valueRating) && (
-                                <div className="mb-3 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg text-xs">
+                                <div className="mb-3 p-2 bg-muted rounded-lg text-xs">
                                   <div className="grid grid-cols-2 gap-2">
                                     {review.qualityRating && (
                                       <div className="flex items-center gap-1">
@@ -1937,7 +1937,7 @@ export default function Profile() {
                       ) : (
                         <div className="space-y-4">
                           {givenReviews.map((review: any) => (
-                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
                                   <img
@@ -2000,7 +2000,7 @@ export default function Profile() {
                       <CardContent>
                         <div className="space-y-4">
                           {customerReviewsGiven.map((review: any) => (
-                            <div key={review.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <div key={review.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                               <div className="flex items-start justify-between mb-3">
                                 <div className="flex items-center gap-3">
                                   <img
@@ -2064,7 +2064,7 @@ export default function Profile() {
                       <CardContent>
                         <div className="space-y-4">
                           {bookingsToReviewService.map((booking: any) => (
-                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
                                   <img
@@ -2112,7 +2112,7 @@ export default function Profile() {
                       <CardContent>
                         <div className="space-y-4">
                           {bookingsToReviewCustomer.map((booking: any) => (
-                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                            <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
                                   <img
@@ -2185,7 +2185,7 @@ export default function Profile() {
                             const requestCount = booking.vendorReviewRequestCount || 0;
 
                             return (
-                              <div key={booking.id} className="border rounded-lg p-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              <div key={booking.id} className="border rounded-lg p-4 hover:bg-accent transition-colors">
                                 <div className="flex items-start justify-between">
                                   <div className="flex items-center gap-3">
                                     <img
@@ -2310,8 +2310,8 @@ export default function Profile() {
                 ) : (
                   <Card className="border-dashed">
                     <CardContent className="py-6 text-center">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-900/30 flex items-center justify-center mx-auto mb-3">
-                        <Settings className="w-5 h-5 text-slate-500" />
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                        <Settings className="w-5 h-5 text-muted-foreground" />
                       </div>
                       <h3 className="font-semibold mb-1 text-muted-foreground">Vendor Dashboard</h3>
                       <p className="text-muted-foreground mb-3 text-sm">
@@ -3676,7 +3676,7 @@ function ReferralDashboard() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-2 space-y-1 pl-6">
                   {myNetwork.level1.referrals.length > 0 ? myNetwork.level1.referrals.map(r => (
-                    <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                    <div key={r.id} className="flex items-center gap-2 p-2 bg-card rounded border text-sm">
                       <div className="h-6 w-6 rounded-full bg-green-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
                       <span>{r.firstName} {r.lastName}</span>
                       <Badge variant="outline" className="ml-auto text-xs">{r.status}</Badge>
@@ -3698,7 +3698,7 @@ function ReferralDashboard() {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2 space-y-1 pl-6">
                     {myNetwork.level2.referrals.length > 0 ? myNetwork.level2.referrals.slice(0, 10).map(r => (
-                      <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                      <div key={r.id} className="flex items-center gap-2 p-2 bg-card rounded border text-sm">
                         <div className="h-6 w-6 rounded-full bg-blue-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
                         <span>{r.firstName} {r.lastName}</span>
                         <span className="text-xs text-muted-foreground ml-auto">via {r.referredByName}</span>
@@ -3721,7 +3721,7 @@ function ReferralDashboard() {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="mt-2 space-y-1 pl-6">
                     {myNetwork.level3.referrals.slice(0, 5).map(r => (
-                      <div key={r.id} className="flex items-center gap-2 p-2 bg-white rounded border text-sm">
+                      <div key={r.id} className="flex items-center gap-2 p-2 bg-card rounded border text-sm">
                         <div className="h-6 w-6 rounded-full bg-purple-200 flex items-center justify-center text-xs">{r.firstName?.charAt(0)}</div>
                         <span>{r.firstName} {r.lastName}</span>
                       </div>

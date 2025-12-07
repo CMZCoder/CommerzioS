@@ -44,9 +44,9 @@ export default function SearchResults() {
 
   return (
     <Layout>
-      <div className="bg-slate-50 min-h-screen">
+      <div className="bg-muted min-h-screen">
         {/* Header Section */}
-        <div className="bg-white border-b">
+        <div className="bg-card border-b">
           <div className="container mx-auto px-4 py-8">
             <Button
               variant="ghost"
@@ -83,7 +83,7 @@ export default function SearchResults() {
                 <Search className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900" data-testid="search-title">
+                <h1 className="text-3xl md:text-4xl font-bold text-foreground" data-testid="search-title">
                   {initialQuery ? `Search: "${initialQuery}"` : "Search Services"}
                 </h1>
                 <p className="text-muted-foreground mt-1">
@@ -107,10 +107,10 @@ export default function SearchResults() {
         <div className="container mx-auto px-4 py-8">
           {!initialQuery ? (
             <div className="text-center py-20" data-testid="empty-search-state">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
-                <Search className="w-10 h-10 text-slate-400" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+                <Search className="w-10 h-10 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 Start Searching
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">
@@ -122,11 +122,11 @@ export default function SearchResults() {
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div
                   key={i}
-                  className="bg-white rounded-xl border border-border p-6 animate-pulse"
+                  className="bg-card rounded-xl border border-border p-6 animate-pulse"
                 >
-                  <div className="aspect-video bg-slate-200 rounded-lg mb-4"></div>
-                  <div className="h-6 bg-slate-200 rounded mb-2"></div>
-                  <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+                  <div className="aspect-video bg-muted rounded-lg mb-4"></div>
+                  <div className="h-6 bg-muted rounded mb-2"></div>
+                  <div className="h-4 bg-muted rounded w-2/3"></div>
                 </div>
               ))}
             </div>
@@ -138,10 +138,10 @@ export default function SearchResults() {
             </div>
           ) : (
             <div className="text-center py-20" data-testid="no-results-state">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
-                <Search className="w-10 h-10 text-slate-400" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+                <Search className="w-10 h-10 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 No services found
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">

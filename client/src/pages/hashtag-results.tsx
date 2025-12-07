@@ -42,7 +42,7 @@ export default function HashtagResults() {
                 <Hash className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-slate-900" data-testid="hashtag-title">
+                <h1 className="text-3xl md:text-4xl font-bold text-foreground" data-testid="hashtag-title">
                   #{hashtag}
                 </h1>
                 <p className="text-muted-foreground mt-1">
@@ -76,10 +76,10 @@ export default function HashtagResults() {
             </div>
           ) : (
             <div className="text-center py-20" data-testid="empty-state">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-slate-100 flex items-center justify-center">
-                <Hash className="w-10 h-10 text-slate-400" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
+                <Hash className="w-10 h-10 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
                 No services found
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md mx-auto">

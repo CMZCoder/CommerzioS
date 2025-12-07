@@ -300,7 +300,7 @@ export default function VendorBookingsPage() {
             </div>
             
             {/* Main Tab Switcher */}
-            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+            <div className="flex gap-2 p-1 bg-muted rounded-lg">
               <Button
                 variant={mainTab === 'bookings' ? 'default' : 'ghost'}
                 size="sm"
@@ -386,8 +386,8 @@ export default function VendorBookingsPage() {
             </Card>
             <Card className="border-0 shadow-md hover:shadow-lg transition-shadow">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                  <CheckCircle2 className="w-5 h-5 text-slate-600" />
+                <div className="p-2.5 bg-muted rounded-xl">
+                  <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">

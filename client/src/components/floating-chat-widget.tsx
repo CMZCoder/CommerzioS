@@ -348,7 +348,7 @@ export function FloatingChatWidget({ pageContext }: FloatingChatWidgetProps) {
                         className={`max-w-[80%] rounded-lg px-4 py-2 ${
                           message.role === "user"
                             ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+                            : "bg-muted text-foreground"
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap break-words">

@@ -83,7 +83,7 @@ export function VendorEscrowDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-700">Pending</Badge>;
+        return <Badge variant="secondary" className="bg-muted text-muted-foreground">Pending</Badge>;
       case "held":
         return <Badge variant="secondary" className="bg-blue-100 text-blue-700">Held in Escrow</Badge>;
       case "released":
@@ -93,7 +93,7 @@ export function VendorEscrowDashboard() {
       case "refunded":
         return <Badge variant="secondary" className="bg-red-100 text-red-700">Refunded</Badge>;
       case "cancelled":
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-700">Cancelled</Badge>;
+        return <Badge variant="secondary" className="bg-muted text-muted-foreground">Cancelled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
