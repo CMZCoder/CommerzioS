@@ -1,5 +1,5 @@
 import type { ServiceWithDetails } from "@/lib/api";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -335,196 +335,175 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
     );
   }
 
-  // Full card version
+  // Full card version - Vercel-style clean design
   return (
     <Card className={cn(
-      "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 border-border/50 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2",
+      "h-full flex flex-col group overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-primary border-border/50",
       isExpired && "opacity-60 grayscale-[0.5]"
     )}
     role="article"
-    aria-label={`Service: ${service.title} by ${service.owner.firstName} ${service.owner.lastName}`}
+    aria-label={`Service: ${service.title}`}
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted flex-shrink-0">
-        {/* Image Carousel */}
-        {allImages.length > 0 ? (
-          <div className="overflow-hidden w-full h-full" ref={emblaRef}>
-            <div className="flex h-full">
-              {allImages.map((img, index) => (
-                <div key={index} className="flex-[0_0_100%] min-w-0 h-full">
-                  <ImageWithCrop imageUrl={img.url} metadata={img.metadata} alt={`${service.title} - Image ${index + 1}`} />
-                </div>
-              ))}
+      <Link href={`/service/${service.id}`} className="flex-1 flex flex-col">
+        <div className="relative h-48 overflow-hidden bg-muted flex-shrink-0">
+          {/* Image Carousel */}
+          {allImages.length > 0 ? (
+            <div className="overflow-hidden w-full h-full" ref={emblaRef}>
+              <div className="flex h-full">
+                {allImages.map((img, index) => (
+                  <div key={index} className="flex-[0_0_100%] min-w-0 h-full">
+                    <ImageWithCrop imageUrl={img.url} metadata={img.metadata} alt={`${service.title} - Image ${index + 1}`} />
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="w-full h-full bg-muted animate-pulse" />
-        )}
-        
-        {/* Carousel Navigation - Only show if multiple images */}
-        {allImages.length > 1 && (
-          <>
-            <button
-              onClick={scrollPrev}
-              disabled={!canScrollPrev}
-              className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-lg transition-all duration-200",
-                canScrollPrev ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
-              )}
-              aria-label="Previous image"
-            >
-              <ChevronLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <button
-              onClick={scrollNext}
-              disabled={!canScrollNext}
-              className={cn(
-                "absolute right-3 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-lg transition-all duration-200",
-                canScrollNext ? "opacity-100 hover:bg-card hover:scale-110" : "opacity-0 pointer-events-none"
-              )}
-              aria-label="Next image"
-            >
-              <ChevronRight className="w-5 h-5 text-foreground" />
-            </button>
-            
-            {/* Image indicators */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex gap-1.5">
-              {allImages.map((_, index) => (
-                <div
-                  key={index}
-                  className={cn(
-                    "w-2 h-2 rounded-full transition-all duration-200",
-                    index === currentImageIndex ? "bg-white w-6" : "bg-white/60"
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
-        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
-          <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground font-medium shadow-sm">
-            {service.category.name}
-          </Badge>
+          ) : (
+            <div className="w-full h-full bg-muted animate-pulse" />
+          )}
+          
+          {/* Carousel Navigation - Only show if multiple images */}
+          {allImages.length > 1 && (
+            <>
+              <button
+                onClick={scrollPrev}
+                disabled={!canScrollPrev}
+                className={cn(
+                  "absolute left-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100",
+                  canScrollPrev ? "hover:bg-card hover:scale-110" : "pointer-events-none"
+                )}
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-4 h-4 text-foreground" />
+              </button>
+              <button
+                onClick={scrollNext}
+                disabled={!canScrollNext}
+                className={cn(
+                  "absolute right-2 top-1/2 -translate-y-1/2 z-10 p-1.5 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200 opacity-0 group-hover:opacity-100",
+                  canScrollNext ? "hover:bg-card hover:scale-110" : "pointer-events-none"
+                )}
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-4 h-4 text-foreground" />
+              </button>
+              
+              {/* Image indicators */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
+                {allImages.map((_, index) => (
+                  <div
+                    key={index}
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full transition-all duration-200",
+                      index === currentImageIndex ? "bg-white w-4" : "bg-white/60"
+                    )}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+          
+          {/* Featured badge */}
+          {service.featured && (
+            <Badge className="absolute top-3 left-3 shadow-md">
+              Featured
+            </Badge>
+          )}
+          
+          {/* Distance badge */}
           {service.distance !== undefined && (
-            <Badge variant="secondary" className="bg-primary/90 text-primary-foreground backdrop-blur-sm font-medium shadow-sm">
+            <Badge variant="secondary" className="absolute top-3 left-3 bg-primary text-primary-foreground shadow-md">
               {service.distance.toFixed(1)} km away
             </Badge>
           )}
+          
+          {/* Expired badge */}
           {isExpired && (
-            <Badge variant="destructive" className="shadow-sm">Expired</Badge>
+            <Badge variant="destructive" className="absolute top-3 left-3 shadow-md">Expired</Badge>
           )}
+          
+          {/* Favorite button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute top-3 right-3 z-10 h-8 w-8 rounded-full bg-card/90 dark:bg-card/80 shadow-md hover:bg-card hover:scale-110 transition-all duration-200"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (isAuthenticated) {
+                      handleSaveClick();
+                    }
+                  }}
+                  disabled={isAuthenticated && toggleSaved.isPending}
+                  data-testid={`button-favorite-${service.id}`}
+                >
+                  <Heart 
+                    className={cn(
+                      "h-4 w-4 transition-all duration-100",
+                      isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
+                    )}
+                  />
+                </Button>
+              </TooltipTrigger>
+              {!isAuthenticated && (
+                <TooltipContent>
+                  <p>Login to save services</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
         </div>
-        
-        {/* Favorite button - show for all users with auth gating */}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className={cn(
-                  "absolute top-3 right-3 z-10 p-2 rounded-full bg-card/90 dark:bg-card/80 shadow-md transition-all duration-200",
-                  isAuthenticated ? "hover:bg-card hover:scale-110" : "cursor-pointer opacity-80"
-                )}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (isAuthenticated) {
-                    handleSaveClick();
-                  }
-                }}
-                disabled={isAuthenticated && toggleSaved.isPending}
-                data-testid={`button-favorite-${service.id}`}
-              >
-                <Heart 
-                  className={cn(
-                    "w-5 h-5 transition-all duration-100",
-                    isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
-                  )}
-                />
-              </button>
-            </TooltipTrigger>
-            {!isAuthenticated && (
-              <TooltipContent>
-                <p>Login to save services</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
-          <div className="flex items-center gap-2 text-white/90 text-xs font-medium min-w-0">
-            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">
-              {service.locations?.[0] || (service as any).location || "Location not specified"}
+
+        <CardContent className="p-4 flex flex-col flex-1">
+          {/* Title */}
+          <h3 className="font-semibold text-lg leading-tight text-foreground group-hover:text-primary transition-colors line-clamp-2 mb-2">
+            {service.title}
+          </h3>
+
+          {/* Vendor name with verified badge */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm text-muted-foreground">
+              {service.owner.firstName} {service.owner.lastName}
             </span>
-          </div>
-        </div>
-      </div>
-
-      <CardContent className="p-5 flex flex-col">
-        <div className="flex justify-between items-start gap-4 mb-3 min-h-[3.5rem]">
-          <Link href={`/service/${service.id}`} className="min-w-0 flex-1">
-            <h3 className="font-bold text-base sm:text-lg leading-tight text-foreground hover:text-primary cursor-pointer line-clamp-2">
-              {service.title}
-            </h3>
-          </Link>
-        </div>
-        
-        <div className="flex items-center gap-2 mb-3">
-          <div className={`flex items-center ${service.reviewCount > 0 ? 'text-amber-400' : 'text-gray-400'}`}>
-            <Star className="w-4 h-4 fill-current" />
-            <span className="ml-1 text-sm font-bold text-foreground">{service.rating ? service.rating.toFixed(1) : "0"}</span>
-          </div>
-          <span className="text-muted-foreground text-sm">({service.reviewCount} {service.reviewCount === 1 ? 'review' : 'reviews'})</span>
-        </div>
-      </CardContent>
-
-      {/* Pricing section - FULL WIDTH, separate line with responsive font sizing */}
-      <div className="flex items-center gap-3 px-3 sm:px-4 md:px-5 border-t border-border/50 bg-muted/30 min-w-0 h-[4.5rem]">
-        <div className="min-w-0 flex-1 flex items-center justify-center">
-          {service.priceType === 'fixed' && (
-            <div className="flex flex-col gap-0 w-full">
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">CHF {service.price}</span>
-              <span className="text-xs sm:text-sm text-muted-foreground">per {service.priceUnit}</span>
-            </div>
-          )}
-          {service.priceType === 'text' && (
-            <Link href={`/service/${service.id}`} className="text-sm sm:text-base md:text-lg font-semibold text-primary hover:text-primary/80 underline underline-offset-4 transition-colors w-full text-center">
-              Visit Listing
-            </Link>
-          )}
-          {service.priceType === 'list' && (
-            <span className="text-sm sm:text-base md:text-lg font-medium text-foreground whitespace-nowrap w-full text-center">From CHF {(service.priceList as any)?.[0]?.price || 'N/A'}</span>
-          )}
-        </div>
-      </div>
-
-      {/* User section - FULL WIDTH, separate line */}
-      <div className="flex items-center gap-3 px-5 py-3">
-        <img 
-          src={service.owner.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.owner.id}`} 
-          alt={`${service.owner.firstName} ${service.owner.lastName}`} 
-          className="w-10 h-10 rounded-full ring-2 ring-primary/20"
-        />
-        <div className="flex-1">
-          <Link
-            href={`/users/${service.owner.id}`}
-            className="text-sm font-semibold hover:text-primary transition-colors flex items-center gap-1"
-            data-testid={`link-user-${service.owner.id}`}
-          >
-            {service.owner.firstName} {service.owner.lastName}
             {service.owner.isVerified && (
-              <CheckCircle2 className="w-4 h-4 text-primary" />
+              <CheckCircle2 className="h-3 w-3 text-primary" />
             )}
-          </Link>
-          <div className="text-xs text-muted-foreground">Service Provider</div>
-        </div>
-      </div>
-      
-      <CardFooter className="p-5 pt-0">
-        <Link href={`/service/${service.id}`} className="w-full">
-          <Button variant="outline" className="w-full group-hover:border-primary/50 group-hover:text-primary transition-colors">
-            View Details
-          </Button>
-        </Link>
-      </CardFooter>
+          </div>
+
+          {/* Rating and Location */}
+          <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-1">
+              <Star className={cn("h-4 w-4 fill-current", service.reviewCount > 0 ? "text-amber-400" : "text-muted-foreground")} />
+              <span className="font-semibold text-sm">{service.rating ? service.rating.toFixed(1) : "0"}</span>
+              <span className="text-xs text-muted-foreground">({service.reviewCount})</span>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              <span className="truncate">{service.locations?.[0] || (service as any).location || "N/A"}</span>
+            </div>
+          </div>
+
+          {/* Price and View Details - pushed to bottom */}
+          <div className="flex items-center justify-between mt-auto pt-2">
+            <div className="font-bold text-lg">
+              {service.priceType === 'fixed' && (
+                <span>CHF {service.price}/{service.priceUnit}</span>
+              )}
+              {service.priceType === 'text' && (
+                <span className="text-primary">See Listing</span>
+              )}
+              {service.priceType === 'list' && (
+                <span>From CHF {(service.priceList as any)?.[0]?.price || 'N/A'}</span>
+              )}
+            </div>
+            <Button size="sm" variant="outline" className="group-hover:border-primary group-hover:text-primary transition-colors">
+              View Details
+            </Button>
+          </div>
+        </CardContent>
+      </Link>
 
       <AlertDialog open={showUnfavoriteDialog} onOpenChange={setShowUnfavoriteDialog}>
         <AlertDialogContent>
