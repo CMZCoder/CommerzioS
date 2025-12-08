@@ -1,6 +1,7 @@
 import { Layout } from "@/components/layout";
 import { ServiceCard } from "@/components/service-card";
 import { GoogleMaps } from "@/components/google-maps";
+import { HeroVideoBackground } from "@/components/HeroVideoBackground";
 import { StickyCategoryBar } from "@/components/sticky-category-bar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -221,8 +222,8 @@ export default function Home() {
 
   return (
     <Layout>
-      <section className="relative bg-gradient-to-br from-primary/5 via-background to-accent/5 border-b overflow-hidden">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f08_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f08_1px,transparent_1px)] bg-[size:24px_24px]" />
+      <section className="relative border-b overflow-hidden min-h-[600px]">
+        <HeroVideoBackground />
         <div className="container mx-auto px-4 py-20 md:py-32 relative text-center">
           <Badge className="mb-6 bg-gradient-to-r from-primary to-accent text-white px-6 py-2.5">
             <Sparkles className="h-4 w-4 mr-2" />
