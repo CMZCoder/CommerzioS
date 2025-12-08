@@ -157,17 +157,19 @@ export function GoogleMaps({
         const border = isDark ? "#334155" : "#e2e8f0";
         const accent = "#3b82f6";
 
-        // Hide Google's close button completely, we add our own
+        // Completely hide Google's InfoWindow styling
         const hideGoogleClose = `.gm-ui-hover-effect{display:none!important;}`;
         const infoWindowStyles = `
-          .gm-style-iw-c{background:transparent!important;padding:0!important;box-shadow:none!important;max-width:none!important;max-height:none!important;}
-          .gm-style-iw-d{background:transparent!important;overflow:auto!important;max-width:none!important;max-height:70vh!important;}
+          .gm-style-iw{background:transparent!important;padding:0!important;box-shadow:none!important;overflow:visible!important;}
+          .gm-style-iw-c{background:transparent!important;padding:0!important;box-shadow:none!important;max-width:none!important;max-height:none!important;overflow:visible!important;}
+          .gm-style-iw-d{background:transparent!important;overflow:visible!important;max-width:none!important;max-height:none!important;}
+          .gm-style-iw-t::after{display:none!important;}
           .gm-style-iw-tc{display:none!important;}
           ${hideGoogleClose}
         `;
 
-        const closeBtnBg = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)";
-        const closeBtnStyle = `position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:${closeBtnBg};border-radius:50%;cursor:pointer;font-size:18px;color:${muted};line-height:32px;text-align:center;`;
+        const closeBtnBg = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
+        const closeBtnStyle = `position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:${closeBtnBg};border-radius:50%;cursor:pointer;font-size:18px;color:${muted};line-height:32px;text-align:center;z-index:10;`;
 
         if (isSingle) {
           const s = items[0].service;
@@ -176,7 +178,7 @@ export function GoogleMaps({
 
           const content = `
             <style>${infoWindowStyles}</style>
-            <div style="position:relative;width:380px;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border:1px solid ${border};border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3);">
+            <div style="position:relative;width:380px;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.35);">
               <button style="${closeBtnStyle}" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
               ${img}
               <h3 style="margin:0 0 10px 0;font-size:20px;font-weight:600;line-height:1.3;padding-right:40px;">${s.title}</h3>
@@ -191,7 +193,7 @@ export function GoogleMaps({
           infoWindow.open(map, marker);
           infoWindowRef.current = infoWindow;
         } else if (isMaxZoom) {
-          const rows = items.slice(0, 10).map((i) => {
+          const rows = items.slice(0, 15).map((i) => {
             const s = i.service;
             const img = s.images?.[0] || "";
             const price = s.priceType === "fixed" ? `CHF ${s.price}` : s.priceType === "list" ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}` : "Contact";
@@ -208,15 +210,15 @@ export function GoogleMaps({
             `;
           }).join("");
 
-          const moreCount = items.length > 10 ? items.length - 10 : 0;
+          const moreCount = items.length > 15 ? items.length - 15 : 0;
           const moreHtml = moreCount > 0 ? `<div style="text-align:center;padding:12px 0;font-size:12px;color:${muted};">+${moreCount} more services</div>` : "";
 
           const content = `
             <style>${infoWindowStyles}</style>
-            <div id="cluster-popup" style="position:relative;width:440px;max-width:90vw;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border:1px solid ${border};border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.3);">
+            <div id="cluster-popup" style="position:relative;width:440px;max-width:90vw;max-height:70vh;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.35);overflow:hidden;display:flex;flex-direction:column;">
               <button style="${closeBtnStyle}" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
-              <h2 style="margin:0 0 16px 0;font-size:18px;font-weight:700;padding-bottom:12px;border-bottom:2px solid ${border};padding-right:40px;">${count} Services in this area</h2>
-              <div style="max-height:60vh;overflow-y:auto;">${rows}${moreHtml}</div>
+              <h2 style="margin:0 0 16px 0;font-size:18px;font-weight:700;padding-bottom:12px;border-bottom:2px solid ${border};padding-right:40px;flex-shrink:0;">${count} Services in this area</h2>
+              <div style="flex:1;overflow-y:auto;">${rows}${moreHtml}</div>
             </div>
           `;
 
