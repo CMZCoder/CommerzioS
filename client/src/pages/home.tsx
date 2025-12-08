@@ -253,7 +253,7 @@ export default function Home() {
             </h1>
 
             {/* Search Box - subtle dark transparency, no glass effect */}
-            <div className="bg-black/20 rounded-2xl p-4 md:p-6 max-w-2xl mx-auto mb-6 overflow-hidden">
+            <div className="bg-black/20 rounded-2xl p-4 md:p-6 max-w-2xl mx-auto mb-6">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1 text-left">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
