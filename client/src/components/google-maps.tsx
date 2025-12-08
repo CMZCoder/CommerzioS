@@ -149,26 +149,35 @@ export function GoogleMaps({
       marker.addListener("click", () => {
         const currentZoom = map.getZoom() || 12;
         const isMaxZoom = currentZoom >= 16;
+        const isDark = document.documentElement.classList.contains("dark");
+
+        const bgColor = isDark ? "#1e293b" : "#ffffff";
+        const textColor = isDark ? "#f1f5f9" : "#1e293b";
+        const mutedColor = isDark ? "#94a3b8" : "#64748b";
+        const borderColor = isDark ? "#334155" : "#e5e7eb";
+        const cardBg = isDark ? "#0f172a" : "#f8fafc";
+        const btnBg = isDark ? "#3b82f6" : "#0f172a";
+        const btnText = "#ffffff";
 
         if (isSingle) {
           const s = items[0].service;
           const imgHtml = s.images?.[0]
-            ? `<img src="${s.images[0]}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-bottom:8px;"/>`
+            ? `<img src="${s.images[0]}" style="width:100%;height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;"/>`
             : "";
           const priceHtml =
             s.priceType === "fixed"
-              ? `<div style="color:#3b82f6;font-weight:600;">CHF ${s.price}</div>`
+              ? `<div style="color:#3b82f6;font-weight:700;font-size:18px;">CHF ${s.price}</div>`
               : s.priceType === "list"
-                ? `<div style="color:#3b82f6;font-weight:600;">From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}</div>`
-                : `<div style="color:#666;">Contact for pricing</div>`;
+                ? `<div style="color:#3b82f6;font-weight:700;font-size:18px;">From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}</div>`
+                : `<div style="color:${mutedColor};font-size:16px;">Contact for pricing</div>`;
 
           const content = `
-            <div style="width:280px;padding:8px;">
+            <div style="width:360px;max-width:90vw;padding:16px;background:${bgColor};color:${textColor};border-radius:12px;">
               ${imgHtml}
-              <strong style="display:block;margin-bottom:4px;font-size:15px;">${s.title}</strong>
+              <strong style="display:block;margin-bottom:8px;font-size:18px;line-height:1.3;">${s.title}</strong>
               ${priceHtml}
-              <div style="color:#888;font-size:11px;margin:6px 0;">Approximate Location</div>
-              <a href="/service/${s.id}" style="display:block;background:#0f172a;color:#fff;text-align:center;padding:10px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:500;">View Details</a>
+              <div style="color:${mutedColor};font-size:12px;margin:10px 0;">Approximate Location</div>
+              <a href="/service/${s.id}" style="display:block;background:${btnBg};color:${btnText};text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">View Details</a>
             </div>
           `;
 
@@ -189,12 +198,14 @@ export function GoogleMaps({
                     : "Contact";
 
               return `
-                <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #e5e7eb;">
-                  ${imgSrc ? `<img src="${imgSrc}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex-shrink:0;"/>` : `<div style="width:70px;height:70px;background:#f3f4f6;border-radius:8px;flex-shrink:0;"></div>`}
-                  <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:14px;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
-                    <div style="color:#3b82f6;font-weight:500;font-size:13px;margin-bottom:8px;">${price}</div>
-                    <a href="/service/${s.id}" style="display:inline-block;background:#0f172a;color:#fff;padding:6px 16px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500;">View Details</a>
+                <div style="display:flex;gap:16px;padding:16px;background:${cardBg};border-radius:10px;margin-bottom:12px;">
+                  ${imgSrc ? `<img src="${imgSrc}" style="width:90px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0;"/>` : `<div style="width:90px;height:90px;background:${borderColor};border-radius:10px;flex-shrink:0;"></div>`}
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;">
+                    <div>
+                      <div style="font-weight:700;font-size:16px;margin-bottom:6px;color:${textColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
+                      <div style="color:#3b82f6;font-weight:600;font-size:15px;">${price}</div>
+                    </div>
+                    <a href="/service/${s.id}" style="display:inline-block;background:${btnBg};color:${btnText};padding:10px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;text-align:center;margin-top:8px;">View Details</a>
                   </div>
                 </div>
               `;
@@ -202,9 +213,9 @@ export function GoogleMaps({
             .join("");
 
           const content = `
-            <div style="width:380px;max-width:90vw;padding:8px;">
-              <div style="font-weight:bold;font-size:16px;padding-bottom:8px;margin-bottom:8px;border-bottom:2px solid #e5e7eb;">${count} Services in this area</div>
-              <div style="max-height:350px;overflow-y:auto;">${listItems}</div>
+            <div style="width:480px;max-width:90vw;padding:16px;background:${bgColor};color:${textColor};border-radius:12px;">
+              <div style="font-weight:bold;font-size:20px;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${borderColor};">${count} Services in this area</div>
+              <div style="max-height:450px;overflow-y:auto;padding-right:8px;">${listItems}</div>
             </div>
           `;
 
