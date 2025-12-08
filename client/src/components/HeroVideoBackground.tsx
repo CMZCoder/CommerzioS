@@ -133,8 +133,8 @@ export function HeroVideoBackground() {
                 onTimeUpdate={activeElement === 'A' ? handleTimeUpdate : undefined}
             />
 
-            {/* Dark overlay - darker for better video visibility on light theme */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-background/90" style={{ zIndex: 3 }} />
+            {/* Dark overlay - balanced without strong white bottom */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/50" style={{ zIndex: 3 }} />
 
             {/* Grid pattern overlay */}
             <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f08_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f08_1px,transparent_1px)] bg-[size:24px_24px]" style={{ zIndex: 4 }} />
