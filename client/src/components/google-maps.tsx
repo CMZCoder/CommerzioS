@@ -168,8 +168,10 @@ export function GoogleMaps({
           ${hideGoogleClose}
         `;
 
-        const closeBtnBg = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.08)";
-        const closeBtnStyle = `position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:${closeBtnBg};border-radius:50%;cursor:pointer;font-size:18px;color:${muted};line-height:32px;text-align:center;z-index:10;`;
+        const closeBtnColor = isDark ? "#ffffff" : "#1a1a1a";
+        const closeBtnBg = isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.1)";
+        const closeBtnHoverBg = isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.2)";
+        const closeBtnStyle = `position:absolute;top:12px;right:12px;width:28px;height:28px;border:none;background:${closeBtnBg};border-radius:50%;cursor:pointer;font-size:16px;color:${closeBtnColor};line-height:28px;text-align:center;z-index:10;transition:background 0.15s;`;
 
         if (isSingle) {
           const s = items[0].service;
@@ -179,7 +181,7 @@ export function GoogleMaps({
           const content = `
             <style>${infoWindowStyles}</style>
             <div style="position:relative;width:380px;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.35);">
-              <button style="${closeBtnStyle}" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
+              <button style="${closeBtnStyle}" onmouseover="this.style.background='${closeBtnHoverBg}'" onmouseout="this.style.background='${closeBtnBg}'" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
               ${img}
               <h3 style="margin:0 0 10px 0;font-size:20px;font-weight:600;line-height:1.3;padding-right:40px;">${s.title}</h3>
               <p style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:${accent};">${price}</p>
@@ -216,7 +218,7 @@ export function GoogleMaps({
           const content = `
             <style>${infoWindowStyles}</style>
             <div id="cluster-popup" style="position:relative;width:420px;max-width:90vw;padding:20px;background:${bg};color:${text};font-family:system-ui,sans-serif;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.35);">
-              <button style="${closeBtnStyle}" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
+              <button style="${closeBtnStyle}" onmouseover="this.style.background='${closeBtnHoverBg}'" onmouseout="this.style.background='${closeBtnBg}'" onclick="this.closest('.gm-style-iw').style.display='none';">✕</button>
               <h2 style="margin:0 0 12px 0;font-size:17px;font-weight:700;padding-bottom:10px;border-bottom:2px solid ${border};padding-right:40px;">${count} Services in this area</h2>
               <div style="max-height:350px;overflow-y:auto;">${rows}${moreHtml}</div>
             </div>
