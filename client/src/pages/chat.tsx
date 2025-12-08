@@ -193,10 +193,10 @@ export default function ChatPage() {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] bg-background">
-        <div className="h-full w-full px-4 md:px-6 py-4">
-          {/* Header - Clean and minimal */}
-          <div className="mb-4 flex items-center justify-between max-w-[1600px] mx-auto">
+      <div className="h-[calc(100vh-64px)] bg-background flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col w-full px-4 md:px-6 py-3 overflow-hidden">
+          {/* Header */}
+          <div className="mb-3 flex items-center justify-between max-w-[1600px] w-full mx-auto flex-shrink-0">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
                 Messages
@@ -211,10 +211,10 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Desktop Layout - Full width two-column */}
-          <div className="hidden md:grid md:grid-cols-[360px_1fr] gap-4 h-[calc(100vh-160px)] max-w-[1600px] mx-auto">
+          {/* Desktop Layout */}
+          <div className="hidden md:grid md:grid-cols-[360px_1fr] gap-4 flex-1 max-w-[1600px] w-full mx-auto overflow-hidden">
             {/* Conversation List */}
-            <Card className="border shadow-sm overflow-hidden h-full bg-card">
+            <Card className="border shadow-sm overflow-hidden bg-card">
               <ConversationList
                 currentUserId={user.id}
                 selectedConversationId={selectedConversation?.id}
@@ -223,36 +223,34 @@ export default function ChatPage() {
               />
             </Card>
 
-            {/* Chat Window - Takes remaining space */}
-            <div className="flex flex-col h-full overflow-hidden">
-              {selectedConversation ? (
-                <Card className="h-full flex flex-col overflow-hidden border shadow-sm bg-card">
-                  <ChatWindow
-                    conversationId={selectedConversation.id}
-                    currentUserId={user.id}
-                    currentUserRole={currentUserRole as 'customer' | 'vendor'}
-                    otherPartyName={otherPartyName}
-                    otherPartyImage={otherParty?.profileImageUrl}
-                    otherPartyId={otherParty?.id}
-                    service={selectedConversation.service}
-                    onDelete={handleDeleteConversation}
-                    className="flex-1 border-0 h-full"
-                  />
-                </Card>
-              ) : (
-                <Card className="h-full flex items-center justify-center border shadow-sm bg-card">
-                  <CardContent className="text-center py-16">
-                    <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center rotate-3 shadow-lg">
-                      <MessageSquare className="w-12 h-12 text-primary/60 -rotate-3" />
-                    </div>
-                    <p className="text-xl font-semibold mb-2">Select a conversation</p>
-                    <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                      Choose a chat from the list to start messaging
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            {/* Chat Window */}
+            {selectedConversation ? (
+              <Card className="flex flex-col overflow-hidden border shadow-sm bg-card">
+                <ChatWindow
+                  conversationId={selectedConversation.id}
+                  currentUserId={user.id}
+                  currentUserRole={currentUserRole as 'customer' | 'vendor'}
+                  otherPartyName={otherPartyName}
+                  otherPartyImage={otherParty?.profileImageUrl}
+                  otherPartyId={otherParty?.id}
+                  service={selectedConversation.service}
+                  onDelete={handleDeleteConversation}
+                  className="flex-1 border-0"
+                />
+              </Card>
+            ) : (
+              <Card className="flex items-center justify-center border shadow-sm bg-card">
+                <CardContent className="text-center py-16">
+                  <div className="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center rotate-3 shadow-lg">
+                    <MessageSquare className="w-12 h-12 text-primary/60 -rotate-3" />
+                  </div>
+                  <p className="text-xl font-semibold mb-2">Select a conversation</p>
+                  <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+                    Choose a chat from the list to start messaging
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Mobile Layout - Full screen switching */}
