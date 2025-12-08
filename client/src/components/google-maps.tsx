@@ -160,8 +160,8 @@ export function GoogleMaps({
         // Hide Google's close button completely, we add our own
         const hideGoogleClose = `.gm-ui-hover-effect{display:none!important;}`;
         const infoWindowStyles = `
-          .gm-style-iw-c{background:transparent!important;padding:0!important;box-shadow:none!important;max-width:none!important;}
-          .gm-style-iw-d{background:transparent!important;overflow:visible!important;max-width:none!important;max-height:none!important;}
+          .gm-style-iw-c{background:transparent!important;padding:0!important;box-shadow:none!important;max-width:none!important;max-height:none!important;}
+          .gm-style-iw-d{background:transparent!important;overflow:auto!important;max-width:none!important;max-height:70vh!important;}
           .gm-style-iw-tc{display:none!important;}
           ${hideGoogleClose}
         `;
