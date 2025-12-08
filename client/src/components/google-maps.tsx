@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import type { ServiceWithDetails } from "@/lib/api";
 import { geocodeLocation } from "@/lib/geocoding";
 
@@ -33,14 +33,12 @@ export function GoogleMaps({
   const infoWindowsRef = useRef<any[]>([]);
   const currentInfoWindowRef = useRef<any>(null);
   const isInitializedRef = useRef(false);
-  const [currentZoom, setCurrentZoom] = useState(12);
+  const servicesRef = useRef(services);
+  const userLocationRef = useRef(userLocation);
+  const isUpdatingRef = useRef(false);
 
-  const getGridSize = (zoom: number): number => {
-    if (zoom >= 15) return 0.002;
-    if (zoom >= 13) return 0.004;
-    if (zoom >= 11) return 0.008;
-    return 0.015;
-  };
+  servicesRef.current = services;
+  userLocationRef.current = userLocation;
 
   const getFuzzyLocation = useCallback((lat: number, lng: number, id: string): { lat: number; lng: number } => {
     let hash = 0;
@@ -55,22 +53,42 @@ export function GoogleMaps({
   }, []);
 
   const closeAllInfoWindows = useCallback(() => {
-    infoWindowsRef.current.forEach((iw: any) => iw.close());
+    infoWindowsRef.current.forEach((iw: any) => {
+      try { iw.close(); } catch { }
+    });
     currentInfoWindowRef.current = null;
   }, []);
 
-  const updateMarkers = useCallback(async (zoom: number) => {
-    const google = (window as GoogleMapsWindow).google;
-    if (!google || !mapRef.current || !userLocation) return;
+  const getGridSize = useCallback((zoom: number): number => {
+    if (zoom >= 15) return 0.002;
+    if (zoom >= 13) return 0.004;
+    if (zoom >= 11) return 0.008;
+    return 0.015;
+  }, []);
 
-    markersRef.current.forEach(m => m.setMap(null));
+  const updateMarkers = useCallback(async () => {
+    const google = (window as GoogleMapsWindow).google;
+    const map = mapRef.current;
+    const location = userLocationRef.current;
+    const currentServices = servicesRef.current;
+
+    if (!google || !map || !location || isUpdatingRef.current) return;
+
+    isUpdatingRef.current = true;
+
+    markersRef.current.forEach(m => {
+      try { m.setMap(null); } catch { }
+    });
     markersRef.current = [];
+    infoWindowsRef.current.forEach(iw => {
+      try { iw.close(); } catch { }
+    });
     infoWindowsRef.current = [];
-    closeAllInfoWindows();
+    currentInfoWindowRef.current = null;
 
     const userMarker = new google.maps.Marker({
-      map: mapRef.current,
-      position: { lat: userLocation.lat, lng: userLocation.lng },
+      map: map,
+      position: { lat: location.lat, lng: location.lng },
       icon: {
         path: google.maps.SymbolPath.CIRCLE,
         scale: 10,
@@ -85,16 +103,16 @@ export function GoogleMaps({
     markersRef.current.push(userMarker);
 
     const userInfoWindow = new google.maps.InfoWindow({
-      content: `<div style="padding: 8px; font-weight: 600;">${userLocation.name}<br/><small style="color:#666;">Your search location</small></div>`,
+      content: `<div style="padding:8px;font-weight:600;">${location.name}<br/><small style="color:#666;">Your search location</small></div>`,
     });
     userMarker.addListener("click", () => {
       closeAllInfoWindows();
-      userInfoWindow.open(mapRef.current, userMarker);
+      userInfoWindow.open(map, userMarker);
       currentInfoWindowRef.current = userInfoWindow;
     });
     infoWindowsRef.current.push(userInfoWindow);
 
-    const geocodePromises = services.map(async (s): Promise<FuzzyPoint | null> => {
+    const geocodePromises = currentServices.map(async (s): Promise<FuzzyPoint | null> => {
       let lat = s.locationLat ? parseFloat(s.locationLat as string) : null;
       let lng = s.locationLng ? parseFloat(s.locationLng as string) : null;
 
@@ -122,6 +140,7 @@ export function GoogleMaps({
 
     const validPoints = (await Promise.all(geocodePromises)).filter((p): p is FuzzyPoint => p !== null);
 
+    const zoom = map.getZoom() || 12;
     const gridSize = getGridSize(zoom);
     const clusters: Record<string, FuzzyPoint[]> = {};
 
@@ -134,7 +153,7 @@ export function GoogleMaps({
     });
 
     const bounds = new google.maps.LatLngBounds();
-    bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+    bounds.extend({ lat: location.lat, lng: location.lng });
 
     Object.values(clusters).forEach((items) => {
       const count = items.length;
@@ -144,17 +163,18 @@ export function GoogleMaps({
       bounds.extend({ lat: centerLat, lng: centerLng });
 
       const markerOptions: any = {
-        map: mapRef.current,
+        map: map,
         position: { lat: centerLat, lng: centerLng },
         title: count > 1 ? `${count} Services` : items[0].service.title,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: count > 1 ? 14 : 10,
-          fillColor: count > 1 ? "#ef4444" : "#f97316",
+          scale: count > 1 ? 16 : 12,
+          fillColor: "#ef4444",
           fillOpacity: 1,
           strokeColor: "#ffffff",
           strokeWeight: 2,
         },
+        zIndex: count > 1 ? 1000 + count : 500,
       };
 
       if (count > 1) {
@@ -216,24 +236,20 @@ export function GoogleMaps({
 
       marker.addListener("click", () => {
         closeAllInfoWindows();
-        infoWindow.open(mapRef.current, marker);
+        infoWindow.open(map, marker);
         currentInfoWindowRef.current = infoWindow;
-
-        if (count > 1) {
-          const newZoom = Math.min(mapRef.current.getZoom() + 2, 17);
-          mapRef.current.panTo({ lat: centerLat, lng: centerLng });
-          mapRef.current.setZoom(newZoom);
-        }
       });
 
       markersRef.current.push(marker);
       infoWindowsRef.current.push(infoWindow);
     });
 
-    if (validPoints.length > 0) {
-      mapRef.current.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
+    if (validPoints.length > 0 && !isInitializedRef.current) {
+      map.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
     }
-  }, [services, userLocation, closeAllInfoWindows, getFuzzyLocation]);
+
+    isUpdatingRef.current = false;
+  }, [closeAllInfoWindows, getFuzzyLocation, getGridSize]);
 
   useEffect(() => {
     if (!isExpanded || !apiKey || isInitializedRef.current) return;
@@ -255,13 +271,16 @@ export function GoogleMaps({
 
       mapRef.current.addListener("click", closeAllInfoWindows);
 
+      let zoomDebounceTimer: ReturnType<typeof setTimeout> | null = null;
       mapRef.current.addListener("zoom_changed", () => {
-        const newZoom = mapRef.current.getZoom();
-        setCurrentZoom(newZoom);
+        if (zoomDebounceTimer) clearTimeout(zoomDebounceTimer);
+        zoomDebounceTimer = setTimeout(() => {
+          updateMarkers();
+        }, 250);
       });
 
       isInitializedRef.current = true;
-      updateMarkers(12);
+      await updateMarkers();
     };
 
     if (!(window as GoogleMapsWindow).google) {
@@ -278,9 +297,9 @@ export function GoogleMaps({
 
   useEffect(() => {
     if (isInitializedRef.current) {
-      updateMarkers(currentZoom);
+      updateMarkers();
     }
-  }, [services, currentZoom, updateMarkers]);
+  }, [services, updateMarkers]);
 
   if (!userLocation || !isExpanded) return null;
 
