@@ -34,15 +34,15 @@ export function GoogleMaps({
   // All hooks must be called at the top, before any conditional returns
   const { toast } = useToast();
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
-  
+
   // Use controlled state if provided, otherwise use internal state
   const isControlled = controlledExpanded !== undefined;
   const isMapVisible = isControlled ? controlledExpanded : internalExpanded;
-  const setIsMapVisible = isControlled 
+  const setIsMapVisible = isControlled
     ? (value: boolean | ((prev: boolean) => boolean)) => {
-        const newValue = typeof value === 'function' ? value(isMapVisible) : value;
-        onExpandedChange?.(newValue);
-      }
+      const newValue = typeof value === 'function' ? value(isMapVisible) : value;
+      onExpandedChange?.(newValue);
+    }
     : setInternalExpanded;
   const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -60,7 +60,7 @@ export function GoogleMaps({
   const serviceCoordinatesRef = useRef<Record<string, { lat: number; lng: number }>>({});
 
   // Memoize filtered services to prevent unnecessary recalculations
-  const closestServices = useMemo(() => 
+  const closestServices = useMemo(() =>
     services
       .filter(s => {
         // Service has its own location OR owner has location
@@ -128,7 +128,7 @@ export function GoogleMaps({
     // FIRST: Check if we have stored coordinates from the marker (this ensures we use the SAME coordinates as the marker)
     let serviceLat: number | null = null;
     let serviceLng: number | null = null;
-    
+
     const storedCoords = serviceCoordinatesRef.current[service.id];
     if (storedCoords) {
       serviceLat = storedCoords.lat;
@@ -146,14 +146,14 @@ export function GoogleMaps({
           serviceLat = parsed;
         }
       }
-      
+
       if (service.locationLng) {
         const parsed = parseFloat(service.locationLng as any);
         if (!isNaN(parsed)) {
           serviceLng = parsed;
         }
       }
-      
+
       // If service doesn't have coordinates, try to geocode from locations array
       if ((!serviceLat || !serviceLng) && service.locations && service.locations.length > 0) {
         console.log('=== GEOCODING SERVICE LOCATION (FALLBACK) ===', {
@@ -176,7 +176,7 @@ export function GoogleMaps({
           console.error('Failed to geocode service location:', error);
         }
       }
-      
+
       // Fallback to owner's location if service doesn't have its own and geocoding failed
       if (!serviceLat || !serviceLng) {
         if (service.owner?.locationLat) {
@@ -257,12 +257,12 @@ export function GoogleMaps({
     directionsServiceRef.current.route(request, (result: any, status: any) => {
       // Reset calculation flag regardless of result
       isCalculatingDirectionsRef.current = false;
-      
+
       if (status === google.maps.DirectionsStatus.OK) {
         const endLocation = result.routes[0].legs[0].end_location;
         const endLat = typeof endLocation.lat === 'function' ? endLocation.lat() : endLocation.lat;
         const endLng = typeof endLocation.lng === 'function' ? endLocation.lng() : endLocation.lng;
-        
+
         console.log('=== DIRECTIONS RECEIVED ===', {
           serviceId: service.id,
           serviceTitle: service.title,
@@ -276,7 +276,7 @@ export function GoogleMaps({
           serviceLocationAddress: service.locations?.[0],
           routeOverviewPolyline: result.routes[0].overview_polyline?.points?.substring(0, 50) + '...',
         });
-        
+
         // Double-check: clear any existing renderer
         if (directionsRendererRef.current) {
           console.log('Removing existing renderer before creating new one');
@@ -288,12 +288,12 @@ export function GoogleMaps({
           }
           directionsRendererRef.current = null;
         }
-        
+
         // Generate a unique color based on service ID for debugging
         const colors = ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899'];
         const colorIndex = parseInt(service.id.slice(-1)) % colors.length || 0;
         const routeColor = colors[colorIndex];
-        
+
         // Create a completely fresh directions renderer for this route
         console.log('Creating new directions renderer for service:', service.id, 'with color:', routeColor);
         directionsRendererRef.current = new google.maps.DirectionsRenderer({
@@ -309,7 +309,7 @@ export function GoogleMaps({
         // Set the directions on the new renderer
         directionsRendererRef.current.setDirections(result);
         activeDirectionsServiceIdRef.current = service.id;
-        
+
         console.log('=== DIRECTIONS RENDERER SET ===', {
           serviceId: service.id,
           rendererAttached: directionsRendererRef.current.getMap() ? 'yes' : 'no',
@@ -319,7 +319,7 @@ export function GoogleMaps({
           lastStep: result.routes[0].legs[0].steps[result.routes[0].legs[0].steps.length - 1]?.instructions?.substring(0, 50),
           overviewPolyline: result.routes[0].overview_polyline?.points?.substring(0, 100) + '...',
         });
-        
+
         // Fit map to show entire route
         const bounds = new google.maps.LatLngBounds();
         result.routes[0].legs[0].steps.forEach((step: any) => {
@@ -334,6 +334,20 @@ export function GoogleMaps({
     });
   }, [userLocation]);
 
+  // Deterministic fuzzing based on ID
+  const getFuzzyLocation = (lat: number, lng: number, id: string) => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    const seed = Math.abs(hash) / 2147483647;
+    // +/- ~200-300m jitter
+    const jitterLat = (seed - 0.5) * 0.005;
+    const jitterLng = ((seed * 1.618) % 1 - 0.5) * 0.005;
+    return { lat: lat + jitterLat, lng: lng + jitterLng };
+  };
+
   // Update markers when services change
   const updateMarkers = useCallback(async (shouldFitBounds = false) => {
     const google = (window as GoogleMapsWindow).google;
@@ -344,7 +358,7 @@ export function GoogleMaps({
     markersRef.current = [];
     infoWindowsRef.current = [];
     currentInfoWindowRef.current = null;
-    
+
     // Initialize directions if not already done
     initializeDirections();
 
@@ -361,16 +375,14 @@ export function GoogleMaps({
         strokeColor: "#fff",
         strokeWeight: 2,
       },
+      zIndex: 1000,
     });
 
     const userInfoWindow = new google.maps.InfoWindow({
       content: `<div style="padding: 8px; font-weight: bold;">${userLocation.name}<br/><small>Your location</small></div>`,
     });
 
-    infoWindowsRef.current.push(userInfoWindow);
-
     userMarker.addListener("click", () => {
-      // Close any other open info windows
       closeAllInfoWindows();
       userInfoWindow.open(mapRef.current, userMarker);
       currentInfoWindowRef.current = userInfoWindow;
@@ -378,313 +390,173 @@ export function GoogleMaps({
 
     markersRef.current.push(userMarker);
 
-    // Add service markers
-    const bounds = new google.maps.LatLngBounds(
-      { lat: userLocation.lat, lng: userLocation.lng },
-      { lat: userLocation.lat, lng: userLocation.lng }
-    );
-
-    // Track positions to add offset for overlapping markers
-    const positionCounts: Record<string, number> = {};
-
-    // Log summary of all services and their locations
-    console.log('=== ALL SERVICES LOCATION SUMMARY ===', closestServices.map(s => ({
-      id: s.id,
-      title: s.title,
-      hasOwnLocation: !!(s.locationLat && s.locationLng),
-      serviceLocation: { lat: s.locationLat, lng: s.locationLng },
-      ownerId: s.owner?.id,
-      ownerLocation: { lat: s.owner?.locationLat, lng: s.owner?.locationLng },
-    })));
-
-    // Geocode service locations in parallel if needed
+    // Geocode service locations in parallel
     const geocodePromises = closestServices.map(async (service) => {
-      // Use service's own location first, fallback to owner's location
       let serviceLat = service.locationLat ? parseFloat(service.locationLat as any) : null;
       let serviceLng = service.locationLng ? parseFloat(service.locationLng as any) : null;
-      
-      // If service doesn't have coordinates, try to geocode from locations array
+
       if ((!serviceLat || !serviceLng || isNaN(serviceLat) || isNaN(serviceLng)) && service.locations && service.locations.length > 0) {
         try {
           const geocoded = await geocodeLocation(service.locations[0]);
           serviceLat = geocoded.lat;
           serviceLng = geocoded.lng;
-          console.log(`[Geocoded] Service: ${service.id} (${service.title})`, {
-            address: service.locations[0],
-            coordinates: { lat: serviceLat, lng: serviceLng },
-          });
         } catch (error) {
           console.warn(`Failed to geocode service ${service.id}:`, error);
         }
       }
-      
-      // Fallback to owner's location
+
       if (!serviceLat || !serviceLng || isNaN(serviceLat) || isNaN(serviceLng)) {
         serviceLat = service.owner?.locationLat ? parseFloat(service.owner.locationLat as any) : null;
         serviceLng = service.owner?.locationLng ? parseFloat(service.owner.locationLng as any) : null;
       }
-      
+
       if (serviceLat && serviceLng && !isNaN(serviceLat) && !isNaN(serviceLng)) {
-        // Store the coordinates used for this service
-        serviceCoordinatesRef.current[service.id] = { lat: serviceLat, lng: serviceLng };
-        return { service, serviceLat, serviceLng };
+        const fuzzy = getFuzzyLocation(serviceLat, serviceLng, service.id);
+        serviceCoordinatesRef.current[service.id] = { lat: fuzzy.lat, lng: fuzzy.lng };
+        return { service, lat: fuzzy.lat, lng: fuzzy.lng };
       }
       return null;
     });
-    
-    const geocodedServices = (await Promise.all(geocodePromises)).filter((s): s is NonNullable<typeof s> => s !== null);
 
-    geocodedServices.forEach(({ service, serviceLat, serviceLng }, index) => {
-      // Log coordinates for debugging
-      console.log(`[Marker ${index + 1}] Service: ${service.id} (${service.title})`, {
-        serviceLocation: { lat: service.locationLat, lng: service.locationLng },
-        ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
-        ownerId: service.owner?.id,
-        usingCoords: { lat: serviceLat, lng: serviceLng },
-        source: service.locationLat ? 'service' : (service.locations?.[0] ? 'geocoded' : 'owner'),
-      });
+    const processedServices = (await Promise.all(geocodePromises)).filter((s): s is NonNullable<typeof s> => s !== null);
 
-      let adjustedLat = serviceLat;
-      let adjustedLng = serviceLng;
+    // Cluster services by proximity (rounding to ~500m-1km)
+    const clusters: Record<string, typeof processedServices> = {};
+    const clusterBounds = new google.maps.LatLngBounds();
 
-      // Create a key for this position to detect duplicates
-      const posKey = `${adjustedLat.toFixed(4)},${adjustedLng.toFixed(4)}`;
-      const count = positionCounts[posKey] || 0;
-      positionCounts[posKey] = count + 1;
+    processedServices.forEach(item => {
+      // Round to ~500-800m precision
+      // 0.01 degrees is approx 1.1km
+      // Rounding to 0.008 gives somewhat tighter clusters
+      const precision = 0.008;
+      const keyLat = Math.round(item.lat / precision) * precision;
+      const keyLng = Math.round(item.lng / precision) * precision;
+      const key = `${keyLat.toFixed(3)},${keyLng.toFixed(3)}`;
 
-      // Add small offset for overlapping markers (circle pattern)
-      if (count > 0) {
-        const angle = (count * 60) * (Math.PI / 180); // 60 degrees apart
-        const offsetDistance = 0.002; // ~200m offset
-        adjustedLat += offsetDistance * Math.cos(angle);
-        adjustedLng += offsetDistance * Math.sin(angle);
-      }
+      if (!clusters[key]) clusters[key] = [];
+      clusters[key].push(item);
+      clusterBounds.extend({ lat: item.lat, lng: item.lng });
+    });
 
-      const serviceMarker = new google.maps.Marker({
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+
+    // Render Clusters
+    Object.entries(clusters).forEach(([key, items]) => {
+      const count = items.length;
+      // Calculate center of cluster
+      const centerLat = items.reduce((sum, item) => sum + item.lat, 0) / count;
+      const centerLng = items.reduce((sum, item) => sum + item.lng, 0) / count;
+
+      // Sort services by date (oldest first as per requirements, or newest?) 
+      // Requirement: "list items sorted by createdAt (oldest first)"
+      const sortedItems = items.sort((a, b) =>
+        new Date(a.service.createdAt).getTime() - new Date(b.service.createdAt).getTime()
+      );
+
+      const clusterMarker = new google.maps.Marker({
         map: mapRef.current,
-        position: { lat: adjustedLat, lng: adjustedLng },
-        title: service.title,
+        position: { lat: centerLat, lng: centerLng },
+        title: count > 1 ? `${count} Services` : items[0].service.title,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#ef4444",
+          scale: count > 1 ? 12 : 8,
+          fillColor: count > 1 ? "#ef4444" : "#f97316", // Red for cluster, Orange for single
           fillOpacity: 1,
           strokeColor: "#fff",
           strokeWeight: 2,
-          label: {
-            text: String(index + 1),
+          label: count > 1 ? {
+            text: count.toString(),
             color: "#fff",
-            fontSize: "12px",
+            fontSize: "10px",
             fontWeight: "bold",
-          },
+          } : undefined,
         },
       });
 
-      // Generate pricing display based on priceType
-      let priceDisplay = '';
-      if (service.priceType === 'fixed') {
-        priceDisplay = `<div style="display: flex; flex-direction: column; gap: 0;">
-          <span style="color: #3b82f6; font-weight: 700; font-size: 1rem;">CHF ${service.price}</span>
-          <span style="color: #6b7280; font-size: 0.75rem;">per ${service.priceUnit}</span>
-        </div>`;
-      } else if (service.priceType === 'text') {
-        priceDisplay = `<a href="/service/${service.id}" style="color: #3b82f6; font-weight: 600; text-decoration: underline;">Visit Listing</a>`;
-      } else if (service.priceType === 'list') {
-        const firstPrice = (service.priceList as any)?.[0]?.price;
-        priceDisplay = `<span style="color: #3b82f6; font-weight: 600;">From CHF ${firstPrice || 'N/A'}</span>`;
-      }
+      // Generate Content
+      let contentHtml = '';
 
-      // Get service image (first image or placeholder)
-      const serviceImage = service.images && service.images.length > 0 
-        ? service.images[0] 
-        : null;
-      
-      const imageHtml = serviceImage 
-        ? `<img src="${serviceImage}" alt="${service.title}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />`
-        : '';
+      if (count === 1) {
+        // SINGLE SERVICE CARD
+        const s = sortedItems[0].service;
+        const serviceImage = s.images && s.images.length > 0 ? s.images[0] : null;
+        const imageHtml = serviceImage
+          ? `<img src="${serviceImage}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px; margin-bottom: 8px;" />`
+          : '';
 
-      // Build Google Maps directions URL using stored coordinates (same as marker)
-      // This ensures the external link uses the exact same coordinates as the marker and embedded directions
-      const storedCoordsForUrl = serviceCoordinatesRef.current[service.id] || { lat: serviceLat, lng: serviceLng };
-      const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${storedCoordsForUrl.lat},${storedCoordsForUrl.lng}`;
+        let priceDisplay = '';
+        if (s.priceType === 'fixed') priceDisplay = `CHF ${s.price}`;
+        else if (s.priceType === 'list') priceDisplay = `From CHF ${(s.priceList as any)?.[0]?.price || 'N/A'}`;
+        else priceDisplay = 'Price on Request';
 
-      // Create unique IDs for buttons to handle clicks
-      const infoWindowId = `info-window-${service.id}`;
-      const getDirectionsBtnId = `get-directions-${service.id}`;
-      const _googleMapsBtnId = `google-maps-${service.id}`;
-
-      const serviceInfoWindow = new google.maps.InfoWindow({
-        content: `
-          <div id="${infoWindowId}" style="min-width: 250px; max-width: 300px; padding: 0;">
+        contentHtml = `
+          <div style="min-width: 200px; max-width: 250px;">
             ${imageHtml}
-            <div style="padding: 8px;">
-              <a href="/service/${service.id}" style="text-decoration: none; color: inherit;">
-                <strong style="display: block; margin-bottom: 6px; color: #1e293b; font-size: 1rem; line-height: 1.3;">${service.title}</strong>
+            <div style="padding: 4px;">
+              <strong style="display: block; font-size: 1rem; margin-bottom: 4px;">${s.title}</strong>
+              <div style="color: #3b82f6; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px;">${priceDisplay}</div>
+              <a href="/service/${s.id}" style="
+                display: block; width: 100%; text-align: center;
+                background-color: #0f172a; color: white; padding: 6px; 
+                border-radius: 4px; text-decoration: none; font-size: 0.85rem;"
+              >
+                View Details
               </a>
-              ${priceDisplay}
-              ${service.distance ? `<small style="color: #64748b; display: block; margin-top: 6px; margin-bottom: 8px;">${service.distance.toFixed(1)} km away</small>` : ''}
-              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
-                <button id="${getDirectionsBtnId}" style="
-                  background-color: #3b82f6;
-                  color: white;
-                  border: none;
-                  padding: 8px 12px;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  font-size: 0.875rem;
-                  font-weight: 600;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  transition: background-color 0.2s;
-                " onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                  </svg>
-                  Get Directions
-                </button>
-                <a href="${googleMapsDirectionsUrl}" target="_blank" rel="noopener noreferrer" style="
-                  background-color: #f1f5f9;
-                  color: #1e293b;
-                  border: 1px solid #e2e8f0;
-                  padding: 8px 12px;
-                  border-radius: 6px;
-                  cursor: pointer;
-                  font-size: 0.875rem;
-                  font-weight: 600;
-                  text-decoration: none;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  transition: background-color 0.2s;
-                  text-align: center;
-                " onmouseover="this.style.backgroundColor='#e2e8f0'" onmouseout="this.style.backgroundColor='#f1f5f9'">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
-                  </svg>
-                  Get Directions in Google Maps
-                </a>
-              </div>
             </div>
           </div>
-          <script>
-            (function() {
-              const btn = document.getElementById('${getDirectionsBtnId}');
-              if (btn) {
-                btn.addEventListener('click', function(e) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  window.dispatchEvent(new CustomEvent('show-directions', { detail: { serviceId: '${service.id}' } }));
-                });
-              }
-            })();
-          </script>
-        `,
+        `;
+      } else {
+        // MULTI SERVICE LIST
+        const listItems = sortedItems.map(({ service: s }) => {
+          let price = s.priceType === 'fixed' ? `CHF ${s.price}` : (s.priceType === 'list' ? 'From CHF ' + (s.priceList as any)?.[0]?.price : 'On Request');
+          return `
+            <div style="display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e2e8f0;">
+              <div style="width: 40px; height: 40px; border-radius: 4px; background-color: #f1f5f9; flex-shrink: 0; overflow: hidden;">
+                ${s.images?.[0] ? `<img src="${s.images[0]}" style="width: 100%; height: 100%; object-fit: cover;" />` : ''}
+              </div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.title}</div>
+                <div style="color: #64748b; font-size: 0.75rem;">${price}</div>
+              </div>
+              <a href="/service/${s.id}" style="align-self: center; color: #3b82f6; text-decoration: none; font-size: 0.8rem; font-weight: 600;">View</a>
+            </div>
+          `;
+        }).join('');
+
+        contentHtml = `
+          <div style="min-width: 250px; max-width: 280px;">
+            <div style="font-weight: bold; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid #f1f5f9;">
+              ${count} Services in this area
+            </div>
+            <div style="max-height: 250px; overflow-y: auto;">
+              ${listItems}
+            </div>
+          </div>
+        `;
+      }
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: contentHtml,
       });
 
-      infoWindowsRef.current.push(serviceInfoWindow);
-
-      serviceMarker.addListener("click", () => {
-        // Close any other open info windows
+      clusterMarker.addListener("click", () => {
         closeAllInfoWindows();
-        
-        // Clear any existing directions when opening a new info window
-        if (activeDirectionsServiceIdRef.current !== service.id) {
-          clearDirections();
-        }
-        
-        serviceInfoWindow.open(mapRef.current, serviceMarker);
-        currentInfoWindowRef.current = serviceInfoWindow;
-        
-        // Set up event listener for directions button after info window opens
-        // IMPORTANT: Capture coordinates in the closure to avoid all buttons using the same values
-        // Create a function that captures the specific service's coordinates
-        const setupDirectionsButton = (serviceId: string, serviceTitle: string, capturedLat: number, capturedLng: number, serviceObj: any) => {
-          setTimeout(() => {
-            const getDirectionsBtn = document.getElementById(`get-directions-${serviceId}`);
-            if (getDirectionsBtn) {
-              console.log('Setting up directions button for service:', serviceId, {
-                capturedCoords: { lat: capturedLat, lng: capturedLng },
-                serviceLocation: { lat: serviceObj.locationLat, lng: serviceObj.locationLng },
-                ownerLocation: { lat: serviceObj.owner?.locationLat, lng: serviceObj.owner?.locationLng },
-              });
-              
-              // Remove any existing listeners to avoid duplicates
-              const newBtn = getDirectionsBtn.cloneNode(true);
-              getDirectionsBtn.parentNode?.replaceChild(newBtn, getDirectionsBtn);
-              
-              newBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Create a service object with the CORRECT coordinates we captured in the closure
-                // Include the locations array so geocoding can happen if needed
-                const serviceWithCorrectCoords = {
-                  ...serviceObj,
-                  locationLat: serviceObj.locationLat || null, // Keep original, will be geocoded if null
-                  locationLng: serviceObj.locationLng || null, // Keep original, will be geocoded if null
-                  locations: serviceObj.locations || [], // Ensure locations array is included
-                  owner: {
-                    ...serviceObj.owner,
-                    locationLat: serviceObj.owner?.locationLat || null,
-                    locationLng: serviceObj.owner?.locationLng || null,
-                  },
-                };
-                
-                console.log('=== GET DIRECTIONS CLICKED ===', {
-                  serviceId: serviceWithCorrectCoords.id,
-                  serviceTitle: serviceWithCorrectCoords.title,
-                  capturedCoordinates: { lat: capturedLat, lng: capturedLng },
-                  serviceObject: {
-                    locationLat: serviceWithCorrectCoords.locationLat,
-                    locationLng: serviceWithCorrectCoords.locationLng,
-                    locations: serviceWithCorrectCoords.locations,
-                    ownerLocationLat: serviceWithCorrectCoords.owner?.locationLat,
-                    ownerLocationLng: serviceWithCorrectCoords.owner?.locationLng,
-                  },
-                });
-                
-                // showDirections is now async and will geocode if needed
-                await showDirections(serviceWithCorrectCoords);
-                
-                // Close the info window after showing directions
-                serviceInfoWindow.close();
-                currentInfoWindowRef.current = null;
-              });
-            }
-          }, 100);
-        };
-        
-        // Use the stored coordinates from serviceCoordinatesRef (which were used for the marker)
-        // This ensures directions use the EXACT same coordinates as the marker
-        const storedCoords = serviceCoordinatesRef.current[service.id];
-        const coordsToUse = storedCoords || { lat: serviceLat, lng: serviceLng };
-        
-        // Log what we're passing to verify each service has different coordinates
-        console.log(`[Setup Button] Service: ${service.id} (${service.title})`, {
-          storedCoords: storedCoords,
-          fallbackCoords: { lat: serviceLat, lng: serviceLng },
-          usingCoords: coordsToUse,
-          serviceHasOwnLocation: !!(service.locationLat && service.locationLng),
-          serviceLocation: { lat: service.locationLat, lng: service.locationLng },
-          ownerLocation: { lat: service.owner?.locationLat, lng: service.owner?.locationLng },
-          ownerId: service.owner?.id,
-        });
-        setupDirectionsButton(service.id, service.title, coordsToUse.lat, coordsToUse.lng, service);
+        infoWindow.open(mapRef.current, clusterMarker);
+        currentInfoWindowRef.current = infoWindow;
       });
 
-      markersRef.current.push(serviceMarker);
-      bounds.extend({ lat: adjustedLat, lng: adjustedLng });
+      infoWindowsRef.current.push(infoWindow);
+      markersRef.current.push(clusterMarker);
+      bounds.extend({ lat: centerLat, lng: centerLng });
     });
 
     // Only fit bounds on initial load or when explicitly requested
-    if (shouldFitBounds && closestServices.length > 0) {
+    if (shouldFitBounds && processedServices.length > 0) {
       mapRef.current?.fitBounds(bounds, { top: 50, bottom: 50, left: 50, right: 50 });
       hasFitBoundsRef.current = true;
     }
-  }, [userLocation, closestServices, initializeDirections, clearDirections, closeAllInfoWindows, showDirections]);
+  }, [userLocation, closestServices, initializeDirections, clearDirections, closeAllInfoWindows]);
 
   // Initialize map only once when it becomes visible
   useEffect(() => {
@@ -723,14 +595,14 @@ export function GoogleMaps({
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
       script.async = true;
       script.defer = true;
-      
+
       // Set timeout to detect if script fails to load (e.g., blocked by ad blocker)
       const timeoutId = setTimeout(() => {
         if (!win.google) {
           setMapLoadError('Map failed to load. This may be due to an ad blocker or privacy extension. Please disable it for this site or use the "Get Directions" button to open Google Maps directly.');
         }
       }, 10000); // 10 second timeout
-      
+
       script.onload = async () => {
         clearTimeout(timeoutId);
         setMapLoadError(null); // Clear any previous errors
@@ -746,17 +618,17 @@ export function GoogleMaps({
           initializeMap();
         }
       };
-      
+
       script.onerror = () => {
         clearTimeout(timeoutId);
         setMapLoadError('Failed to load Google Maps. This may be due to an ad blocker or network issue. Please disable your ad blocker for this site or use the "Get Directions" button to open Google Maps directly.');
       };
-      
+
       document.head.appendChild(script);
     } else {
       // Google Maps is already loaded
       setMapLoadError(null); // Clear any previous errors
-      
+
       // Check if routes library is loaded (DirectionsService should be available from routes library)
       if (win.google.maps && win.google.maps.DirectionsService) {
         initializeMap();

@@ -46,10 +46,11 @@ export default function Home() {
   const [useLocationPermissions, setUseLocationPermissions] = useState(false);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const locationPermissionProcessingRef = useRef(false);
+  const [nearbyMode, setNearbyMode] = useState<'slider' | 'grid'>('slider');
+  const [isPaused, setIsPaused] = useState(false);
+  const [nearbyPage, setNearbyPage] = useState(1);
   const nearbyServicesSectionRef = useRef<HTMLElement>(null);
 
-  const [nearbyMode, setNearbyMode] = useState<'slider' | 'grid'>('slider');
-  const [nearbyPage, setNearbyPage] = useState(1);
   const NEARBY_ITEMS_PER_PAGE = 12;
 
   // Independent state for All Listings tab
@@ -111,7 +112,7 @@ export default function Home() {
 
   // Autoplay effect for Carousel
   useEffect(() => {
-    if (!carouselApi || nearbyMode !== 'slider') return;
+    if (!carouselApi || nearbyMode !== 'slider' || isPaused) return;
 
     const autoPlayInterval = setInterval(() => {
       if (carouselApi.canScrollNext()) {
@@ -122,7 +123,7 @@ export default function Home() {
     }, 5000);
 
     return () => clearInterval(autoPlayInterval);
-  }, [carouselApi, nearbyMode]);
+  }, [carouselApi, nearbyMode, isPaused]);
 
   // Auto-load user's saved location on mount (works for all users with stored location)
   useEffect(() => {
@@ -235,10 +236,14 @@ export default function Home() {
       // Auto-expand the map when a location is found
       setIsMapExpanded(true);
 
+      // Force map expansion explicitly just in case
+      setTimeout(() => setIsMapExpanded(true), 100);
+
       // Scroll to nearby services section after location is set
       setTimeout(() => {
+        setIsGettingLocation(false); // Stop loading effect
         nearbyServicesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      }, 500);
 
       toast({
         title: "Location found",
@@ -324,10 +329,13 @@ export default function Home() {
         name: locationName,
       });
 
+      // Auto-expand the map
+      setIsMapExpanded(true);
+
       // Scroll to nearby services section after location is set
       setTimeout(() => {
         nearbyServicesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      }, 500);
 
       toast({
         title: "Location detected",
@@ -701,66 +709,48 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="relative sm:w-48 text-left">
-                <Select
-                  value={radiusKm.toString()}
-                  onValueChange={(value) => setRadiusKm(parseInt(value, 10))}
-                >
-                  <SelectTrigger
-                    className="h-14 shadow-md bg-background border-border text-foreground"
-                  >
-                    <SelectValue placeholder="Radius" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 km</SelectItem>
-                    <SelectItem value="10">10 km</SelectItem>
-                    <SelectItem value="25">25 km</SelectItem>
-                    <SelectItem value="50">50 km</SelectItem>
-                    <SelectItem value="100">100 km</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={() => handleLocationSearch()}
-                disabled={isGeocoding || !locationSearchQuery.trim() || isGettingLocation}
-                size="lg"
-                className="h-14 px-8 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                {isGeocoding ? <Loader2 className="animate-spin" /> : "Search"}
-              </Button>
             </div>
+            <Button
+              onClick={() => handleLocationSearch()}
+              disabled={isGeocoding || !locationSearchQuery.trim() || isGettingLocation}
+              size="lg"
+              className="h-14 px-8 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              {isGeocoding ? <Loader2 className="animate-spin" /> : "Search"}
+            </Button>
+          </div>
 
-            {/* Active Location Display */}
-            <div className="flex items-center justify-center gap-3 flex-wrap text-sm">
-              {searchLocation && (
-                <Badge variant="secondary" className="px-3 py-1.5 bg-primary/10 text-primary border-primary/20">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  Searching near {searchLocation.name}
-                </Badge>
-              )}
-              <div className="flex items-center gap-2">
-                <Switch
-                  id="hero-location-permissions"
-                  checked={useLocationPermissions}
-                  onCheckedChange={handleLocationPermissionsToggle}
-                  disabled={isGettingLocation || isGeocoding}
-                />
-                <Label htmlFor="hero-location-permissions" className="text-muted-foreground cursor-pointer">
-                  Use My Location
-                </Label>
-              </div>
-            </div>
-            {/* Quick Links */}
-            <div className="flex flex-wrap gap-2 justify-center text-sm mt-8">
-              <span className="text-muted-foreground">Popular:</span>
-              <Link href="/search?q=plumber"><span className="text-primary hover:underline cursor-pointer">Plumber</span></Link>
-              <span className="text-border">•</span>
-              <Link href="/search?q=electrician"><span className="text-accent hover:underline cursor-pointer">Electrician</span></Link>
-              <span className="text-border">•</span>
-              <Link href="/search?q=cleaning"><span className="text-primary hover:underline cursor-pointer">Cleaning</span></Link>
+          {/* Active Location Display */}
+          <div className="flex items-center justify-center gap-3 flex-wrap text-sm">
+            {searchLocation && (
+              <Badge variant="secondary" className="px-3 py-1.5 bg-primary/10 text-primary border-primary/20">
+                <MapPin className="w-3 h-3 mr-1" />
+                Searching near {searchLocation.name}
+              </Badge>
+            )}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="hero-location-permissions"
+                checked={useLocationPermissions}
+                onCheckedChange={handleLocationPermissionsToggle}
+                disabled={isGettingLocation || isGeocoding}
+              />
+              <Label htmlFor="hero-location-permissions" className="text-muted-foreground cursor-pointer">
+                Use My Location
+              </Label>
             </div>
           </div>
+          {/* Quick Links */}
+          <div className="flex flex-wrap gap-2 justify-center text-sm mt-8">
+            <span className="text-muted-foreground">Popular:</span>
+            <Link href="/search?q=plumber"><span className="text-primary hover:underline cursor-pointer">Plumber</span></Link>
+            <span className="text-border">•</span>
+            <Link href="/search?q=electrician"><span className="text-accent hover:underline cursor-pointer">Electrician</span></Link>
+            <span className="text-border">•</span>
+            <Link href="/search?q=cleaning"><span className="text-primary hover:underline cursor-pointer">Cleaning</span></Link>
+          </div>
         </div>
+
       </section>
 
       {/* Stats Section */}
