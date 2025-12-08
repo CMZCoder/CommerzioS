@@ -224,7 +224,7 @@ export default function Home() {
     <Layout>
       <section className="relative border-b overflow-hidden min-h-[600px]">
         <HeroVideoBackground />
-        <div className="container mx-auto px-4 py-20 md:py-32 relative text-center">
+        <div className="container mx-auto px-4 py-20 md:py-32 relative z-10 text-center">
           <Badge className="mb-6 bg-gradient-to-r from-primary to-accent text-white px-6 py-2.5">
             <Sparkles className="h-4 w-4 mr-2" />
             Trusted by 50,000+ Swiss Customers
