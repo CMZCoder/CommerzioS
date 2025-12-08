@@ -102,19 +102,19 @@ export function MessageInput({
   const handleSend = () => {
     if (!message.trim() || isLoading) return;
     const messageToSend = message.trim();
-    
+
     // Store reference to textarea before clearing
     const textarea = textareaRef.current;
-    
+
     // Optimistically clear input immediately
     setMessage('');
     if (textarea) {
       textarea.style.height = 'auto';
     }
-    
+
     // Send the message
     onSend(messageToSend);
-    
+
     // CRITICAL: Restore focus after React updates - use multiple timeouts to ensure it works
     // First attempt immediately after state update
     setTimeout(() => {
@@ -124,14 +124,14 @@ export function MessageInput({
         textareaRef.current.focus();
       }
     }, 0);
-    
+
     // Second attempt after a slightly longer delay (in case of re-render)
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
       }
     }, 50);
-    
+
     // Third attempt after mutation completes (if needed)
     setTimeout(() => {
       if (textareaRef.current) {
@@ -173,7 +173,7 @@ export function MessageInput({
   };
 
   return (
-    <div className={cn("space-y-3", className)} data-testid="message-input-container">
+    <div className={cn("space-y-2", className)} data-testid="message-input-container">
       {/* Moderation Warning */}
       {moderationResult?.wouldBeFiltered && (
         <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-sm animate-in fade-in slide-in-from-bottom-2">
@@ -222,19 +222,19 @@ export function MessageInput({
             }, 0);
           }}
         />
-        
+
         {/* Action buttons */}
         <div className="absolute right-2 bottom-2 flex items-center gap-1">
           {/* Character count */}
           <span className={cn(
             "text-[10px] px-2 py-0.5 rounded-full mr-1",
-            message.length > maxLength * 0.9 
-              ? "bg-red-100 text-red-600" 
+            message.length > maxLength * 0.9
+              ? "bg-red-100 text-red-600"
               : "text-muted-foreground/60"
           )}>
             {message.length}/{maxLength}
           </span>
-          
+
           {/* Emoji Picker */}
           <Popover open={showEmoji} onOpenChange={setShowEmoji}>
             <PopoverTrigger asChild>
@@ -247,9 +247,9 @@ export function MessageInput({
                 <Smile className="w-5 h-5 text-muted-foreground" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent 
-              side="top" 
-              align="end" 
+            <PopoverContent
+              side="top"
+              align="end"
               className="w-80 p-0"
             >
               <div className="p-3">
@@ -282,7 +282,7 @@ export function MessageInput({
               </div>
             </PopoverContent>
           </Popover>
-          
+
           {/* Send Button */}
           <Button
             onClick={handleSend}
@@ -291,8 +291,8 @@ export function MessageInput({
             data-testid="send-button"
             className={cn(
               "h-9 w-9 rounded-full transition-all",
-              message.trim() 
-                ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25" 
+              message.trim()
+                ? "bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25"
                 : "bg-slate-200 dark:bg-slate-700"
             )}
           >
@@ -303,16 +303,6 @@ export function MessageInput({
             )}
           </Button>
         </div>
-      </div>
-
-      {/* Helper Text */}
-      <div className="flex items-center justify-between px-1">
-        <p className="text-[11px] text-muted-foreground">
-          Press <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-mono">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 rounded text-[10px] font-mono">Shift+Enter</kbd> for new line
-        </p>
-        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-          😊 Emojis supported
-        </p>
       </div>
     </div>
   );
