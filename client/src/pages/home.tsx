@@ -60,12 +60,22 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
 
+  // Responsive scroll helper - calculates header offset based on screen size
+  const scrollToServicesSection = useCallback(() => {
+    if (!nearbyServicesSectionRef.current) return;
+    // Desktop has larger header (~120px), mobile has smaller (~80px)
+    const headerOffset = window.innerWidth >= 768 ? 120 : 80;
+    const elementPosition = nearbyServicesSectionRef.current.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+    window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+  }, []);
+
   // Scroll to services section when map is expanded
   useEffect(() => {
-    if (isMapExpanded && nearbyServicesSectionRef.current) {
-      nearbyServicesSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (isMapExpanded) {
+      scrollToServicesSection();
     }
-  }, [isMapExpanded]);
+  }, [isMapExpanded, scrollToServicesSection]);
 
   useEffect(() => {
     if (!carouselApi || nearbyMode !== "slider" || isPaused) return;
@@ -195,7 +205,7 @@ export default function Home() {
       setLocationSearchQuery("");
       setIsMapExpanded(true);
       fetchPredictedRadius(result.lat, result.lng);
-      setTimeout(() => nearbyServicesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 500);
+      setTimeout(() => scrollToServicesSection(), 500);
       toast({ title: "Location found", description: `Searching near ${result.name || result.displayName}` });
     } catch (error: any) {
       toast({ title: "Location not found", description: error.message, variant: "destructive" });
@@ -218,7 +228,7 @@ export default function Home() {
       setSearchLocation({ lat, lng, name: locationName });
       setIsMapExpanded(true);
       fetchPredictedRadius(lat, lng);
-      setTimeout(() => nearbyServicesSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 500);
+      setTimeout(() => scrollToServicesSection(), 500);
       toast({ title: "Location detected", description: `Using: ${locationName}` });
     } catch {
       toast({ title: "Location error", description: "Unable to get location", variant: "destructive" });
