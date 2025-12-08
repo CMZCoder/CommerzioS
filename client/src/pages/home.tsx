@@ -319,56 +319,60 @@ export default function Home() {
           <section ref={nearbyServicesSectionRef} className="py-12 bg-muted/30 border-y border-border">
             <div className="container mx-auto px-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div>
+                <div className="max-w-md">
                   <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <MapPin className="text-primary" /> Services Near {searchLocation.name}
+                    <MapPin className="text-primary flex-shrink-0" />
+                    <span className="truncate">Services Near {searchLocation.name?.split(',')[0]}</span>
                   </h2>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-2">
                     Found {nearbyServices.length} services within {radiusKm}km
                   </p>
                 </div>
 
-                <div className="flex flex-col gap-2 w-full md:w-auto">
-                  <div className="flex items-center gap-2">
-                    <Select value={radiusKm.toString()} onValueChange={(v) => setRadiusKm(parseInt(v))}>
-                      <SelectTrigger className="w-[180px] bg-background">
-                        <SelectValue placeholder="Select Radius" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {RADIUS_PRESETS.map((km) => (
-                          <SelectItem key={km} value={km.toString()}>
-                            {km} km
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowAdvancedRadius(!showAdvancedRadius)}
-                      className={cn("gap-2", showAdvancedRadius && "bg-muted")}
-                    >
-                      <Sliders className="w-4 h-4" /> Advanced
-                    </Button>
-                  </div>
-                  <AnimatePresence>
-                    {showAdvancedRadius && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="w-full md:w-[300px] bg-background p-4 rounded-lg border shadow-sm overflow-hidden"
+                {/* Radius controls - only show when map is expanded */}
+                {isMapExpanded && (
+                  <div className="flex flex-col gap-2 w-full md:w-auto">
+                    <div className="flex items-center gap-2">
+                      <Select value={radiusKm.toString()} onValueChange={(v) => setRadiusKm(parseInt(v))}>
+                        <SelectTrigger className="w-[180px] bg-background">
+                          <SelectValue placeholder="Select Radius" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RADIUS_PRESETS.map((km) => (
+                            <SelectItem key={km} value={km.toString()}>
+                              {km} km
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAdvancedRadius(!showAdvancedRadius)}
+                        className={cn("gap-2", showAdvancedRadius && "bg-muted")}
                       >
-                        <div className="flex justify-between mb-2 text-xs text-muted-foreground">
-                          <span>2km</span>
-                          <span>100km</span>
-                        </div>
-                        <Slider value={[radiusKm]} min={2} max={100} step={1} onValueChange={(v) => setRadiusKm(v[0])} className="py-2" />
-                        <div className="text-center text-xs font-semibold mt-1">{radiusKm} km</div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
+                        <Sliders className="w-4 h-4" /> Advanced
+                      </Button>
+                    </div>
+                    <AnimatePresence>
+                      {showAdvancedRadius && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="w-full md:w-[300px] bg-background p-4 rounded-lg border shadow-sm overflow-hidden"
+                        >
+                          <div className="flex justify-between mb-2 text-xs text-muted-foreground">
+                            <span>2km</span>
+                            <span>100km</span>
+                          </div>
+                          <Slider value={[radiusKm]} min={2} max={100} step={1} onValueChange={(v) => setRadiusKm(v[0])} className="py-2" />
+                          <div className="text-center text-xs font-semibold mt-1">{radiusKm} km</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                )}
               </div>
 
               <AnimatePresence>
