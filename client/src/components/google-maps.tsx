@@ -151,76 +151,60 @@ export function GoogleMaps({
         const isMaxZoom = currentZoom >= 16;
         const isDark = document.documentElement.classList.contains("dark");
 
-        const bgColor = isDark ? "#1e293b" : "#ffffff";
-        const textColor = isDark ? "#f1f5f9" : "#1e293b";
-        const mutedColor = isDark ? "#94a3b8" : "#64748b";
-        const borderColor = isDark ? "#334155" : "#e5e7eb";
-        const cardBg = isDark ? "#0f172a" : "#f8fafc";
-        const btnBg = isDark ? "#3b82f6" : "#0f172a";
-        const btnText = "#ffffff";
+        const bg = isDark ? "#0f172a" : "#ffffff";
+        const text = isDark ? "#f8fafc" : "#0f172a";
+        const muted = isDark ? "#94a3b8" : "#6b7280";
+        const border = isDark ? "#1e293b" : "#e5e7eb";
+        const accent = "#3b82f6";
 
         if (isSingle) {
           const s = items[0].service;
-          const imgHtml = s.images?.[0]
-            ? `<img src="${s.images[0]}" style="width:100%;height:160px;object-fit:cover;border-radius:10px;margin-bottom:12px;"/>`
-            : "";
-          const priceHtml =
-            s.priceType === "fixed"
-              ? `<div style="color:#3b82f6;font-weight:700;font-size:18px;">CHF ${s.price}</div>`
-              : s.priceType === "list"
-                ? `<div style="color:#3b82f6;font-weight:700;font-size:18px;">From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}</div>`
-                : `<div style="color:${mutedColor};font-size:16px;">Contact for pricing</div>`;
+          const img = s.images?.[0] ? `<img src="${s.images[0]}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;margin-bottom:16px;"/>` : "";
+          const price = s.priceType === "fixed" ? `CHF ${s.price}` : s.priceType === "list" ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}` : "Contact for pricing";
 
           const content = `
-            <div style="width:360px;max-width:90vw;padding:16px;background:${bgColor};color:${textColor};border-radius:12px;">
-              ${imgHtml}
-              <strong style="display:block;margin-bottom:8px;font-size:18px;line-height:1.3;">${s.title}</strong>
-              ${priceHtml}
-              <div style="color:${mutedColor};font-size:12px;margin:10px 0;">Approximate Location</div>
-              <a href="/service/${s.id}" style="display:block;background:${btnBg};color:${btnText};text-align:center;padding:14px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;">View Details</a>
+            <style>.gm-style-iw,.gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:visible!important;max-width:none!important;max-height:none!important;}.gm-style-iw-tc{display:none!important;}.gm-ui-hover-effect{top:8px!important;right:8px!important;}</style>
+            <div style="width:400px;padding:20px;background:${bg};color:${text};font-family:system-ui,-apple-system,sans-serif;">
+              ${img}
+              <h3 style="margin:0 0 12px 0;font-size:22px;font-weight:700;line-height:1.3;">${s.title}</h3>
+              <p style="margin:0 0 12px 0;font-size:20px;font-weight:700;color:${accent};">${price}</p>
+              <p style="margin:0 0 16px 0;font-size:13px;color:${muted};">Approximate location shown</p>
+              <a href="/service/${s.id}" style="display:block;background:${accent};color:#fff;text-align:center;padding:16px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;">View Details</a>
             </div>
           `;
 
           if (infoWindowRef.current) infoWindowRef.current.close();
-          const infoWindow = new google.maps.InfoWindow({ content });
+          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 450 });
           infoWindow.open(map, marker);
           infoWindowRef.current = infoWindow;
         } else if (isMaxZoom) {
-          const listItems = items
-            .map((i) => {
-              const s = i.service;
-              const imgSrc = s.images?.[0] || "";
-              const price =
-                s.priceType === "fixed"
-                  ? `CHF ${s.price}`
-                  : s.priceType === "list"
-                    ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}`
-                    : "Contact";
+          const rows = items.map((i) => {
+            const s = i.service;
+            const img = s.images?.[0] || "";
+            const price = s.priceType === "fixed" ? `CHF ${s.price}` : s.priceType === "list" ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}` : "Contact";
 
-              return `
-                <div style="display:flex;gap:16px;padding:16px;background:${cardBg};border-radius:10px;margin-bottom:12px;">
-                  ${imgSrc ? `<img src="${imgSrc}" style="width:90px;height:90px;object-fit:cover;border-radius:10px;flex-shrink:0;"/>` : `<div style="width:90px;height:90px;background:${borderColor};border-radius:10px;flex-shrink:0;"></div>`}
-                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;justify-content:space-between;">
-                    <div>
-                      <div style="font-weight:700;font-size:16px;margin-bottom:6px;color:${textColor};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
-                      <div style="color:#3b82f6;font-weight:600;font-size:15px;">${price}</div>
-                    </div>
-                    <a href="/service/${s.id}" style="display:inline-block;background:${btnBg};color:${btnText};padding:10px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;text-align:center;margin-top:8px;">View Details</a>
-                  </div>
+            return `
+              <div style="display:flex;align-items:center;gap:20px;padding:20px 0;border-bottom:1px solid ${border};">
+                ${img ? `<img src="${img}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0;"/>` : `<div style="width:100px;height:100px;background:${border};border-radius:10px;flex-shrink:0;"></div>`}
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:18px;font-weight:700;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
+                  <div style="font-size:17px;font-weight:600;color:${accent};margin-bottom:10px;">${price}</div>
+                  <a href="/service/${s.id}" style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">View Details</a>
                 </div>
-              `;
-            })
-            .join("");
+              </div>
+            `;
+          }).join("");
 
           const content = `
-            <div style="width:480px;max-width:90vw;padding:16px;background:${bgColor};color:${textColor};border-radius:12px;">
-              <div style="font-weight:bold;font-size:20px;padding-bottom:12px;margin-bottom:12px;border-bottom:2px solid ${borderColor};">${count} Services in this area</div>
-              <div style="max-height:450px;overflow-y:auto;padding-right:8px;">${listItems}</div>
+            <style>.gm-style-iw,.gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:visible!important;max-width:none!important;max-height:none!important;}.gm-style-iw-tc{display:none!important;}.gm-ui-hover-effect{top:12px!important;right:12px!important;}</style>
+            <div style="width:550px;max-width:90vw;padding:24px;background:${bg};color:${text};font-family:system-ui,-apple-system,sans-serif;">
+              <h2 style="margin:0 0 16px 0;font-size:24px;font-weight:700;padding-bottom:16px;border-bottom:2px solid ${border};">${count} Services in this area</h2>
+              <div style="max-height:500px;overflow-y:auto;">${rows}</div>
             </div>
           `;
 
           if (infoWindowRef.current) infoWindowRef.current.close();
-          const infoWindow = new google.maps.InfoWindow({ content });
+          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 600 });
           infoWindow.open(map, marker);
           infoWindowRef.current = infoWindow;
         } else {
