@@ -232,11 +232,11 @@ export default function Home() {
             </Badge>
             <h1 className="text-4xl md:text-7xl font-bold mb-6 text-white [text-shadow:_0_4px_24px_rgb(0_0_0_/_50%),_0_2px_8px_rgb(0_0_0_/_40%)]">
               The complete platform to discover{" "}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent drop-shadow-xl">local services</span>
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent [text-shadow:none]">local services</span>
             </h1>
 
-            {/* Search Box with solid background */}
-            <div className="bg-card/95 backdrop-blur-sm rounded-2xl p-4 md:p-6 shadow-2xl border border-border/50 max-w-2xl mx-auto mb-6">
+            {/* Search Box - subtle dark transparency, no glass effect */}
+            <div className="bg-black/20 rounded-2xl p-4 md:p-6 max-w-2xl mx-auto mb-6 overflow-hidden">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1 text-left">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground z-10" />
@@ -245,7 +245,7 @@ export default function Home() {
                     onChange={(e) => setLocationSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && locationSearchQuery.trim() && handleLocationSearch()}
                     placeholder="Enter postcode, city, or address..."
-                    className="pl-12 h-14 text-base bg-background"
+                    className="pl-12 h-14 text-base bg-background shadow-lg"
                   />
                   {addressSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-lg shadow-lg z-50">
@@ -258,30 +258,32 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <Button onClick={() => handleLocationSearch()} disabled={isGeocoding} size="lg" className="h-14 px-8">
+                <Button onClick={() => handleLocationSearch()} disabled={isGeocoding} size="lg" className="h-14 px-8 shadow-lg">
                   {isGeocoding ? <Loader2 className="animate-spin" /> : "Search"}
                 </Button>
               </div>
+            </div>
 
-              {/* Location toggle with better visibility */}
-              <div className="flex justify-center items-center gap-3 mt-4 pt-4 border-t border-border/50">
-                {searchLocation && (
-                  <Badge variant="secondary" className="px-3 py-1.5">
-                    <MapPin className="w-3 h-3 mr-1" />
-                    Near {searchLocation.name}
-                  </Badge>
-                )}
-                <div className="flex items-center gap-2 bg-primary/10 dark:bg-primary/20 px-4 py-2 rounded-full border border-primary/30">
-                  <Switch
-                    checked={useLocationPermissions}
-                    onCheckedChange={(c) => {
-                      setUseLocationPermissions(c);
-                      if (c) handleBrowserLocation();
-                    }}
-                  />
-                  <Label className="font-medium text-foreground cursor-pointer">Use My Location</Label>
+            {/* Location toggle - aligned elements */}
+            <div className="flex justify-center items-center gap-3 flex-wrap">
+              {searchLocation && (
+                <div className="h-11 px-4 flex items-center gap-2 bg-background/90 rounded-lg shadow-md border border-border/50 max-w-xs">
+                  <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="truncate text-sm font-medium">Near {searchLocation.name}</span>
                 </div>
-              </div>
+              )}
+              <Button
+                variant={useLocationPermissions ? "default" : "secondary"}
+                className={`h-11 gap-2 shadow-lg ${useLocationPermissions ? 'bg-primary text-primary-foreground' : 'bg-white dark:bg-slate-800 text-foreground hover:bg-white/90 dark:hover:bg-slate-700'}`}
+                onClick={() => {
+                  const newValue = !useLocationPermissions;
+                  setUseLocationPermissions(newValue);
+                  if (newValue) handleBrowserLocation();
+                }}
+              >
+                <MapPin className="w-4 h-4" />
+                {useLocationPermissions ? "Location Active" : "Use My Location"}
+              </Button>
             </div>
           </div>
         </div>
