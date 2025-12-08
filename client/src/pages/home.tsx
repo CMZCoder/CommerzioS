@@ -339,7 +339,7 @@ export default function Home() {
                 <div className="max-w-md">
                   <h2 className="text-2xl font-bold flex items-center gap-2">
                     <MapPin className="text-primary flex-shrink-0" />
-                    <span className="truncate">Services Near {searchLocation.name?.split(',').slice(1, 3).join(',').trim() || searchLocation.name?.split(',')[0]}</span>
+                    <span className="truncate">Services Near {searchLocation.name?.split(',')[2]?.trim() || searchLocation.name?.split(',')[1]?.trim() || searchLocation.name?.split(',')[0]}</span>
                   </h2>
                   <p className="text-sm text-muted-foreground mt-2">
                     Found {nearbyServices.length} services within {radiusKm}km
