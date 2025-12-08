@@ -16,16 +16,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import useEmblaCarousel from "embla-carousel-react";
 
 // Route guard wrapper - only mounts content when service ID is available
 export default function ServiceDetail() {
   const [match, params] = useRoute("/service/:id");
-  
+
   // Don't render anything if route doesn't match
   if (!match) {
     return null;
   }
-  
+
   // Show error if ID is missing (edge case)
   if (!params?.id) {
     return (
@@ -42,7 +43,7 @@ export default function ServiceDetail() {
       </Layout>
     );
   }
-  
+
   return <ServiceDetailContent serviceId={params.id} />;
 }
 
@@ -59,6 +60,20 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const reviewFormRef = useRef<HTMLDivElement>(null);
+
+  // Carousel State
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => setCurrentImageIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on("select", onSelect);
+    return () => { emblaApi.off("select", onSelect); };
+  }, [emblaApi]);
+
+  const scrollPrev = () => emblaApi && emblaApi.scrollPrev();
+  const scrollNext = () => emblaApi && emblaApi.scrollNext();
 
   // Scroll to top on page load
   useEffect(() => {
@@ -125,11 +140,11 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
     onMutate: async ({ action }) => {
       // Snapshot the previous value
       const previousState = isSaved;
-      
+
       // Optimistically update the UI
       const newState = action === 'add';
       setIsSaved(newState);
-      
+
       // Return context with previous state for rollback
       return { previousState };
     },
@@ -137,13 +152,13 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ["/api/favorites"] });
       queryClient.invalidateQueries({ queryKey: [`/api/favorites/${serviceId}/status`] });
-      
+
       // Show feedback toast
       const wasAdded = variables.action === 'add';
       toast({
         title: wasAdded ? "Service saved" : "Removed from saved",
-        description: wasAdded 
-          ? "Service added to your saved services" 
+        description: wasAdded
+          ? "Service added to your saved services"
           : "Service removed from your saved services",
       });
     },
@@ -152,7 +167,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
       if (context?.previousState !== undefined) {
         setIsSaved(context.previousState);
       }
-      
+
       toast({
         title: "Error",
         description: error.message || "Failed to update saved services",
@@ -218,7 +233,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
       });
       return;
     }
-    
+
     if (!reviewText.trim()) {
       toast({
         title: "Error",
@@ -234,7 +249,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   // Share functionality
   const serviceUrl = typeof window !== 'undefined' ? `${window.location.origin}/service/${serviceId}` : '';
   const shareTitle = service?.title || 'Check out this service';
-  const shareText = service 
+  const shareText = service
     ? `Check out "${service.title}" on Commerzio Services${service.locations?.[0] ? ` in ${service.locations[0]}` : ''}`
     : 'Check out this service on Commerzio Services';
 
@@ -348,25 +363,57 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
             </div>
           </div>
         )}
-        
+
         <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
+
             {/* Left Column: Images & Details */}
             <div className="lg:col-span-2 space-y-8">
               <div className="rounded-2xl overflow-hidden bg-card shadow-sm border border-border">
-                <div className="aspect-video bg-muted relative flex items-center justify-center">
+                <div className="aspect-video bg-muted relative group">
+                  {/* Carousel */}
                   {service.images && service.images.length > 0 ? (
-                    <img 
-                      src={service.images[0]} 
-                      alt={service.title}
-                      className="w-full h-full object-cover"
-                    />
+                    <div className="overflow-hidden h-full" ref={emblaRef}>
+                      <div className="flex h-full">
+                        {service.images.map((img, idx) => (
+                          <div key={idx} className="flex-[0_0_100%] min-w-0 relative">
+                            <img src={img} alt={`${service.title} - ${idx + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <div className="text-center text-muted-foreground">
-                      <MapPin className="w-16 h-16 mx-auto mb-2 opacity-20" />
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      <MapPin className="w-16 h-16 opacity-20" />
                       <p>No image available</p>
                     </div>
+                  )}
+
+                  {/* Carousel Controls */}
+                  {service.images && service.images.length > 1 && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        onClick={scrollPrev}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        onClick={scrollNext}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                        {service.images.map((_, idx) => (
+                          <div key={idx} className={`w-2 h-2 rounded-full transition-all shadow-sm ${idx === currentImageIndex ? "bg-white w-4" : "bg-white/60"}`} />
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="p-6 md:p-8">
@@ -376,9 +423,9 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       <MapPin className="w-4 h-4" /> {service.locations?.[0] || 'N/A'}
                     </div>
                   </div>
-                  
+
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{service.title}</h1>
-                  
+
                   <div className="flex items-center gap-6 pb-6 border-b border-border">
                     <div className="flex items-center gap-1">
                       <Star className={`w-5 h-5 ${service.reviewCount > 0 ? 'fill-amber-400 text-amber-400' : 'fill-gray-300 text-gray-300'}`} />
@@ -426,7 +473,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   <MapPin className="w-5 h-5 text-primary" />
                   Where to find this service
                 </h3>
-                
+
                 <ServiceMap service={service} userLocation={userLocation} />
               </div>
 
@@ -437,7 +484,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                     Reviews <Badge variant="secondary" className="rounded-full">{reviews.length}</Badge>
                   </h3>
                 </div>
-                
+
                 <div ref={reviewFormRef} className="mb-8 p-6 bg-muted rounded-xl border border-dashed border-border">
                   <h4 className="font-semibold mb-2">Write a Review</h4>
                   {isAuthenticated && user ? (
@@ -458,23 +505,22 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                             disabled={!user.isVerified}
                           >
                             <Star
-                              className={`w-6 h-6 cursor-pointer transition-colors ${
-                                star <= rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/50'
-                              }`}
+                              className={`w-6 h-6 cursor-pointer transition-colors ${star <= rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/50'
+                                }`}
                             />
                           </button>
                         ))}
                       </div>
-                      <Textarea 
-                        placeholder="Share your experience with this provider..." 
+                      <Textarea
+                        placeholder="Share your experience with this provider..."
                         value={reviewText}
                         onChange={(e) => setReviewText(e.target.value)}
                         disabled={!user.isVerified}
                         className="bg-card"
                       />
                       <div className="flex justify-end">
-                        <Button 
-                          onClick={handleSubmitReview} 
+                        <Button
+                          onClick={handleSubmitReview}
                           disabled={!user.isVerified || !reviewText || createReviewMutation.isPending}
                         >
                           {createReviewMutation.isPending ? "Posting..." : "Post Review"}
@@ -511,7 +557,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
             {/* Right Column: Sticky Sidebar */}
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-6">
-                
+
                 {/* Price Card */}
                 <div className="bg-card rounded-2xl shadow-lg border border-border p-6">
                   <div className="flex items-baseline gap-1 mb-6">
@@ -522,9 +568,9 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   <div className="space-y-3">
                     {/* Book Now Button */}
                     {service.status === "active" ? (
-                      <Button 
-                        size="lg" 
-                        className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20 gap-2" 
+                      <Button
+                        size="lg"
+                        className="w-full text-lg font-semibold h-12 shadow-lg shadow-primary/20 gap-2"
                         onClick={() => {
                           if (!isAuthenticated) {
                             toast({
@@ -550,12 +596,12 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         </p>
                       </div>
                     )}
-                    
+
                     {/* Message Button */}
-                    <Button 
-                      size="lg" 
+                    <Button
+                      size="lg"
                       variant="outline"
-                      className="w-full text-lg font-semibold h-12 gap-2" 
+                      className="w-full text-lg font-semibold h-12 gap-2"
                       onClick={() => {
                         if (!isAuthenticated) {
                           toast({
@@ -586,10 +632,10 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         <p className="text-xs text-muted-foreground mt-2">Mention Commerzio Services when you contact them!</p>
                       </div>
                     )}
-                    
+
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="flex-1 gap-2"
                         onClick={() => {
                           if (!isAuthenticated) {
@@ -601,7 +647,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                         disabled={toggleSaved.isPending}
                         data-testid="button-save-service"
                       >
-                        <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} /> 
+                        <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
                         {isSaved ? 'Saved' : 'Save'}
                       </Button>
                       <DropdownMenu>
@@ -650,9 +696,9 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                 <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                   <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4">Service Provider</h4>
                   <div className="flex items-center gap-4 mb-4">
-                    <img 
-                      src={service.owner.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.owner.id}`} 
-                      alt={`${service.owner.firstName} ${service.owner.lastName}`} 
+                    <img
+                      src={service.owner.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.owner.id}`}
+                      alt={`${service.owner.firstName} ${service.owner.lastName}`}
                       className="w-16 h-16 rounded-full ring-4 ring-slate-50"
                     />
                     <div>
@@ -669,20 +715,20 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       <p className="text-sm text-muted-foreground">Member since {new Date(service.owner.createdAt).getFullYear()}</p>
                     </div>
                   </div>
-                  
+
                   {service.owner.isVerified ? (
                     <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-100">
                       <ShieldCheck className="w-5 h-5" />
                       Identity Verified
                     </div>
                   ) : (
-                     <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
                       <ShieldCheck className="w-5 h-5" />
                       Identity Not Verified
                     </div>
                   )}
                 </div>
-                
+
                 <div className="text-center">
                   <Button variant="link" className="text-muted-foreground text-xs gap-1">
                     <Flag className="w-3 h-3" /> Report this service
@@ -700,13 +746,13 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 }
 
 // ReviewItem component for individual reviews with vendor response functionality
-function ReviewItem({ 
-  review, 
-  isVendor, 
-  serviceId 
-}: { 
-  review: ReviewWithUser & { vendorResponse?: string | null; vendorRespondedAt?: Date | string | null }; 
-  isVendor: boolean; 
+function ReviewItem({
+  review,
+  isVendor,
+  serviceId
+}: {
+  review: ReviewWithUser & { vendorResponse?: string | null; vendorRespondedAt?: Date | string | null };
+  isVendor: boolean;
   serviceId: string;
 }) {
   const [isResponding, setIsResponding] = useState(false);
@@ -749,7 +795,7 @@ function ReviewItem({
     <div className="border-b border-border last:border-0 pb-6 last:pb-0">
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-3">
-          <img 
+          <img
             src={review.user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${review.user.id}`}
             alt={`${review.user.firstName} ${review.user.lastName}`}
             className="w-10 h-10 rounded-full"
@@ -772,7 +818,7 @@ function ReviewItem({
         </div>
       </div>
       <p className="text-muted-foreground pl-13 mb-3">{review.comment}</p>
-      
+
       {/* Vendor Response */}
       {review.vendorResponse && (
         <div className="ml-8 mt-3 p-4 bg-muted rounded-lg border-l-4 border-primary">
@@ -788,12 +834,12 @@ function ReviewItem({
           <p className="text-sm text-muted-foreground">{review.vendorResponse}</p>
         </div>
       )}
-      
+
       {/* Vendor Respond Button */}
       {isVendor && !review.vendorResponse && !isResponding && (
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           className="ml-8 mt-2 text-primary"
           onClick={() => setIsResponding(true)}
         >
@@ -801,7 +847,7 @@ function ReviewItem({
           Respond to review
         </Button>
       )}
-      
+
       {/* Response Form */}
       {isResponding && (
         <div className="ml-8 mt-3 space-y-2">
@@ -815,8 +861,8 @@ function ReviewItem({
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{responseText.length}/1000</span>
             <div className="flex gap-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   setIsResponding(false);
@@ -825,7 +871,7 @@ function ReviewItem({
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 size="sm"
                 onClick={handleSubmitResponse}
                 disabled={!responseText.trim() || respondMutation.isPending}

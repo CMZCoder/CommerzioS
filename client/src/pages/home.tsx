@@ -33,8 +33,8 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(10);
-  
-  const [searchLocation, setSearchLocation] = useState<{lat: number; lng: number; name: string} | null>(null);
+
+  const [searchLocation, setSearchLocation] = useState<{ lat: number; lng: number; name: string } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isNearbyExpanded, setIsNearbyExpanded] = useState(false);
   const [isAllListingsExpanded, setIsAllListingsExpanded] = useState(false);
@@ -45,38 +45,38 @@ export default function Home() {
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const locationPermissionProcessingRef = useRef(false);
   const nearbyServicesSectionRef = useRef<HTMLElement>(null);
-  
+
   const [nearbyMode, setNearbyMode] = useState<'slider' | 'grid'>('slider');
   const [nearbyPage, setNearbyPage] = useState(1);
   const NEARBY_ITEMS_PER_PAGE = 12;
-  
+
   // Independent state for All Listings tab
   const [allListingsCategory, setAllListingsCategory] = useState<string | null>(null);
   const [allListingsSort, setAllListingsSort] = useState<SortOption>("newest");
-  
+
   // State for Saved Listings tab
   const [savedListingsSort, setSavedListingsSort] = useState<SortOption>("newest");
-  
+
   // Pagination state for All Listings and Saved Listings
   const [allListingsPage, setAllListingsPage] = useState(1);
   const [savedListingsPage, setSavedListingsPage] = useState(1);
   const ALL_LISTINGS_PER_PAGE = 12; // Divisible by 1,2,3,4 columns for complete rows
   const SAVED_LISTINGS_PER_PAGE = 12; // Divisible by 1,2,3,4 columns for complete rows
-  
+
   // Use shared geocoding hook for location search
-  const { 
-    query: locationSearchQuery, 
-    setQuery: setLocationSearchQuery, 
-    suggestions: addressSuggestions, 
-    isLoading: isLoadingSuggestions, 
-    clearSuggestions 
+  const {
+    query: locationSearchQuery,
+    setQuery: setLocationSearchQuery,
+    suggestions: addressSuggestions,
+    isLoading: isLoadingSuggestions,
+    clearSuggestions
   } = useGeocoding({
     minQueryLength: 2,
     debounceMs: 300,
     limit: 10,
     autoSearch: true,
   });
-  
+
   // Scroll to top on page load
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -181,7 +181,7 @@ export default function Home() {
 
   const handleLocationSearch = async (suggestion?: GeocodingSuggestion) => {
     const selectedLocation = suggestion || (addressSuggestions.length > 0 ? addressSuggestions[0] : null);
-    
+
     if (!locationSearchQuery.trim() && !selectedLocation) {
       toast({
         title: "Location required",
@@ -193,8 +193,8 @@ export default function Home() {
 
     setIsGeocoding(true);
     try {
-      let result: {lat: number; lng: number; displayName: string; name: string};
-      
+      let result: { lat: number; lng: number; displayName: string; name: string };
+
       if (selectedLocation) {
         // Use shared helper to normalize suggestion
         result = suggestionToGeocodeResult(selectedLocation);
@@ -208,10 +208,10 @@ export default function Home() {
         lng: result.lng,
         name: result.name || result.displayName
       });
-      
+
       clearSuggestions();
       setLocationSearchQuery("");
-      
+
       // Auto-expand the map when a location is found
       setIsMapExpanded(true);
 
@@ -293,7 +293,7 @@ export default function Home() {
             "Content-Type": "application/json",
           },
         });
-        
+
         // Invalidate user query cache to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       }
@@ -316,7 +316,7 @@ export default function Home() {
     } catch (error: any) {
       console.error("Geolocation error:", error);
       let errorMessage = "Unable to get your location";
-      
+
       if (error.code === 1) {
         errorMessage = "Location permission denied. Please enable location access in your browser settings.";
       } else if (error.code === 2) {
@@ -343,7 +343,7 @@ export default function Home() {
     }
 
     setUseLocationPermissions(checked);
-    
+
     if (checked) {
       locationPermissionProcessingRef.current = true;
       try {
@@ -427,7 +427,7 @@ export default function Home() {
     }
 
     const locationName = `${selectedAddress.street}, ${selectedAddress.postalCode} ${selectedAddress.city}`;
-    
+
     setSearchLocation({
       lat: lat,
       lng: lng,
@@ -448,7 +448,7 @@ export default function Home() {
             "Content-Type": "application/json",
           },
         });
-        
+
         // Invalidate user query cache to ensure fresh data
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       } catch (error) {
@@ -481,14 +481,14 @@ export default function Home() {
 
   const nearbyServices = useMemo(() => {
     if (!searchLocation || nearbyLoading) return [];
-    
+
     let filtered = nearbyData || [];
-    
+
     // Filter by selected category
     if (selectedCategory) {
       filtered = filtered.filter(service => service.categoryId === selectedCategory);
     }
-    
+
     return filtered;
   }, [nearbyData, searchLocation, nearbyLoading, selectedCategory]);
 
@@ -512,7 +512,7 @@ export default function Home() {
     });
     return counts;
   }, [services]);
-  
+
   // Sorting function
   const sortServices = (servicesList: ServiceWithDetails[], sortBy: SortOption) => {
     return [...servicesList].sort((a, b) => {
@@ -524,22 +524,22 @@ export default function Home() {
         case "most-viewed":
           return b.viewCount - a.viewCount;
         case "price-low": {
-          const priceA = a.priceType === "fixed" && a.price !== null 
-            ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price) 
+          const priceA = a.priceType === "fixed" && a.price !== null
+            ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price)
             : 0;
-          const priceB = b.priceType === "fixed" && b.price !== null 
-            ? (typeof b.price === 'string' ? parseFloat(b.price) : b.price) 
+          const priceB = b.priceType === "fixed" && b.price !== null
+            ? (typeof b.price === 'string' ? parseFloat(b.price) : b.price)
             : 0;
           const safePriceA = isNaN(priceA) ? 0 : priceA;
           const safePriceB = isNaN(priceB) ? 0 : priceB;
           return safePriceA - safePriceB;
         }
         case "price-high": {
-          const priceA2 = a.priceType === "fixed" && a.price !== null 
-            ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price) 
+          const priceA2 = a.priceType === "fixed" && a.price !== null
+            ? (typeof a.price === 'string' ? parseFloat(a.price) : a.price)
             : 0;
-          const priceB2 = b.priceType === "fixed" && b.price !== null 
-            ? (typeof b.price === 'string' ? parseFloat(b.price) : b.price) 
+          const priceB2 = b.priceType === "fixed" && b.price !== null
+            ? (typeof b.price === 'string' ? parseFloat(b.price) : b.price)
             : 0;
           const safePriceA2 = isNaN(priceA2) ? 0 : priceA2;
           const safePriceB2 = isNaN(priceB2) ? 0 : priceB2;
@@ -550,7 +550,7 @@ export default function Home() {
       }
     });
   };
-  
+
   // Filtered and sorted All Listings
   const filteredAllListings = useMemo(() => {
     let filtered = services;
@@ -559,7 +559,7 @@ export default function Home() {
     }
     return sortServices(filtered, allListingsSort);
   }, [services, allListingsCategory, allListingsSort]);
-  
+
   // Category counts for All Listings
   const allListingsCategoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -568,7 +568,7 @@ export default function Home() {
     });
     return counts;
   }, [services]);
-  
+
   // Filtered and sorted Saved Listings
   const filteredSavedListings = useMemo(() => {
     const savedServices = favorites?.map(fav => fav.service) || [];
@@ -578,7 +578,7 @@ export default function Home() {
     }
     return sortServices(filtered, savedListingsSort);
   }, [favorites, selectedCategory, savedListingsSort]);
-  
+
 
   // Pagination logic for All Listings
   const paginatedAllListings = useMemo(() => {
@@ -622,217 +622,127 @@ export default function Home() {
 
   return (
     <Layout>
-      <section className="relative bg-gradient-to-br from-primary/95 via-primary to-accent/80 dark:from-background dark:via-background dark:to-primary/20 text-primary-foreground dark:text-foreground overflow-hidden">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src={heroImg} 
-            alt="Hero Background" 
-            className="w-full h-full object-cover opacity-30 dark:opacity-20"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/30 via-primary/40 to-background dark:from-background/50 dark:via-background/60 dark:to-background" />
-        </div>
-
-        <div className="container mx-auto px-4 py-8 md:py-12 relative z-10">
-          <div className="max-w-3xl mx-auto text-center space-y-4">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+      <section className="relative bg-gradient-to-br from-primary/5 via-background to-accent/5 border-b overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f08_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+        <div className="container mx-auto px-4 py-20 md:py-32 relative">
+          <div className="max-w-4xl mx-auto text-center">
+            <Badge
+              className="mb-6 bg-gradient-to-r from-primary to-accent text-white border-0 shadow-lg px-6 py-2.5"
+              variant="secondary"
             >
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-card/20 dark:bg-card/30 backdrop-blur-md text-primary-foreground dark:text-foreground text-sm font-medium mb-4 border border-border/30 shadow-lg">
-                <Sparkles className="w-4 h-4" />
-                AI-Powered Service Marketplace
+              <Sparkles className="h-4 w-4 mr-2" />
+              Trusted by 50,000+ Swiss Customers
+            </Badge>
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-balance animate-in fade-in slide-in-from-bottom-4 duration-700">
+              The complete platform to discover{" "}
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                local services
               </span>
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight text-primary-foreground dark:text-foreground">
-                Find Trusted Professionals
-                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-accent to-success">
-                  for Any Service
-                </span>
-              </h1>
-              <p className="text-base md:text-lg text-primary-foreground/80 dark:text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Connect with verified service providers across Switzerland. 
-                Book instantly with secure payments and complete peace of mind.
-              </p>
-            </motion.div>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground mb-8 text-balance max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
+              Connect with verified service providers across Switzerland. Book with confidence.
+            </p>
 
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="space-y-6"
-            >
-              {/* Find Services Near You */}
-              <div className="glass-card rounded-2xl p-6 shadow-2xl">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                  {/* Location Search */}
-                  <div className="md:col-span-6 relative">
-                    <Label htmlFor="hero-location-search" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
-                      Location
-                    </Label>
-                    <div className="relative">
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                          <Input
-                            id="hero-location-search"
-                            type="text"
-                            placeholder="Enter postcode, city, or address..."
-                            value={locationSearchQuery}
-                            onChange={(e) => setLocationSearchQuery(e.target.value)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter' && locationSearchQuery.trim()) {
-                                handleLocationSearch();
-                              }
-                            }}
-                            disabled={isGeocoding || isGettingLocation}
-                            className="pl-10 bg-card/95 dark:bg-card/80 border-border text-foreground placeholder:text-muted-foreground"
-                            data-testid="input-hero-location-search"
-                            autoComplete="off"
-                          />
-                        </div>
-                        <Button
-                          onClick={() => handleLocationSearch()}
-                          disabled={isGeocoding || !locationSearchQuery.trim() || isGettingLocation}
-                          className="bg-primary hover:bg-primary/90"
-                          data-testid="button-hero-search-location"
-                        >
-                          {isGeocoding ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Search className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                      
-                      {addressSuggestions.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto glass-dropdown">
-                          {addressSuggestions.map((suggestion, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => handleLocationSearch(suggestion)}
-                              className="w-full text-left px-4 py-2 hover:bg-muted border-b border-border/50 last:border-b-0 transition-colors"
-                              data-testid={`suggestion-hero-address-${idx}`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
-                                  <p className="text-xs text-muted-foreground truncate">{suggestion.display_name}</p>
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {isLoadingSuggestions && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 p-3 glass-dropdown">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading suggestions...
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Radius Selector */}
-                  <div className="md:col-span-3">
-                    <Label htmlFor="hero-radius-select" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
-                      Radius
-                    </Label>
-                    <Select 
-                      value={radiusKm.toString()} 
-                      onValueChange={(value) => setRadiusKm(parseInt(value, 10))}
-                    >
-                      <SelectTrigger 
-                        id="hero-radius-select" 
-                        className="bg-card/95 dark:bg-card/80 border-border text-foreground"
-                        data-testid="select-hero-radius"
+            <div className="flex flex-col sm:flex-row gap-3 max-w-2xl mx-auto mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+              <div className="relative flex-1 text-left">
+                <MapPin className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground z-10" />
+                <Input
+                  id="hero-location-search"
+                  type="text"
+                  placeholder="Enter postcode, city, or address..."
+                  value={locationSearchQuery}
+                  onChange={(e) => setLocationSearchQuery(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && locationSearchQuery.trim()) {
+                      handleLocationSearch();
+                    }
+                  }}
+                  disabled={isGeocoding || isGettingLocation}
+                  className="pl-12 h-14 text-base shadow-md focus:shadow-lg transition-shadow bg-background"
+                  data-testid="input-hero-location-search"
+                  autoComplete="off"
+                />
+                {/* Suggestions Dropdown */}
+                {addressSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto">
+                    {addressSuggestions.map((suggestion, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleLocationSearch(suggestion)}
+                        className="w-full text-left px-4 py-3 hover:bg-muted border-b border-border/50 last:border-b-0 transition-colors flex items-center gap-2"
                       >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5 km</SelectItem>
-                        <SelectItem value="10">10 km</SelectItem>
-                        <SelectItem value="25">25 km</SelectItem>
-                        <SelectItem value="50">50 km</SelectItem>
-                        <SelectItem value="100">100 km</SelectItem>
-                      </SelectContent>
-                    </Select>
+                        <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground truncate">{suggestion.city || suggestion.postcode || suggestion.display_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{suggestion.display_name}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-
-                  {/* Location Permissions Toggle */}
-                  <div className="md:col-span-3">
-                    <Label htmlFor="hero-location-permissions" className="text-foreground dark:text-foreground text-sm font-medium mb-2 block">
-                      Use My Location
-                    </Label>
-                    <div className="flex items-center h-10 px-4 bg-card/95 dark:bg-card/80 border border-border rounded-md">
-                      <Switch
-                        id="hero-location-permissions"
-                        checked={useLocationPermissions}
-                        onCheckedChange={handleLocationPermissionsToggle}
-                        disabled={isGettingLocation || isGeocoding}
-                        data-testid="switch-hero-location-permissions"
-                      />
-                      {isGettingLocation && (
-                        <Loader2 className="w-4 h-4 animate-spin ml-2 text-muted-foreground" />
-                      )}
-                      <span className="ml-2 text-sm text-slate-700">
-                        {isGettingLocation ? "Getting..." : useLocationPermissions ? "On" : "Off"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Active Location & Address Switcher */}
-                <div className="flex items-center gap-3 mt-4 flex-wrap">
-                  {searchLocation && (
-                    <Badge variant="secondary" className="px-3 py-1.5 bg-white/20 text-white border-white/30" data-testid="badge-hero-active-location">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      {searchLocation.name}
-                    </Badge>
-                  )}
-
-                  {isAuthenticated && userAddresses.length > 0 && (
-                    <Select onValueChange={handleAddressSwitch}>
-                      <SelectTrigger 
-                        className="w-auto bg-white/90 border-white/30 text-slate-900 h-8"
-                        data-testid="select-hero-address-switcher"
-                      >
-                        <SelectValue placeholder="Switch Address" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {userAddresses.map((address) => (
-                          <SelectItem key={address.id} value={address.id}>
-                            {address.isPrimary && "⭐ "}
-                            {address.street}, {address.postalCode} {address.city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-8 bg-white/90 border-white/30 text-slate-900 hover:bg-white"
-                    onClick={() => {
-                      const servicesSection = document.querySelector('[data-testid="services-section"]');
-                      servicesSection?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    data-testid="button-hero-view-all-services"
-                  >
-                    View All Services
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
+                )}
               </div>
+              <div className="relative sm:w-48 text-left">
+                <Select
+                  value={radiusKm.toString()}
+                  onValueChange={(value) => setRadiusKm(parseInt(value, 10))}
+                >
+                  <SelectTrigger
+                    className="h-14 shadow-md bg-background border-border text-foreground"
+                  >
+                    <SelectValue placeholder="Radius" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 km</SelectItem>
+                    <SelectItem value="10">10 km</SelectItem>
+                    <SelectItem value="25">25 km</SelectItem>
+                    <SelectItem value="50">50 km</SelectItem>
+                    <SelectItem value="100">100 km</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                onClick={() => handleLocationSearch()}
+                disabled={isGeocoding || !locationSearchQuery.trim() || isGettingLocation}
+                size="lg"
+                className="h-14 px-8 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                {isGeocoding ? <Loader2 className="animate-spin" /> : "Search"}
+              </Button>
+            </div>
 
-            </motion.div>
+            {/* Active Location Display */}
+            <div className="flex items-center justify-center gap-3 flex-wrap text-sm">
+              {searchLocation && (
+                <Badge variant="secondary" className="px-3 py-1.5 bg-primary/10 text-primary border-primary/20">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  Searching near {searchLocation.name}
+                </Badge>
+              )}
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="hero-location-permissions"
+                  checked={useLocationPermissions}
+                  onCheckedChange={handleLocationPermissionsToggle}
+                  disabled={isGettingLocation || isGeocoding}
+                />
+                <Label htmlFor="hero-location-permissions" className="text-muted-foreground cursor-pointer">
+                  Use My Location
+                </Label>
+              </div>
+            </div>
+            {/* Quick Links */}
+            <div className="flex flex-wrap gap-2 justify-center text-sm mt-8">
+              <span className="text-muted-foreground">Popular:</span>
+              <Link href="/search?q=plumber"><span className="text-primary hover:underline cursor-pointer">Plumber</span></Link>
+              <span className="text-border">•</span>
+              <Link href="/search?q=electrician"><span className="text-accent hover:underline cursor-pointer">Electrician</span></Link>
+              <span className="text-border">•</span>
+              <Link href="/search?q=cleaning"><span className="text-primary hover:underline cursor-pointer">Cleaning</span></Link>
+            </div>
           </div>
         </div>
       </section>
+
 
       {/* Sticky Category Bar */}
       <StickyCategoryBar
@@ -869,8 +779,8 @@ export default function Home() {
                 {nearbyMode === 'slider' ? 'Expand' : 'Collapse'}
               </Button>
             </div>
-            
-            <GoogleMaps 
+
+            <GoogleMaps
               services={nearbyServices}
               userLocation={searchLocation}
               maxServices={10}
@@ -878,7 +788,7 @@ export default function Home() {
               isExpanded={isMapExpanded}
               onExpandedChange={setIsMapExpanded}
             />
-            
+
             {nearbyLoading ? (
               <div className="text-center py-20">
                 <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -893,7 +803,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-bold text-slate-900 mb-2">No Services Found Nearby</h3>
                 <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                  We couldn't find any services within {radiusKm} km of your location. 
+                  We couldn't find any services within {radiusKm} km of your location.
                   Try expanding your search radius or browse all services below.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -957,30 +867,32 @@ export default function Home() {
       )}
 
       {/* Referral CTA Banner */}
-      {isAuthenticated && (
-        <section className="py-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <Gift className="h-6 w-6" />
+      {
+        isAuthenticated && (
+          <section className="py-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
+            <div className="container mx-auto px-4">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-white">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                    <Gift className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">Invite Friends, Earn Rewards!</h3>
+                    <p className="text-white/80 text-sm">Get points and commissions for every friend who joins</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg">Invite Friends, Earn Rewards!</h3>
-                  <p className="text-white/80 text-sm">Get points and commissions for every friend who joins</p>
-                </div>
+                <Link href="/profile?tab=referrals">
+                  <Button variant="secondary" className="gap-2 shadow-lg hover:bg-white hover:text-purple-600 hover:scale-105 hover:shadow-xl transition-all duration-200">
+                    <Users className="h-4 w-4" />
+                    Start Referring
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
-              <Link href="/profile?tab=referrals">
-                <Button variant="secondary" className="gap-2 shadow-lg hover:bg-white hover:text-purple-600 hover:scale-105 hover:shadow-xl transition-all duration-200">
-                  <Users className="h-4 w-4" />
-                  Start Referring
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )
+      }
 
       {/* Service Requests CTA Banner */}
       <section className="py-6 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500">
@@ -1043,11 +955,11 @@ export default function Home() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       {allListingsCategory && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => setAllListingsCategory(null)}
                           data-testid="button-clear-all-category-filter"
@@ -1059,7 +971,7 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="mt-6">
                 {servicesLoading ? (
                   <div className="text-center py-20">
@@ -1110,7 +1022,7 @@ export default function Home() {
                       {allListingsCategory ? 'No Services in This Category' : 'No Services Yet'}
                     </h3>
                     <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                      {allListingsCategory 
+                      {allListingsCategory
                         ? 'Be the first to offer a service in this category and reach customers looking for exactly what you provide.'
                         : 'Be the first to post a service and start connecting with customers in your area.'
                       }
@@ -1165,7 +1077,7 @@ export default function Home() {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="mt-6">
                     {filteredSavedListings.length > 0 ? (
                       <div>
@@ -1227,6 +1139,6 @@ export default function Home() {
           </Tabs>
         </div>
       </section>
-    </Layout>
+    </Layout >
   );
 }

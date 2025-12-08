@@ -77,11 +77,13 @@ export function Navigation() {
             </Link>
           </Button>
 
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] bg-gradient-to-br from-accent to-primary border-2 border-background">
-              3
-            </Badge>
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href="/notifications">
+              <Bell className="h-5 w-5" />
+              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] bg-gradient-to-br from-accent to-primary border-2 border-background">
+                3
+              </Badge>
+            </Link>
           </Button>
 
           <DropdownMenu>
