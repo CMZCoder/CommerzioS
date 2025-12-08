@@ -151,62 +151,83 @@ export function GoogleMaps({
         const isMaxZoom = currentZoom >= 16;
         const isDark = document.documentElement.classList.contains("dark");
 
-        const bg = isDark ? "#0f172a" : "#ffffff";
-        const text = isDark ? "#f8fafc" : "#0f172a";
+        // Match the app's dark theme: oklch(0.18 0.015 250) ≈ #1a2332, oklch(0.24 0.02 250) ≈ #283548
+        const bg = isDark ? "#1a2332" : "#ffffff";
+        const text = isDark ? "#f8fafc" : "#1a2332";
         const muted = isDark ? "#94a3b8" : "#6b7280";
-        const border = isDark ? "#1e293b" : "#e5e7eb";
+        const border = isDark ? "#283548" : "#e5e7eb";
         const accent = "#3b82f6";
+        const closeIconFilter = isDark ? "invert(1)" : "none";
 
         if (isSingle) {
           const s = items[0].service;
-          const img = s.images?.[0] ? `<img src="${s.images[0]}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;margin-bottom:16px;"/>` : "";
+          const img = s.images?.[0] ? `<img src="${s.images[0]}" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:12px;"/>` : "";
           const price = s.priceType === "fixed" ? `CHF ${s.price}` : s.priceType === "list" ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}` : "Contact for pricing";
 
           const content = `
-            <style>.gm-style-iw,.gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:visible!important;max-width:none!important;max-height:none!important;}.gm-style-iw-tc{display:none!important;}.gm-ui-hover-effect{top:8px!important;right:8px!important;}</style>
-            <div style="width:400px;padding:20px;background:${bg};color:${text};font-family:system-ui,-apple-system,sans-serif;">
+            <style>
+              .gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:hidden!important;max-width:320px!important;}
+              .gm-style-iw-tc::after{background:${bg}!important;}
+              .gm-ui-hover-effect{top:4px!important;right:4px!important;width:28px!important;height:28px!important;background:${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}!important;border-radius:50%!important;}
+              .gm-ui-hover-effect>span{filter:${closeIconFilter};}
+            </style>
+            <div style="width:280px;padding:16px;background:${bg};color:${text};font-family:system-ui,sans-serif;">
               ${img}
-              <h3 style="margin:0 0 12px 0;font-size:22px;font-weight:700;line-height:1.3;">${s.title}</h3>
-              <p style="margin:0 0 12px 0;font-size:20px;font-weight:700;color:${accent};">${price}</p>
-              <p style="margin:0 0 16px 0;font-size:13px;color:${muted};">Approximate location shown</p>
-              <a href="/service/${s.id}" style="display:block;background:${accent};color:#fff;text-align:center;padding:16px;border-radius:10px;text-decoration:none;font-size:16px;font-weight:600;">View Details</a>
+              <h3 style="margin:0 0 8px 0;font-size:16px;font-weight:600;line-height:1.3;">${s.title}</h3>
+              <p style="margin:0 0 8px 0;font-size:15px;font-weight:600;color:${accent};">${price}</p>
+              <p style="margin:0 0 12px 0;font-size:11px;color:${muted};">Approximate location</p>
+              <a href="/service/${s.id}" style="display:block;background:${accent};color:#fff;text-align:center;padding:10px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">View Details</a>
             </div>
           `;
 
           if (infoWindowRef.current) infoWindowRef.current.close();
-          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 450 });
+          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 320 });
           infoWindow.open(map, marker);
           infoWindowRef.current = infoWindow;
         } else if (isMaxZoom) {
-          const rows = items.map((i) => {
+          const rows = items.slice(0, 8).map((i) => {
             const s = i.service;
             const img = s.images?.[0] || "";
             const price = s.priceType === "fixed" ? `CHF ${s.price}` : s.priceType === "list" ? `From CHF ${(s.priceList as any)?.[0]?.price || "N/A"}` : "Contact";
 
             return `
-              <div style="display:flex;align-items:center;gap:20px;padding:20px 0;border-bottom:1px solid ${border};">
-                ${img ? `<img src="${img}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0;"/>` : `<div style="width:100px;height:100px;background:${border};border-radius:10px;flex-shrink:0;"></div>`}
+              <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid ${border};">
+                ${img ? `<img src="${img}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex-shrink:0;"/>` : `<div style="width:60px;height:60px;background:${border};border-radius:6px;flex-shrink:0;"></div>`}
                 <div style="flex:1;min-width:0;">
-                  <div style="font-size:18px;font-weight:700;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
-                  <div style="font-size:17px;font-weight:600;color:${accent};margin-bottom:10px;">${price}</div>
-                  <a href="/service/${s.id}" style="display:inline-block;background:${accent};color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;">View Details</a>
+                  <div style="font-size:13px;font-weight:600;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.title}</div>
+                  <div style="font-size:12px;font-weight:500;color:${accent};margin-bottom:6px;">${price}</div>
+                  <a href="/service/${s.id}" style="display:inline-block;background:${accent};color:#fff;padding:6px 12px;border-radius:4px;text-decoration:none;font-size:11px;font-weight:600;">View</a>
                 </div>
               </div>
             `;
           }).join("");
 
+          const moreCount = items.length > 8 ? items.length - 8 : 0;
+          const moreHtml = moreCount > 0 ? `<div style="text-align:center;padding:8px 0;font-size:11px;color:${muted};">+${moreCount} more services</div>` : "";
+
           const content = `
-            <style>.gm-style-iw,.gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:visible!important;max-width:none!important;max-height:none!important;}.gm-style-iw-tc{display:none!important;}.gm-ui-hover-effect{top:12px!important;right:12px!important;}</style>
-            <div style="width:550px;max-width:90vw;padding:24px;background:${bg};color:${text};font-family:system-ui,-apple-system,sans-serif;">
-              <h2 style="margin:0 0 16px 0;font-size:24px;font-weight:700;padding-bottom:16px;border-bottom:2px solid ${border};">${count} Services in this area</h2>
-              <div style="max-height:500px;overflow-y:auto;">${rows}</div>
+            <style>
+              .gm-style-iw-c,.gm-style-iw-d{background:${bg}!important;padding:0!important;overflow:hidden!important;max-width:360px!important;}
+              .gm-style-iw-tc::after{background:${bg}!important;}
+              .gm-ui-hover-effect{top:4px!important;right:4px!important;width:28px!important;height:28px!important;background:${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)"}!important;border-radius:50%!important;}
+              .gm-ui-hover-effect>span{filter:${closeIconFilter};}
+            </style>
+            <div id="cluster-popup" style="width:320px;max-width:85vw;padding:16px;background:${bg};color:${text};font-family:system-ui,sans-serif;">
+              <h2 style="margin:0 0 12px 0;font-size:15px;font-weight:700;padding-bottom:10px;border-bottom:1px solid ${border};">${count} Services</h2>
+              <div style="max-height:300px;overflow-y:auto;">${rows}${moreHtml}</div>
             </div>
           `;
 
           if (infoWindowRef.current) infoWindowRef.current.close();
-          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 600 });
+          const infoWindow = new google.maps.InfoWindow({ content, maxWidth: 360 });
           infoWindow.open(map, marker);
           infoWindowRef.current = infoWindow;
+
+          // Scroll popup to top after opening
+          setTimeout(() => {
+            const popup = document.getElementById("cluster-popup");
+            if (popup) popup.scrollTop = 0;
+          }, 50);
         } else {
           const newZoom = Math.min(map.getZoom() + 2, 18);
           map.panTo({ lat: centerLat, lng: centerLng });
