@@ -775,7 +775,7 @@ export default function Profile() {
       return;
     }
 
-    updateProfileMutation.mutate({ firstName, lastName, phoneNumber, email });
+    updateProfileMutation.mutate({ firstName, lastName, phoneNumber });
   };
 
   const handleAddressSubmit = (e: React.FormEvent) => {
@@ -2814,28 +2814,28 @@ export default function Profile() {
                             <span>Card Payments</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(financialStats.earned * 0.60).toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground">~60% of income</p>
+                            <p className="font-bold">CHF {financialStats.earned.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">100% of income</p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                        <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg opacity-50">
                           <div className="flex items-center gap-3">
                             <Smartphone className="w-5 h-5 text-purple-600" />
                             <span>TWINT</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(financialStats.earned * 0.25).toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground">~25% of income</p>
+                            <p className="font-bold">CHF 0.00</p>
+                            <p className="text-xs text-muted-foreground">0% of income</p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                        <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg opacity-50">
                           <div className="flex items-center gap-3">
                             <Banknote className="w-5 h-5 text-green-600" />
                             <span>Cash</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(financialStats.earned * 0.15).toFixed(2)}</p>
-                            <p className="text-xs text-muted-foreground">~15% of income</p>
+                            <p className="font-bold">CHF 0.00</p>
+                            <p className="text-xs text-muted-foreground">0% of income</p>
                           </div>
                         </div>
                       </div>
