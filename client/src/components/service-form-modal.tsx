@@ -266,6 +266,8 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         hashtags: service.hashtags || [],
         selectedPromotionalPackage: null,
         acceptedPaymentMethods: (service as any).acceptedPaymentMethods || ["card", "twint", "cash"],
+        minBookingHours: (service as any).minBookingHours || 1,
+        whatsIncluded: (service as any).whatsIncluded || [],
       });
 
       initializedRef.current = true;
@@ -513,6 +515,8 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       mainImageIndex: 0,
       hashtags: [],
       acceptedPaymentMethods: ["card", "twint", "cash"],
+      minBookingHours: 1,
+      whatsIncluded: [],
     });
     setDraftSaved(false);
     setAddressErrors([]);
@@ -1107,7 +1111,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[1400px] max-h-[95vh] overflow-hidden flex flex-col bg-background border-border">
+      <DialogContent className="!w-[98vw] !max-w-none max-h-[95vh] overflow-hidden flex flex-col bg-background border-border">
         {/* Modern Header with Progress */}
         <div className="space-y-4 pb-4 border-b">
           <DialogHeader className="space-y-1">

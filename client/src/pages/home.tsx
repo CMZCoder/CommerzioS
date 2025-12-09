@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Sparkles, MapPin, Loader2, X, Sliders, Search } from "lucide-react";
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -351,16 +351,18 @@ export default function Home() {
             </div>
 
             {/* Popular Searches */}
-            <div className="flex justify-center items-center gap-2 flex-wrap text-white/70">
+            <div className="flex justify-center items-center gap-4 flex-wrap text-white/70">
               <span className="text-sm">Popular:</span>
               {popularSearches.map((term, i) => (
-                <button
-                  key={term}
-                  onClick={() => handlePopularClick(term)}
-                  className="text-primary hover:text-primary/80 transition-colors text-sm font-medium"
-                >
-                  {term}
-                </button>
+                <React.Fragment key={term}>
+                  {i > 0 && <span className="text-white/30">•</span>}
+                  <button
+                    onClick={() => handlePopularClick(term)}
+                    className="text-primary hover:text-white transition-all duration-200 text-sm font-medium hover:scale-105 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-[2px] after:bg-primary hover:after:w-full after:transition-all after:duration-300"
+                  >
+                    {term}
+                  </button>
+                </React.Fragment>
               ))}
             </div>
           </div>
