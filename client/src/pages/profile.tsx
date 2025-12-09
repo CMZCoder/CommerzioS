@@ -149,6 +149,7 @@ export default function Profile() {
   const [reviewBackText, setReviewBackText] = useState("");
   const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
   const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
+  const [listingsSubTab, setListingsSubTab] = useState<'active' | 'drafts'>('active');
 
   // Multi-criteria ratings for comprehensive reviews
   const [serviceRating, setServiceRating] = useState(5);
@@ -1695,171 +1696,186 @@ export default function Profile() {
               })()}
 
               <div className="bg-card rounded-xl border border-border shadow-sm p-6">
-                <h2 className="text-xl font-semibold mb-6">Active Listings</h2>
+                <Tabs value={listingsSubTab} onValueChange={(v) => setListingsSubTab(v as any)} className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6">
+                    <TabsTrigger value="active" className="relative">
+                      Active
+                      {activeServices.length > 0 && (
+                        <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] text-xs">{activeServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="drafts" className="relative">
+                      Drafts
+                      {draftServices.length > 0 && (
+                        <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] text-xs">{draftServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                  </TabsList>
 
-                {servicesLoading ? (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">Loading your services...</p>
-                  </div>
-                ) : activeServices.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-6">
-                    {activeServices.map(service => {
-                      const expired = isExpired(service.expiresAt);
-                      return (
-                        <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-accent transition-colors">
-                          <div className="w-full md:w-48 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
-                            <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
-                            {expired && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <Badge variant="destructive">Expired</Badge>
+                  {/* Active Listings Tab */}
+                  <TabsContent value="active">
+                    {servicesLoading ? (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">Loading your services...</p>
+                      </div>
+                    ) : activeServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-6">
+                        {activeServices.map(service => {
+                          const expired = isExpired(service.expiresAt);
+                          return (
+                            <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-accent transition-colors">
+                              <div className="w-full md:w-48 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
+                                <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
+                                {expired && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                    <Badge variant="destructive">Expired</Badge>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div className="flex-1 py-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <h3 className="font-bold text-lg">{service.title}</h3>
-                              <Badge variant={service.status === 'active' && !expired ? 'default' : 'secondary'}>
-                                {expired ? 'Expired' : service.status}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
-                              <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
-                                <Clock className="w-3 h-3" />
-                                Expires: {new Date(service.expiresAt).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex md:flex-col gap-2 justify-center shrink-0">
-                            {expired ? (
-                              <Button
-                                className="w-full"
-                                size="sm"
-                                onClick={() => handleRenew(service.id)}
-                                disabled={renewServiceMutation.isPending}
-                              >
-                                <RefreshCw className="w-3 h-3 mr-2" />
-                                {renewServiceMutation.isPending ? "Renewing..." : "Renew"}
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => setEditingService(service)}
-                                  data-testid={`button-edit-service-${service.id}`}
-                                >
-                                  Edit
-                                </Button>
-                                {service.status === 'active' ? (
+                              <div className="flex-1 py-1">
+                                <div className="flex items-start justify-between mb-2">
+                                  <h3 className="font-bold text-lg">{service.title}</h3>
+                                  <Badge variant={service.status === 'active' && !expired ? 'default' : 'secondary'}>
+                                    {expired ? 'Expired' : service.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">{service.description}</p>
+                                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                  <span>Price: <strong>CHF {service.price}</strong>/{service.priceUnit}</span>
+                                  <span className={`flex items-center gap-1 ${expired ? 'text-destructive font-medium' : ''}`}>
+                                    <Clock className="w-3 h-3" />
+                                    Expires: {new Date(service.expiresAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                                {expired ? (
                                   <Button
-                                    variant="secondary"
+                                    className="w-full"
                                     size="sm"
-                                    onClick={() => handlePause(service.id)}
-                                    disabled={updateServiceMutation.isPending}
-                                    data-testid={`button-pause-service-${service.id}`}
+                                    onClick={() => handleRenew(service.id)}
+                                    disabled={renewServiceMutation.isPending}
                                   >
-                                    Pause
+                                    <RefreshCw className="w-3 h-3 mr-2" />
+                                    {renewServiceMutation.isPending ? "Renewing..." : "Renew"}
                                   </Button>
                                 ) : (
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleStatusChange(service.id, 'active')}
-                                    disabled={updateServiceMutation.isPending}
-                                  >
-                                    Activate
-                                  </Button>
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setEditingService(service)}
+                                      data-testid={`button-edit-service-${service.id}`}
+                                    >
+                                      Edit
+                                    </Button>
+                                    {service.status === 'active' ? (
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => handlePause(service.id)}
+                                        disabled={updateServiceMutation.isPending}
+                                        data-testid={`button-pause-service-${service.id}`}
+                                      >
+                                        Pause
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => handleStatusChange(service.id, 'active')}
+                                        disabled={updateServiceMutation.isPending}
+                                      >
+                                        Activate
+                                      </Button>
+                                    )}
+                                  </>
                                 )}
-                              </>
-                            )}
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDelete(service.id)}
-                              disabled={deleteServiceMutation.isPending}
-                              data-testid={`button-delete-service-${service.id}`}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <p className="text-muted-foreground">You haven't posted any services yet.</p>
-                    <Button variant="link" className="mt-2" onClick={() => setShowCreateModal(true)}>Create your first post</Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Drafts Section */}
-              {draftServices.length > 0 && (
-                <div className="bg-card rounded-xl border border-border shadow-sm p-6 mt-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-xl font-semibold">Drafts</h2>
-                      <Badge variant="secondary">{draftServices.length}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Continue where you left off</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    {draftServices.map(service => (
-                      <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border border-dashed rounded-lg hover:bg-accent/50 transition-colors">
-                        <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0">
-                          {service.images && service.images[0] ? (
-                            <img src={service.images[0]} alt="" className="w-full h-full object-cover opacity-70" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                              <Camera className="w-8 h-8" />
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDelete(service.id)}
+                                  disabled={deleteServiceMutation.isPending}
+                                  data-testid={`button-delete-service-${service.id}`}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                        <div className="flex-1 py-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-medium">
-                              {service.title || <span className="text-muted-foreground italic">Untitled Draft</span>}
-                            </h3>
-                            <Badge variant="outline" className="text-amber-600 border-amber-300">
-                              Draft
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
-                            {service.description || 'No description yet'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Last modified: {new Date(service.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="flex md:flex-col gap-2 justify-center shrink-0">
-                          <Button
-                            variant="default"
-                            size="sm"
-                            onClick={() => setEditingService(service)}
-                            data-testid={`button-edit-draft-${service.id}`}
-                          >
-                            <Edit2 className="w-3 h-3 mr-2" />
-                            Continue Editing
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDelete(service.id)}
-                            disabled={deleteServiceMutation.isPending}
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
-                          </Button>
-                        </div>
+                          );
+                        })}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">You haven't posted any services yet.</p>
+                        <Button variant="link" className="mt-2" onClick={() => setShowCreateModal(true)}>Create your first post</Button>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Drafts Tab */}
+                  <TabsContent value="drafts">
+                    {draftServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {draftServices.map(service => (
+                          <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border border-dashed rounded-lg hover:bg-accent/50 transition-colors">
+                            <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0">
+                              {service.images && service.images[0] ? (
+                                <img src={service.images[0]} alt="" className="w-full h-full object-cover opacity-70" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <Camera className="w-8 h-8" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 py-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="font-medium">
+                                  {service.title || <span className="text-muted-foreground italic">Untitled Draft</span>}
+                                </h3>
+                                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                                  Draft
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-1 mb-2">
+                                {service.description || 'No description yet'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Last modified: {new Date(service.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => setEditingService(service)}
+                                data-testid={`button-edit-draft-${service.id}`}
+                              >
+                                <Edit2 className="w-3 h-3 mr-2" />
+                                Continue Editing
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDelete(service.id)}
+                                disabled={deleteServiceMutation.isPending}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">No drafts saved.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Drafts will appear here when you save a service listing without publishing.</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              </div>
             </TabsContent>
 
             <TabsContent value="reviews" data-testid="panel-reviews" className="space-y-6">

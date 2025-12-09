@@ -145,7 +145,7 @@ export function ContactInput({
   const hasContactMethod = !!(contact.phone || contact.email);
 
   return (
-    <div className="rounded-xl border bg-white p-4 space-y-4" data-testid={`contact-input-${index}`}>
+    <div className="rounded-xl border bg-card p-4 space-y-4" data-testid={`contact-input-${index}`}>
       {/* Header with badges and remove button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
