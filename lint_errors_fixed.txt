@@ -1,0 +1,26 @@
+﻿
+> commerzio-services@1.0.0 lint
+> eslint client/src server shared --ext .ts,.tsx --quiet
+
+
+D:\Documents\GitHub\CommerzioS\client\src\components\google-maps.tsx
+  68:37  error  Empty block statement  no-empty
+  73:52  error  Empty block statement  no-empty
+
+D:\Documents\GitHub\CommerzioS\client\src\components\phone-input-with-country.tsx
+   64:39  error  Unnecessary escape character: \(  no-useless-escape
+   64:41  error  Unnecessary escape character: \)  no-useless-escape
+  165:40  error  Unnecessary escape character: \-  no-useless-escape
+
+D:\Documents\GitHub\CommerzioS\client\src\components\service-form-modal.tsx
+  1322:29  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render    react-hooks/rules-of-hooks
+  1359:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render  react-hooks/rules-of-hooks
+
+D:\Documents\GitHub\CommerzioS\client\src\pages\home.tsx
+  108:15  error  Empty block statement  no-empty
+
+D:\Documents\GitHub\CommerzioS\server\testBypass.ts
+  256:7  error  Unexpected lexical declaration in case block  no-case-declarations
+
+Ô£û 9 problems (9 errors, 0 warnings)
+

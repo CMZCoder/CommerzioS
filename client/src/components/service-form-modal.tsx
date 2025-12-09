@@ -1315,8 +1315,6 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const isEmailNotVerified = !isEditMode && user && !user.emailVerified;
   const isSubmitDisabled = isMutationPending || validatingAddresses || isEmailNotVerified;
 
-  if (!formData) return null;
-
   // Unsaved changes detection - only count actual user-entered content
   // Don't count auto-populated contacts/locations from user profile
   const hasUnsavedChanges = useMemo(() => {
@@ -1367,6 +1365,8 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [open, hasUnsavedChanges, draftSaved]);
+
+  if (!formData) return null;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

@@ -15,7 +15,7 @@
 
 import crypto from 'crypto';
 import { db } from './db';
-import { 
+import {
   bookings, services, reviews, users, notifications,
   escrowTransactions, escrowDisputes, tips
 } from '@shared/schema';
@@ -152,7 +152,7 @@ export async function getTestBypassTokenForUser(email: string, action: string): 
  * Middleware to validate test bypass requests
  */
 export function validateTestBypassRequest(
-  req: any, 
+  req: any,
   action: string
 ): { valid: boolean; userId?: string; error?: string } {
   // Never allow in production
@@ -250,7 +250,7 @@ export async function updateTestBookingStatus(
   const updates: any = { status, updatedAt: now };
 
   switch (status) {
-    case 'accepted':
+    case 'accepted': {
       updates.acceptedAt = now;
       // Copy requested times to confirmed times
       const [existing] = await db.select().from(bookings).where(eq(bookings.id, bookingId)).limit(1);
@@ -259,6 +259,7 @@ export async function updateTestBookingStatus(
         updates.confirmedEndTime = existing.requestedEndTime;
       }
       break;
+    }
     case 'in_progress':
       updates.startedAt = now;
       break;
@@ -410,7 +411,7 @@ export async function createTestDispute(data: {
   }
 
   // Determine if customer or vendor
-  const raisedByRole: 'customer' | 'vendor' = 
+  const raisedByRole: 'customer' | 'vendor' =
     raisedByUserId === booking.customerId ? 'customer' : 'vendor';
 
   // Try to find or create escrow transaction
@@ -424,7 +425,7 @@ export async function createTestDispute(data: {
     const amount = (data.amount || 100).toString();
     const platformFee = (parseFloat(amount) * 0.10).toFixed(2); // 10% fee
     const vendorAmount = (parseFloat(amount) - parseFloat(platformFee)).toFixed(2);
-    
+
     [escrow] = await db.insert(escrowTransactions)
       .values({
         bookingId: data.bookingId,

@@ -105,7 +105,7 @@ export default function Home() {
           setSearchLocation(parsed);
           fetchPredictedRadius(parsed.lat, parsed.lng);
         }
-      } catch { }
+      } catch { /* ignore */ }
     }
   }, [user]);
 

@@ -1,0 +1,17 @@
+﻿
+[1m[46m RUN [49m[22m [36mv4.0.15 [39m[90mD:/Documents/GitHub/CommerzioS[39m
+
+ [31mÔØ»[39m server/routes.test.ts [2m([22m[2m7 tests[22m[2m | [22m[33m7 skipped[39m[2m)[22m[32m 35[2mms[22m[39m
+       [2m[90mÔåô[39m[22m should return an array of categories
+       [2m[90mÔåô[39m[22m should return apiKey and isConfigured
+       [2m[90mÔåô[39m[22m should return status ok
+         [2m[90mÔåô[39m[22m should return paginated service requests
+         [2m[90mÔåô[39m[22m should accept pagination parameters
+         [2m[90mÔåô[39m[22m should return user disputes when authenticated
+         [2m[90mÔåô[39m[22m should accept vendor response requests
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m7 skipped[39m[90m (7)[39m
+[2m   Start at [22m 20:12:50
+[2m   Duration [22m 2.21s[2m (transform 780ms, setup 89ms, import 1.37s, tests 35ms, environment 535ms)[22m
+

@@ -61,8 +61,8 @@ interface PhoneInputWithCountryProps {
  * Parse a phone number and extract country code if present
  */
 function parsePhoneNumber(value: string): { countryCode: string; localNumber: string } {
-  const cleaned = value.replace(/[\s\-\(\)]/g, "");
-  
+  const cleaned = value.replace(/[\s\-()]/g, "");
+
   // Check if it starts with a country code
   for (const country of COUNTRY_CODES) {
     if (cleaned.startsWith(country.code)) {
@@ -72,7 +72,7 @@ function parsePhoneNumber(value: string): { countryCode: string; localNumber: st
       };
     }
   }
-  
+
   // Default to Swiss if no country code found
   return {
     countryCode: "+41",
@@ -85,7 +85,7 @@ function parsePhoneNumber(value: string): { countryCode: string; localNumber: st
  */
 function formatLocalNumber(number: string, countryCode: string): string {
   const digits = number.replace(/\D/g, "");
-  
+
   // Swiss format: 044 123 45 67 or 078 123 45 67
   if (countryCode === "+41") {
     if (digits.length >= 10) {
@@ -94,7 +94,7 @@ function formatLocalNumber(number: string, countryCode: string): string {
     }
     return digits;
   }
-  
+
   // Default formatting: group by 3s
   return digits.replace(/(\d{3})(?=\d)/g, "$1 ").trim();
 }
@@ -105,13 +105,13 @@ function formatLocalNumber(number: string, countryCode: string): string {
  */
 export function toInternationalFormat(localNumber: string, countryCode: string): string {
   let digits = localNumber.replace(/\D/g, "");
-  
+
   // Remove leading zero if country uses it
   const country = COUNTRY_CODES.find(c => c.code === countryCode);
   if (country?.localPrefix === "0" && digits.startsWith("0")) {
     digits = digits.substring(1);
   }
-  
+
   // Return without + for tel: links
   return `${countryCode.replace("+", "")}${digits}`;
 }
@@ -152,7 +152,7 @@ export function PhoneInputWithCountry({
   const handleCountrySelect = (country: CountryCode) => {
     setSelectedCountry(country);
     setOpen(false);
-    
+
     // Trigger onChange with new country code
     const fullInternational = localNumber ? `${country.code}${localNumber.replace(/^0/, "")}` : "";
     onChange(fullInternational, localNumber, country.code);
@@ -160,19 +160,19 @@ export function PhoneInputWithCountry({
 
   const handleLocalNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value;
-    
+
     // Allow digits, spaces, and common separators during input
-    newValue = newValue.replace(/[^\d\s\-]/g, "");
-    
+    newValue = newValue.replace(/[^\d\s-]/g, "");
+
     setLocalNumber(newValue);
-    
+
     // Calculate international format
     const digits = newValue.replace(/\D/g, "");
-    const normalizedDigits = digits.startsWith("0") && selectedCountry.localPrefix === "0" 
-      ? digits.substring(1) 
+    const normalizedDigits = digits.startsWith("0") && selectedCountry.localPrefix === "0"
+      ? digits.substring(1)
       : digits;
     const fullInternational = normalizedDigits ? `${selectedCountry.code}${normalizedDigits}` : "";
-    
+
     onChange(fullInternational, newValue, selectedCountry.code);
   };
 
@@ -181,13 +181,13 @@ export function PhoneInputWithCountry({
     const formatted = formatLocalNumber(localNumber, selectedCountry.code);
     if (formatted !== localNumber) {
       setLocalNumber(formatted);
-      
+
       const digits = formatted.replace(/\D/g, "");
       const normalizedDigits = digits.startsWith("0") && selectedCountry.localPrefix === "0"
         ? digits.substring(1)
         : digits;
       const fullInternational = normalizedDigits ? `${selectedCountry.code}${normalizedDigits}` : "";
-      
+
       onChange(fullInternational, formatted, selectedCountry.code);
     }
   };
@@ -203,7 +203,7 @@ export function PhoneInputWithCountry({
           {required && <span className="text-red-500">*</span>}
         </Label>
       )}
-      
+
       <div className="flex gap-2">
         {/* Country Code Selector */}
         <Popover open={open} onOpenChange={setOpen}>
@@ -277,7 +277,7 @@ export function PhoneInputWithCountry({
           {error}
         </p>
       )}
-      
+
       {/* Helper text */}
       {!error && !localNumber && (
         <p className="text-xs text-muted-foreground">

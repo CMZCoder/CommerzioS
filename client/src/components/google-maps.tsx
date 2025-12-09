@@ -65,12 +65,12 @@ export function GoogleMaps({
     if (!google || !map) return;
 
     markersRef.current.forEach(m => {
-      try { m.setMap(null); } catch { }
+      try { m.setMap(null); } catch { /* ignore */ }
     });
     markersRef.current = [];
 
     if (infoWindowRef.current) {
-      try { infoWindowRef.current.close(); } catch { }
+      try { infoWindowRef.current.close(); } catch { /* ignore */ }
     }
 
     const location = userLocationRef.current;
