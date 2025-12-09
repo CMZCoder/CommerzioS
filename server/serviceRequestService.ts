@@ -1413,7 +1413,7 @@ export async function getOpenServiceRequestsForVendor(
   // Get vendor's proposals for these requests
   const requestIds = requestsResult.map(r => r.id);
   
-  let vendorProposalsMap: Map<string, { id: string; status: string }> = new Map();
+  const vendorProposalsMap: Map<string, { id: string; status: string }> = new Map();
   
   if (requestIds.length > 0) {
     const vendorProposals = await db

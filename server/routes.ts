@@ -2,8 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, sql, desc, and, inArray } from "drizzle-orm";
-import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests, customerReviews } from "@shared/schema";
+import { findSimilarSubcategoryName } from "./aiCategoryService";
+import { eq, sql, desc, and, or, inArray } from "drizzle-orm";
+import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests, customerReviews, orders, categories } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
 import { setupOAuthRoutes } from "./oauthProviders";
@@ -1496,6 +1497,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current user's transactions (orders)
+  app.get('/api/users/me/transactions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+
+      const userOrders = await db.query.orders.findMany({
+        where: or(
+          eq(orders.customerId, userId),
+          eq(orders.vendorId, userId)
+        ),
+        with: {
+          service: true,
+          customer: true,
+          vendor: true,
+        },
+        orderBy: [desc(orders.createdAt)],
+        limit: limit,
+      });
+
+      res.json(userOrders);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
   app.post('/api/ai/suggest-category-alternative', aiLimiter, async (req, res) => {
     try {
       const schema = z.object({
@@ -1968,7 +1996,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify the category exists
-      const category = await storage.getCategoryById(categoryId);
+      const category = await db.query.categories.findFirst({
+        where: eq(categories.id, categoryId)
+      });
       if (!category) {
         return res.status(404).json({ message: "Category not found" });
       }
@@ -2283,7 +2313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fetch categories and subcategories BEFORE AI call so we can pass them to AI
       const allCategories = await storage.getCategories();
-      let allSubcategories = await storage.getSubcategories();
+      const allSubcategories = await storage.getSubcategories();
 
       // Build list of existing subcategories with their category slugs for AI
       const existingSubcategoriesForAI = allSubcategories.map(sub => {

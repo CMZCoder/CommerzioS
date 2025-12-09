@@ -231,7 +231,7 @@ export function VendorWeeklyCalendar({ className }: VendorWeeklyCalendarProps) {
     queryFn: async () => {
       const start = startOfDay(currentWeekStart);
       const end = endOfDay(weekEnd);
-      let url = `/api/vendor/bookings?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=200`;
+      const url = `/api/vendor/bookings?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=200`;
       const res = await fetchApi(url);
       if (!res.ok) return [];
       const data = await res.json();

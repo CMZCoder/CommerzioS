@@ -18,7 +18,7 @@ import { fetchApi } from "@/lib/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import { useEffect, useCallback, useRef } from "react";
-import type { Service, SelectAddress, Plan } from "@shared/schema";
+import type { Service, SelectAddress, Plan, Order } from "@shared/schema";
 import { CreateServiceModal } from "@/components/create-service-modal";
 import { EditServiceModal } from "@/components/edit-service-modal";
 import { CategorySuggestionModal } from "@/components/category-suggestion-modal";
@@ -231,6 +231,40 @@ export default function Profile() {
     queryFn: () => apiRequest("/api/users/me/bookings-pending-review"),
     enabled: isAuthenticated,
   });
+
+  // Fetch transactions
+  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery<(Order & { service: Service, customer: any, vendor: any })[]>({
+    queryKey: ["/api/users/me/transactions"],
+    queryFn: () => apiRequest("/api/users/me/transactions"),
+    enabled: isAuthenticated,
+  });
+
+  // Calculate stats from transactions
+  const financialStats = useMemo(() => {
+    if (!transactions.length) return { earned: 0, spent: 0, fees: 0, bookings: 0, services: 0 };
+
+    // As Vendor: Earned = sum of totals where vendorId == user.id
+    const earned = transactions
+      .filter(t => t.vendorId === user?.id && t.status === 'completed')
+      .reduce((acc, t) => acc + parseFloat(t.total), 0);
+
+    // As Customer: Spent = sum of totals where customerId == user.id
+    const spent = transactions
+      .filter(t => t.customerId === user?.id && t.status === 'completed')
+      .reduce((acc, t) => acc + parseFloat(t.total), 0);
+
+    // Platform Fees (estimated based on earned)
+    // In real app, this should come from vendorPayoutAmount vs total difference
+    // For now, let's use the field if available, or calc
+    const fees = transactions
+      .filter(t => t.vendorId === user?.id && t.status === 'completed')
+      .reduce((acc, t) => acc + (parseFloat(t.platformFee) || 0), 0);
+
+    const completedBookings = transactions.filter(t => t.vendorId === user?.id && t.status === 'completed').length;
+    const purchasedServices = transactions.filter(t => t.customerId === user?.id && t.status === 'completed').length;
+
+    return { earned, spent, fees, bookings: completedBookings, services: purchasedServices };
+  }, [transactions, user?.id]);
 
   // Stripe Connect status
   const { data: connectStatus, isLoading: connectStatusLoading, refetch: refetchConnectStatus } = useQuery<{
@@ -2721,9 +2755,9 @@ export default function Profile() {
                           <div>
                             <p className="text-sm text-muted-foreground">Total Earned</p>
                             <p className="text-2xl font-bold text-green-600">
-                              CHF {receivedReviews.length > 0 ? (receivedReviews.length * 85).toFixed(2) : '0.00'}
+                              CHF {financialStats.earned.toFixed(2)}
                             </p>
-                            <p className="text-xs text-muted-foreground">From {receivedReviews.length} completed bookings</p>
+                            <p className="text-xs text-muted-foreground">From {financialStats.bookings} completed bookings</p>
                           </div>
                           <TrendingUp className="w-8 h-8 text-green-500 opacity-50" />
                         </div>
@@ -2736,9 +2770,9 @@ export default function Profile() {
                           <div>
                             <p className="text-sm text-muted-foreground">Total Spent</p>
                             <p className="text-2xl font-bold text-blue-600">
-                              CHF {givenReviews.length > 0 ? (givenReviews.length * 75).toFixed(2) : '0.00'}
+                              CHF {financialStats.spent.toFixed(2)}
                             </p>
-                            <p className="text-xs text-muted-foreground">On {givenReviews.length} services</p>
+                            <p className="text-xs text-muted-foreground">On {financialStats.services} services</p>
                           </div>
                           <BarChart3 className="w-8 h-8 text-blue-500 opacity-50" />
                         </div>
@@ -2751,7 +2785,7 @@ export default function Profile() {
                           <div>
                             <p className="text-sm text-muted-foreground">Platform Fees</p>
                             <p className="text-2xl font-bold text-amber-600">
-                              CHF {receivedReviews.length > 0 ? (receivedReviews.length * 6.8).toFixed(2) : '0.00'}
+                              CHF {financialStats.fees.toFixed(2)}
                             </p>
                             <p className="text-xs text-muted-foreground">8% commission + processing</p>
                           </div>
@@ -2780,7 +2814,7 @@ export default function Profile() {
                             <span>Card Payments</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(receivedReviews.length * 50).toFixed(2)}</p>
+                            <p className="font-bold">CHF {(financialStats.earned * 0.60).toFixed(2)}</p>
                             <p className="text-xs text-muted-foreground">~60% of income</p>
                           </div>
                         </div>
@@ -2790,7 +2824,7 @@ export default function Profile() {
                             <span>TWINT</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(receivedReviews.length * 20).toFixed(2)}</p>
+                            <p className="font-bold">CHF {(financialStats.earned * 0.25).toFixed(2)}</p>
                             <p className="text-xs text-muted-foreground">~25% of income</p>
                           </div>
                         </div>
@@ -2800,7 +2834,7 @@ export default function Profile() {
                             <span>Cash</span>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">CHF {(receivedReviews.length * 15).toFixed(2)}</p>
+                            <p className="font-bold">CHF {(financialStats.earned * 0.15).toFixed(2)}</p>
                             <p className="text-xs text-muted-foreground">~15% of income</p>
                           </div>
                         </div>
@@ -2833,27 +2867,39 @@ export default function Profile() {
                         </TabsList>
 
                         <TabsContent value="all" className="mt-0">
-                          <div className="text-center py-8 text-muted-foreground">
-                            <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>No transactions yet</p>
-                            <p className="text-sm mt-1">Your complete payment history will appear here</p>
-                          </div>
+                          {transactions.length > 0 ? (
+                            <TransactionList transactions={transactions} userId={user?.id} />
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                              <p>No transactions yet</p>
+                              <p className="text-sm mt-1">Your complete payment history will appear here</p>
+                            </div>
+                          )}
                         </TabsContent>
 
                         <TabsContent value="purchases" className="mt-0">
-                          <div className="text-center py-8 text-muted-foreground">
-                            <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>No purchases yet</p>
-                            <p className="text-sm mt-1">Services you've paid for will appear here</p>
-                          </div>
+                          {transactions.filter(t => t.customerId === user?.id).length > 0 ? (
+                            <TransactionList transactions={transactions.filter(t => t.customerId === user?.id)} userId={user?.id} />
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                              <p>No purchases yet</p>
+                              <p className="text-sm mt-1">Services you've paid for will appear here</p>
+                            </div>
+                          )}
                         </TabsContent>
 
                         <TabsContent value="sales" className="mt-0">
-                          <div className="text-center py-8 text-muted-foreground">
-                            <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                            <p>No sales yet</p>
-                            <p className="text-sm mt-1">Payments received from customers will appear here</p>
-                          </div>
+                          {transactions.filter(t => t.vendorId === user?.id).length > 0 ? (
+                            <TransactionList transactions={transactions.filter(t => t.vendorId === user?.id)} userId={user?.id} />
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                              <p>No sales yet</p>
+                              <p className="text-sm mt-1">Payments received from customers will appear here</p>
+                            </div>
+                          )}
                         </TabsContent>
 
                         <TabsContent value="commission" className="mt-0">
@@ -4225,6 +4271,47 @@ function ReferralDashboard() {
           </Button>
         </Link>
       </div>
+    </div>
+  );
+}
+
+function TransactionList({ transactions, userId }: { transactions: any[], userId?: string }) {
+  return (
+    <div className="space-y-4">
+      {transactions.map((t) => {
+        const isPurchase = t.customerId === userId;
+        const otherParty = isPurchase ? t.vendor : t.customer;
+        const otherPartyName = otherParty ? (otherParty.businessName || `${otherParty.firstName} ${otherParty.lastName}`) : 'Unknown';
+
+        return (
+          <div key={t.id} className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-accent/5 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className={`p-2 rounded-full ${isPurchase ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+                {isPurchase ? <ShoppingBag className="w-5 h-5" /> : <TrendingUp className="w-5 h-5" />}
+              </div>
+              <div>
+                <p className="font-medium">{t.service?.title || 'Unknown Service'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {isPurchase ? 'Purchased from ' : 'Sold to '} <span className="font-medium text-foreground">{otherPartyName}</span>
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <span className="bg-secondary px-1.5 py-0.5 rounded capitalize">{t.status}</span>
+                  <span>•</span>
+                  <span>{new Date(t.createdAt).toLocaleDateString()}</span>
+                  <span>•</span>
+                  <span>#{t.orderNumber}</span>
+                </div>
+              </div>
+            </div>
+            <div className={`text-right ${isPurchase ? 'text-blue-600' : 'text-green-600'}`}>
+              <p className="font-bold text-lg">
+                {isPurchase ? '-' : '+'} CHF {parseFloat(t.total).toFixed(2)}
+              </p>
+              <p className="text-xs text-muted-foreground capitalize">{t.paymentStatus}</p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
