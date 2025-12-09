@@ -11,9 +11,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  CreditCard, 
-  Smartphone, 
+import {
+  CreditCard,
+  Smartphone,
   Banknote,
   Shield,
   Zap,
@@ -100,10 +100,8 @@ export function PaymentMethodSelector({
     );
   }
 
-  const isTwintAllowed = vendorAcceptsTwint && (twintEligibility?.allowed ?? false);
-  const isTwintLockedReason = !vendorAcceptsTwint 
-    ? 'This vendor does not accept TWINT payments'
-    : twintEligibility?.reason;
+  // TWINT is now available for everyone - no eligibility check needed
+  const isTwintAllowed = vendorAcceptsTwint; // Simplified: always allowed if vendor accepts
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -119,36 +117,28 @@ export function PaymentMethodSelector({
           subtitle="Visa, Mastercard, American Express"
           badge={{ text: "RECOMMENDED", variant: "default" }}
           features={[
-            { icon: <Shield className="w-4 h-4" />, text: "Full payment protection until service complete" },
-            { icon: <CheckCircle2 className="w-4 h-4" />, text: "Dispute resolution included" },
-            { icon: <Banknote className="w-4 h-4" />, text: "Money-back guarantee" },
+            { icon: <Shield className="w-4 h-4" />, text: "Escrow: Payment held until service complete" },
+            { icon: <CheckCircle2 className="w-4 h-4" />, text: "Free experimental dispute resolution" },
           ]}
           amount={formatAmount(amount)}
         />
       )}
 
-      {/* TWINT Option */}
+      {/* TWINT Option - Available for everyone */}
       {vendorAcceptsTwint && (
         <PaymentOptionCard
           method="twint"
           selected={selectedMethod === 'twint'}
-          onSelect={() => isTwintAllowed && onSelect('twint')}
-          disabled={disabled || !isTwintAllowed}
-          locked={!isTwintAllowed}
-          lockedReason={isTwintLockedReason}
+          onSelect={() => onSelect('twint')}
+          disabled={disabled}
           icon={<Smartphone className="w-6 h-6" />}
           title="TWINT"
           subtitle="Pay instantly with your TWINT app"
           badge={{ text: "POPULAR", variant: "secondary", icon: <span className="text-xs">🇨🇭</span> }}
-          features={
-            isTwintAllowed
-              ? [
-                  { icon: <Zap className="w-4 h-4" />, text: "Instant payment to vendor" },
-                  { icon: <AlertTriangle className="w-4 h-4" />, text: "Limited protection (refunds at vendor discretion)", warning: true },
-                  { icon: <Star className="w-4 h-4" />, text: "Best for vendors you've booked before" },
-                ]
-              : []
-          }
+          features={[
+            { icon: <Zap className="w-4 h-4" />, text: "Instant payment to vendor" },
+            { icon: <AlertTriangle className="w-4 h-4" />, text: "No payment protection - payment goes directly to vendor", warning: true },
+          ]}
           amount={formatAmount(amount)}
         />
       )}
@@ -170,7 +160,7 @@ export function PaymentMethodSelector({
           amount={`${formatAmount(amount)} (at service)`}
         />
       )}
-      
+
       {/* No payment methods available */}
       {!vendorAcceptsCard && !vendorAcceptsTwint && !vendorAcceptsCash && (
         <div className="text-center py-8 text-muted-foreground">
@@ -237,8 +227,8 @@ function PaymentOptionCard({
               <div className="flex items-center gap-2">
                 <h3 className="font-semibold">{title}</h3>
                 {badge && (
-                  <Badge 
-                    variant={badge.variant} 
+                  <Badge
+                    variant={badge.variant}
                     className={cn(
                       "text-xs",
                       badge.variant === 'default' && "bg-primary/90"
@@ -258,12 +248,12 @@ function PaymentOptionCard({
               <p className="text-sm text-muted-foreground">{subtitle}</p>
             </div>
           </div>
-          
+
           {/* Selection indicator */}
           <div className={cn(
             "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1",
-            selected 
-              ? "border-primary bg-primary" 
+            selected
+              ? "border-primary bg-primary"
               : "border-muted-foreground/30"
           )}>
             {selected && <CheckCircle2 className="w-4 h-4 text-primary-foreground" />}
@@ -283,8 +273,8 @@ function PaymentOptionCard({
         {features.length > 0 && !locked && (
           <div className="space-y-1.5 mb-3">
             {features.map((feature, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={cn(
                   "flex items-center gap-2 text-sm",
                   feature.warning ? "text-amber-600 dark:text-amber-500" : "text-muted-foreground"

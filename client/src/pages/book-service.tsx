@@ -33,11 +33,11 @@ import { apiRequest, type ServiceWithDetails } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format, differenceInHours, differenceInDays } from 'date-fns';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   ArrowRight,
-  Calendar, 
-  AlertCircle, 
+  Calendar,
+  AlertCircle,
   CheckCircle2,
   Clock,
   Phone,
@@ -92,10 +92,9 @@ interface PricingBreakdownData {
 
 const STEPS = [
   { id: 1, title: 'Select Time', icon: Calendar },
-  { id: 2, title: 'Choose Package', icon: CreditCard },
-  { id: 3, title: 'Your Details', icon: User },
-  { id: 4, title: 'Payment', icon: Wallet },
-  { id: 5, title: 'Confirm', icon: CheckCircle2 },
+  { id: 2, title: 'Your Details', icon: User },
+  { id: 3, title: 'Payment', icon: Wallet },
+  { id: 4, title: 'Confirm', icon: CheckCircle2 },
 ];
 
 export default function BookServicePage() {
@@ -115,6 +114,13 @@ export default function BookServicePage() {
     customerAddress: '',
   });
 
+  // Pre-populate phone from user profile
+  useEffect(() => {
+    if (user?.phoneNumber && !formData.customerPhone) {
+      setFormData(prev => ({ ...prev, customerPhone: user.phoneNumber || '' }));
+    }
+  }, [user?.phoneNumber]);
+
   const serviceId = params?.id;
 
   // Fetch service details
@@ -129,7 +135,7 @@ export default function BookServicePage() {
     queryKey: ['pricing-breakdown', serviceId, selectedOption?.id, dateRange.start?.toISOString(), dateRange.end?.toISOString()],
     queryFn: async (): Promise<PricingBreakdownData | null> => {
       if (!dateRange.start || !dateRange.end) return null;
-      
+
       return apiRequest<PricingBreakdownData>('/api/bookings/calculate-price', {
         method: 'POST',
         body: JSON.stringify({
@@ -169,7 +175,7 @@ export default function BookServicePage() {
     },
     onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['bookings'] });
-      
+
       // Handle different payment flows
       if (paymentMethod === 'card' && data.checkoutUrl) {
         // Redirect to Stripe Checkout
@@ -187,7 +193,7 @@ export default function BookServicePage() {
         // Cash payment or instant booking - go to success page
         const isInstantBooking = !service?.owner?.requireBookingApproval;
         toast.success(isInstantBooking ? 'Booking confirmed!' : 'Booking request sent!', {
-          description: isInstantBooking 
+          description: isInstantBooking
             ? 'Your booking has been confirmed.'
             : 'The vendor will review your request shortly.',
         });
@@ -205,20 +211,18 @@ export default function BookServicePage() {
       case 1:
         return dateRange.start && dateRange.end;
       case 2:
-        return true; // Package selection is optional
+        return !!formData.customerPhone; // Phone is required
       case 3:
-        return true; // Details are optional
-      case 4:
         return !!paymentMethod; // Payment method is required
-      case 5:
+      case 4:
         return dateRange.start && dateRange.end;
       default:
         return false;
     }
-  }, [step, dateRange, selectedOption, formData, paymentMethod]);
+  }, [step, dateRange, formData, paymentMethod]);
 
   const handleNext = () => {
-    if (step < 5 && canProceed) {
+    if (step < 4 && canProceed) {
       setStep(step + 1);
     }
   };
@@ -236,10 +240,10 @@ export default function BookServicePage() {
   // Duration display
   const getDurationDisplay = () => {
     if (!dateRange.start || !dateRange.end) return null;
-    
+
     const hours = differenceInHours(dateRange.end, dateRange.start);
     const days = differenceInDays(dateRange.end, dateRange.start);
-    
+
     if (days >= 1) {
       const remainingHours = hours - (days * 24);
       if (remainingHours > 0) {
@@ -364,8 +368,8 @@ export default function BookServicePage() {
         <div className="container max-w-5xl mx-auto px-4">
           {/* Header */}
           <div className="mb-6 md:mb-8">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               className="mb-4 -ml-2"
               onClick={() => setLocation(`/service/${serviceId}`)}
@@ -373,7 +377,7 @@ export default function BookServicePage() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to {service.title}
             </Button>
-            
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold">Book Service</h1>
@@ -381,16 +385,16 @@ export default function BookServicePage() {
                   Complete your booking in a few simple steps
                 </p>
               </div>
-              
+
               {/* Step Progress (Desktop) */}
               <div className="hidden md:flex items-center gap-2">
                 {STEPS.map((s, index) => (
                   <div key={s.id} className="flex items-center">
                     <div className={cn(
                       "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all",
-                      step === s.id 
-                        ? "bg-primary text-white" 
-                        : step > s.id 
+                      step === s.id
+                        ? "bg-primary text-white"
+                        : step > s.id
                           ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                           : "bg-muted text-muted-foreground"
                     )}>
@@ -408,14 +412,14 @@ export default function BookServicePage() {
                 ))}
               </div>
             </div>
-            
+
             {/* Step Progress (Mobile) */}
             <div className="md:hidden mt-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Step {step} of 5</span>
+                <span className="text-sm font-medium">Step {step} of 4</span>
                 <span className="text-sm text-muted-foreground">{STEPS[step - 1].title}</span>
               </div>
-              <Progress value={(step / 5) * 100} className="h-2" />
+              <Progress value={(step / 4) * 100} className="h-2" />
             </div>
           </div>
 
@@ -448,37 +452,10 @@ export default function BookServicePage() {
                   </>
                 )}
 
-                {/* Step 2: Package Selection */}
-                {step === 2 && (
-                  <>
-                    <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-white dark:from-purple-950/30 dark:to-slate-900">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center">
-                          <CreditCard className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div>
-                          <CardTitle>Choose a Package</CardTitle>
-                          <CardDescription>Select the option that fits your needs (optional)</CardDescription>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <PricingSelector
-                        serviceId={serviceId!}
-                        selectedOptionId={selectedOption?.id || null}
-                        onSelect={setSelectedOption}
-                      />
-                      {!selectedOption && (
-                        <p className="text-sm text-muted-foreground text-center mt-4">
-                          You can skip this step if no specific package is needed
-                        </p>
-                      )}
-                    </CardContent>
-                  </>
-                )}
 
-                {/* Step 3: Contact Details */}
-                {step === 3 && (
+
+                {/* Step 2: Contact Details */}
+                {step === 2 && (
                   <>
                     <CardHeader className="border-b bg-gradient-to-r from-amber-50 to-white dark:from-amber-950/30 dark:to-slate-900">
                       <div className="flex items-center gap-3">
@@ -538,8 +515,8 @@ export default function BookServicePage() {
                   </>
                 )}
 
-                {/* Step 4: Payment Method */}
-                {step === 4 && (
+                {/* Step 3: Payment Method */}
+                {step === 3 && (
                   <>
                     <CardHeader className="border-b bg-gradient-to-r from-violet-50 to-white dark:from-violet-950/30 dark:to-slate-900">
                       <div className="flex items-center gap-3">
@@ -564,29 +541,30 @@ export default function BookServicePage() {
                           acceptCashPayments: service?.owner?.acceptCashPayments,
                         }}
                       />
-                      
+
                       {paymentMethod === 'cash' && (
                         <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                           <p className="text-sm text-amber-800 dark:text-amber-200">
-                            <strong>Cash Payment:</strong> You'll pay the vendor directly at the time of service. 
+                            <strong>Cash Payment:</strong> You'll pay the vendor directly at the time of service.
                             No online payment required.
                           </p>
                         </div>
                       )}
-                      
+
                       {paymentMethod === 'card' && (
                         <div className="mt-4 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
                           <p className="text-sm text-blue-800 dark:text-blue-200">
-                            <strong>Secure Card Payment:</strong> Your payment is held safely until the service is completed. 
-                            Full refund if cancelled within 24 hours.
+                            <strong>Secure Escrow Payment:</strong> Your payment is held securely until the service is completed.
+                            Includes free experimental dispute resolution if any issues arise.
                           </p>
                         </div>
                       )}
-                      
+
                       {paymentMethod === 'twint' && (
-                        <div className="mt-4 p-4 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
-                          <p className="text-sm text-red-800 dark:text-red-200">
+                        <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                          <p className="text-sm text-amber-800 dark:text-amber-200">
                             <strong>TWINT Payment:</strong> You'll be redirected to complete payment via the TWINT app.
+                            <span className="italic">No payment protection</span> - payment goes directly to vendor.
                           </p>
                         </div>
                       )}
@@ -659,7 +637,7 @@ export default function BookServicePage() {
                             </div>
                           </div>
                         )}
-                        
+
                         <div className="flex items-start gap-4 p-4 rounded-lg bg-muted">
                           <Wallet className="w-5 h-5 text-primary mt-0.5" />
                           <div>
@@ -705,13 +683,13 @@ export default function BookServicePage() {
                     </Button>
                   )}
 
-                  {step < 5 ? (
+                  {step < 4 ? (
                     <Button onClick={handleNext} disabled={!canProceed}>
-                      {step === 2 && !selectedOption ? 'Skip' : 'Continue'}
+                      Continue
                       <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                   ) : (
-                    <Button 
+                    <Button
                       onClick={handleSubmit}
                       disabled={createBookingMutation.isPending || !canProceed}
                       className="min-w-32"
@@ -744,18 +722,18 @@ export default function BookServicePage() {
                 <CardContent className="p-4">
                   <div className="flex gap-4">
                     {service.images && service.images.length > 0 ? (
-                      <a 
+                      <a
                         href={`/service/${serviceId}`}
                         className="block flex-shrink-0 rounded-lg overflow-hidden hover:opacity-90 transition-opacity cursor-pointer"
                       >
-                        <img 
-                          src={service.images[0]} 
+                        <img
+                          src={service.images[0]}
                           alt={service.title}
                           className="w-20 h-20 object-cover"
                         />
                       </a>
                     ) : (
-                      <a 
+                      <a
                         href={`/service/${serviceId}`}
                         className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-accent transition-colors cursor-pointer"
                       >
@@ -764,7 +742,7 @@ export default function BookServicePage() {
                     )}
                     <div className="min-w-0">
                       {/* Clickable Service Title */}
-                      <a 
+                      <a
                         href={`/service/${serviceId}`}
                         className="font-semibold truncate block hover:text-primary hover:underline transition-colors cursor-pointer"
                         title={service.title}
@@ -772,7 +750,7 @@ export default function BookServicePage() {
                         {service.title}
                       </a>
                       {/* Clickable Vendor Name */}
-                      <a 
+                      <a
                         href={`/vendors/${service.ownerId}`}
                         className="flex items-center gap-2 mt-1 group cursor-pointer"
                       >
@@ -789,7 +767,7 @@ export default function BookServicePage() {
                       {service.rating && (
                         <div className="flex items-center gap-1 mt-2">
                           <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                          <span className="text-sm font-medium">{service.rating}</span>
+                          <span className="text-sm font-medium">{typeof service.rating === 'number' ? service.rating.toFixed(1) : service.rating}</span>
                           <span className="text-sm text-muted-foreground">
                             ({service.reviewCount || 0} reviews)
                           </span>
@@ -797,9 +775,9 @@ export default function BookServicePage() {
                       )}
                     </div>
                   </div>
-                  
+
                   <Separator className="my-4" />
-                  
+
                   <div className="text-sm text-muted-foreground">
                     <p className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4" />
