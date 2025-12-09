@@ -1111,965 +1111,988 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="!w-[98vw] !max-w-none max-h-[95vh] overflow-hidden flex flex-col bg-background border-border">
-        {/* Modern Header with Progress */}
-        <div className="space-y-4 pb-4 border-b">
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-2xl font-bold">
-              {isEditMode ? "Edit Service" : "Create Your Listing"}
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              {isEditMode
-                ? "Update your service details below"
-                : "Fill in the details to publish your service"
-              }
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="!w-[98vw] !max-w-none max-h-[95vh] overflow-hidden flex flex-col bg-background border-border p-0">
+        {/* Split View Container */}
+        <div className="flex flex-1 min-h-0">
+          {/* Left Side - Main Content */}
+          <div className="flex-1 flex flex-col min-w-0 p-6">
+            {/* Header */}
+            <DialogHeader className="space-y-1 pb-4 border-b mb-4">
+              <DialogTitle className="text-2xl font-bold">
+                {isEditMode ? "Edit Service" : "Create Your Listing"}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                {isEditMode
+                  ? "Update your service details below"
+                  : "Fill in the details to publish your service"
+                }
+              </DialogDescription>
+            </DialogHeader>
 
-          {/* Progress Bar - only show in create mode */}
-          {!isEditMode && formData && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {formProgress.completed} of {formProgress.total} steps completed
-                </span>
-                <span className="font-medium text-primary">{formProgress.percentage}%</span>
-              </div>
-              <Progress value={formProgress.percentage} className="h-2" />
+            {/* Email verification warning for new services */}
+            {!isEditMode && user && !user.emailVerified && (
+              <Alert variant="destructive" className="my-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Email Not Verified</AlertTitle>
+                <AlertDescription className="mt-2">
+                  <p>You need to verify your email address before you can create services.</p>
+                  <Link href="/profile?tab=profile" className="underline font-medium mt-1 inline-block">
+                    Go to Profile → Account Information to resend verification email
+                  </Link>
+                </AlertDescription>
+              </Alert>
+            )}
 
-              {/* Step indicators */}
-              <div className="flex items-center justify-between pt-2">
-                {formProgress.steps.map((step) => (
-                  <div
-                    key={step.id}
-                    className={`flex flex-col items-center gap-1 ${step.done ? 'text-primary' : 'text-muted-foreground'}`}
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step.done
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                      }`}>
-                      {step.done ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <step.icon className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium hidden sm:block">{step.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            <form id="service-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4 min-h-0">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger value="main" className="flex items-center gap-2">
+                    <Camera className="w-4 h-4" />
+                    <span className="hidden sm:inline">Main Info</span>
+                    <span className="sm:hidden">Info</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="location" className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span className="hidden sm:inline">Location & Contacts</span>
+                    <span className="sm:hidden">Location</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="pricing" className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4" />
+                    <span className="hidden sm:inline">Pricing & Plans</span>
+                    <span className="sm:hidden">Pricing</span>
+                  </TabsTrigger>
+                </TabsList>
 
-        {/* Email verification warning for new services */}
-        {!isEditMode && user && !user.emailVerified && (
-          <Alert variant="destructive" className="my-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Email Not Verified</AlertTitle>
-            <AlertDescription className="mt-2">
-              <p>You need to verify your email address before you can create services.</p>
-              <Link href="/profile?tab=profile" className="underline font-medium mt-1 inline-block">
-                Go to Profile → Account Information to resend verification email
-              </Link>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <form id="service-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4 min-h-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="main" className="flex items-center gap-2">
-                <Camera className="w-4 h-4" />
-                <span className="hidden sm:inline">Main Info</span>
-                <span className="sm:hidden">Info</span>
-              </TabsTrigger>
-              <TabsTrigger value="location" className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span className="hidden sm:inline">Location & Contacts</span>
-                <span className="sm:hidden">Location</span>
-              </TabsTrigger>
-              <TabsTrigger value="pricing" className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                <span className="hidden sm:inline">Pricing & Plans</span>
-                <span className="sm:hidden">Pricing</span>
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Main Info Tab - Images + Basic Info */}
-            <TabsContent value="main" className="space-y-6 mt-0">
-              {/* Images Section with visual card */}
-              <div className="rounded-xl border bg-gradient-to-br from-slate-50 to-white p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Camera className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Service Images</h3>
-                    <p className="text-sm text-muted-foreground">Add up to {maxImages} photos to showcase your service</p>
-                  </div>
-                </div>
-                <ImageManager
-                  images={formData.images}
-                  imageMetadata={(formData.imageMetadata || []).map(m => ({ ...m, rotation: m.rotation ?? 0 }))}
-                  mainImageIndex={formData.mainImageIndex}
-                  maxImages={maxImages}
-                  onImagesChange={(images: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, images }))}
-                  onMetadataChange={(metadata: ImageMetadata[]) => setFormData((prev: FormData | null) => ({ ...prev!, imageMetadata: metadata }))}
-                  onMainImageChange={(index: number) => setFormData((prev: FormData | null) => ({ ...prev!, mainImageIndex: index }))}
-                />
-              </div>
-
-              {/* AI Suggest All Banner */}
-              <div className="rounded-xl border-2 border-dashed border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 p-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                      <Wand2 className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-purple-900">AI Auto-Fill</h3>
-                      <p className="text-sm text-purple-700">
-                        Generate title, description, category & hashtags in one click
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {previousFormState && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleUndoAI}
-                        className="gap-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50"
-                        data-testid="button-undo-ai"
-                      >
-                        <Undo2 className="w-4 h-4 text-orange-600" />
-                        Undo
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      onClick={handleAISuggestAll}
-                      disabled={formData.images.length === 0 || isAiSuggestingAll}
-                      className="gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md"
-                      data-testid="button-ai-suggest-all"
-                    >
-                      {isAiSuggestingAll ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Wand2 className="w-4 h-4" />
-                          Autocomplete with AI
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                {formData.images.length === 0 && (
-                  <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
-                    <Camera className="w-3 h-3" />
-                    Upload at least one image to use AI auto-fill
-                  </p>
-                )}
-              </div>
-
-              {/* Title & Description */}
-              <div className="rounded-xl border p-6 space-y-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Title & Description</h3>
-                    <p className="text-sm text-muted-foreground">Describe your service</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="title">Service Title * <span className="text-xs text-muted-foreground">(min. 5 characters)</span></Label>
-                  <Input
-                    id="title"
-                    ref={titleRef}
-                    placeholder="e.g., Professional House Cleaning"
-                    value={formData.title}
-                    onChange={(e) => {
-                      setFormData({ ...formData, title: e.target.value });
-                      // Clear error when typing
-                      if (touchedFields.title && e.target.value.trim().length >= 5) {
-                        setFieldErrors(prev => ({ ...prev, title: '' }));
-                      }
-                    }}
-                    onBlur={() => handleFieldBlur('title')}
-                    className={`text-lg ${touchedFields.title && fieldErrors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-                    data-testid="input-service-title"
-                  />
-                  {touchedFields.title && fieldErrors.title && (
-                    <p className="text-sm text-red-500 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      {fieldErrors.title}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description * <span className="text-xs text-muted-foreground">(min. 20 characters)</span></Label>
-                  <Textarea
-                    id="description"
-                    ref={descriptionRef}
-                    placeholder="Describe your service in detail..."
-                    rows={5}
-                    value={formData.description}
-                    onChange={(e) => {
-                      setFormData({ ...formData, description: e.target.value });
-                      // Clear error when typing
-                      if (touchedFields.description && e.target.value.trim().length >= 20) {
-                        setFieldErrors(prev => ({ ...prev, description: '' }));
-                      }
-                    }}
-                    onBlur={() => handleFieldBlur('description')}
-                    className={touchedFields.description && fieldErrors.description ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                    data-testid="textarea-service-description"
-                  />
-                  {touchedFields.description && fieldErrors.description && (
-                    <p className="text-sm text-red-500 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      {fieldErrors.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div ref={categoryRef}>
-                <CategorySubcategorySelector
-                  categoryId={formData.categoryId}
-                  subcategoryId={formData.subcategoryId}
-                  onCategoryChange={handleCategoryChange}
-                  onSubcategoryChange={handleSubcategoryChange}
-                  isManualOverride={isManualOverride}
-                  aiSuggestion={aiSuggestion}
-                  onResetToAI={handleResetToAI}
-                  isAiLoading={isAiCategoryLoading}
-                />
-                {onSuggestCategory && !isEditMode && (
-                  <p className="text-sm text-muted-foreground">
-                    Can't find the right category?{" "}
-                    <button
-                      type="button"
-                      onClick={onSuggestCategory}
-                      className="text-primary hover:underline font-medium"
-                      data-testid="button-suggest-category-inline"
-                    >
-                      Suggest a new one
-                    </button>
-                  </p>
-                )}
-              </div>
-
-              {/* Hashtags Section */}
-              <div className="space-y-4">
-                <div>
-                  <Label>Hashtags (Optional)</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Add up to 3 hashtags to help users discover your service
-                  </p>
-                </div>
-
-                {/* Current Hashtags */}
-                {formData.hashtags.length > 0 && (
-                  <div className="flex flex-wrap gap-2" data-testid="hashtags-container">
-                    {formData.hashtags.map((tag: string) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="pl-3 pr-2 py-1.5 text-sm flex items-center gap-1"
-                        data-testid={`hashtag-badge-${tag}`}
-                      >
-                        <Hash className="w-3 h-3" />
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeHashtag(tag)}
-                          className="ml-1 hover:text-destructive"
-                          data-testid={`button-remove-hashtag-${tag}`}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {/* Hashtag Input */}
-                {formData.hashtags.length < 3 && (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Type a hashtag and press Enter"
-                      value={hashtagInput}
-                      onChange={(e) => setHashtagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addHashtag(hashtagInput);
-                        }
-                      }}
-                      data-testid="input-hashtag"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => addHashtag(hashtagInput)}
-                      disabled={!hashtagInput.trim()}
-                      data-testid="button-add-hashtag"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-
-            {/* Location & Contacts Tab */}
-            <TabsContent value="location" className="space-y-6 mt-0">
-              {/* Locations Section */}
-              <div ref={locationRef} className="rounded-xl border bg-gradient-to-br from-blue-50/50 to-white p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Service Locations</h3>
-                    <p className="text-sm text-muted-foreground">Where do you offer this service?</p>
-                  </div>
-                </div>
-
-                {/* Quick select from user's saved addresses (i) */}
-                {!isEditMode && userAddresses.length > 1 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Quick Select from Your Addresses</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {userAddresses.map((addr: any, idx: number) => {
-                        const fullAddr = addr.fullAddress || `${addr.street}, ${addr.postalCode} ${addr.city}`;
-                        const isSelected = formData.locations.includes(fullAddr);
-                        return (
-                          <Button
-                            key={idx}
-                            type="button"
-                            variant={isSelected ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              if (isSelected) {
-                                setFormData((prev: FormData | null) => ({
-                                  ...prev!,
-                                  locations: prev!.locations.filter(l => l !== fullAddr)
-                                }));
-                              } else {
-                                setFormData((prev: FormData | null) => ({
-                                  ...prev!,
-                                  locations: [...prev!.locations, fullAddr]
-                                }));
-                              }
-                            }}
-                            className="text-xs gap-1.5"
-                            data-testid={`select-address-${idx}`}
-                          >
-                            <MapPin className="w-3 h-3" />
-                            {addr.label || `${addr.city} ${addr.postalCode}`}
-                            {addr.isMain && <Badge variant="secondary" className="ml-1 text-[10px] px-1">Main</Badge>}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Click to add/remove addresses, or search for new ones below</p>
-                  </div>
-                )}
-
-                {addressErrors.length > 0 && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <ul className="list-disc pl-4">
-                        {addressErrors.map((error: string, idx: number) => (
-                          <li key={idx}>{error}</li>
-                        ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
-                <LocationAutocomplete
-                  locations={formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim())}
-                  onLocationsChange={(locations: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, locations }))}
-                  maxLocations={10}
-                  label=""
-                  required={true}
-                  testIdPrefix="service-location"
-                />
-                {settings?.enableSwissAddressValidation && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-green-500" />
-                    Addresses will be validated for Switzerland
-                  </p>
-                )}
-              </div>
-
-              {/* Contacts Section - Only show if enabled */}
-              {contactsEnabled && (
-                <div ref={contactRef} className="rounded-xl border p-6 space-y-4">
-                  <div className="flex items-center justify-between">
+                {/* Main Info Tab - Images + Basic Info */}
+                <TabsContent value="main" className="space-y-6 mt-0">
+                  {/* Images Section with visual card */}
+                  <div className="rounded-xl border bg-gradient-to-br from-slate-50 to-white p-6 space-y-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                        <Phone className="w-5 h-5 text-green-600" />
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Camera className="w-5 h-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="font-semibold">
-                          Contact Information
-                          {!contactsRequired && <span className="text-muted-foreground font-normal ml-1">(optional)</span>}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">How can customers reach you? Add phone and/or email.</p>
+                        <h3 className="font-semibold">Service Images</h3>
+                        <p className="text-sm text-muted-foreground">Add up to {maxImages} photos to showcase your service</p>
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={addContact}
-                      disabled={formData.contacts.length >= 3}
-                      className="gap-1.5"
-                      data-testid="button-add-contact"
-                    >
-                      <Plus className="w-4 h-4" /> Add Contact
-                    </Button>
+                    <ImageManager
+                      images={formData.images}
+                      imageMetadata={(formData.imageMetadata || []).map(m => ({ ...m, rotation: m.rotation ?? 0 }))}
+                      mainImageIndex={formData.mainImageIndex}
+                      maxImages={maxImages}
+                      onImagesChange={(images: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, images }))}
+                      onMetadataChange={(metadata: ImageMetadata[]) => setFormData((prev: FormData | null) => ({ ...prev!, imageMetadata: metadata }))}
+                      onMainImageChange={(index: number) => setFormData((prev: FormData | null) => ({ ...prev!, mainImageIndex: index }))}
+                    />
                   </div>
 
-                  <div className="space-y-3">
-                    {formData.contacts.map((contact: Contact, idx: number) => (
-                      <ContactInput
-                        key={idx}
-                        contact={contact}
-                        index={idx}
-                        canRemove={formData.contacts.length > 1 || !contactsRequired}
-                        verificationEnabled={!!verificationEnabled}
-                        showVerification={false}
-                        onUpdate={updateContact}
-                        onRemove={removeContact}
-                      />
-                    ))}
-
-                    {formData.contacts.length === 0 && contactsRequired && (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Phone className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">Please add at least one contact method</p>
-                      </div>
-                    )}
-
-                    {formData.contacts.length === 0 && !contactsRequired && (
-                      <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-lg">
-                        <p className="text-sm">No contact info added yet</p>
-                        <p className="text-xs mt-1">Customers will contact you through the platform</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </TabsContent>
-
-            {/* Pricing & Plans Tab */}
-            <TabsContent value="pricing" className="space-y-6 mt-0">
-              {/* Pricing Type Section */}
-              <div className="rounded-xl border bg-gradient-to-br from-amber-50/50 to-white p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-amber-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Pricing Strategy</h3>
-                    <p className="text-sm text-muted-foreground">How would you like to price your service?</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  {(["fixed", "list", "text"] as PricingType[]).map((type) => (
-                    <label
-                      key={type}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.priceType === type
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                        }`}
-                    >
-                      <input
-                        type="radio"
-                        name="priceType"
-                        value={type}
-                        checked={formData.priceType === type}
-                        onChange={(e) => setFormData({ ...formData, priceType: e.target.value as PricingType })}
-                        className="sr-only"
-                        data-testid={`radio-price-type-${type}`}
-                      />
-                      <span className="text-2xl">
-                        {type === "fixed" ? "💰" : type === "list" ? "📋" : "✍️"}
-                      </span>
-                      <span className="font-medium text-sm text-center">
-                        {type === "list" ? "Price List" : type === "text" ? "Text-based" : "Fixed Price"}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Fixed Pricing */}
-              {formData.priceType === "fixed" && (
-                <div className="rounded-xl border p-6 space-y-4">
-                  <h4 className="font-medium">Set Your Price</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Price (CHF) *</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        className="text-lg"
-                        data-testid="input-service-price"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="priceUnit">Per *</Label>
-                      <select
-                        id="priceUnit"
-                        value={formData.priceUnit}
-                        onChange={(e) => setFormData({ ...formData, priceUnit: e.target.value })}
-                        className="w-full px-3 py-2 border border-input rounded-md bg-background h-10"
-                        data-testid="select-service-price-unit"
-                      >
-                        <option value="hour">Hour</option>
-                        <option value="job">Job</option>
-                        <option value="consultation">Consultation</option>
-                        <option value="day">Day</option>
-                        <option value="month">Month</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Price List */}
-              {formData.priceType === "list" && (
-                <div className="rounded-xl border p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-medium">Price List Items</h4>
-                    <Button type="button" size="sm" variant="outline" onClick={addPriceItem} className="gap-1.5" data-testid="button-add-price-item">
-                      <Plus className="w-4 h-4" /> Add Item
-                    </Button>
-                  </div>
-                  {formData.priceList.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <span className="text-4xl block mb-2">📋</span>
-                      <p className="text-sm">Click "Add Item" to create your price list</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {formData.priceList.map((item: PriceItem, idx: number) => (
-                        <div key={idx} className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg">
-                          <Input
-                            placeholder="Description (e.g., Basic)"
-                            value={item.description}
-                            onChange={(e) => updatePriceItem(idx, "description", e.target.value)}
-                            data-testid={`input-price-item-description-${idx}`}
-                          />
-                          <Input
-                            placeholder="Price"
-                            type="number"
-                            step="0.01"
-                            value={item.price}
-                            onChange={(e) => updatePriceItem(idx, "price", e.target.value)}
-                            data-testid={`input-price-item-price-${idx}`}
-                          />
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="Unit (e.g., hour)"
-                              value={item.unit}
-                              onChange={(e) => updatePriceItem(idx, "unit", e.target.value)}
-                              data-testid={`input-price-item-unit-${idx}`}
-                            />
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => removePriceItem(idx)}
-                              data-testid={`button-remove-price-item-${idx}`}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
+                  {/* AI Suggest All Banner */}
+                  <div className="rounded-xl border-2 border-dashed border-purple-200 bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 p-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                          <Wand2 className="w-6 h-6 text-white" />
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Text-based Pricing */}
-              {formData.priceType === "text" && (
-                <div className="rounded-xl border p-6 space-y-4">
-                  <h4 className="font-medium">Price Description</h4>
-                  <Textarea
-                    id="priceText"
-                    placeholder="e.g., Flexible pricing based on project scope. Contact for quote."
-                    rows={4}
-                    value={formData.priceText}
-                    onChange={(e) => setFormData({ ...formData, priceText: e.target.value })}
-                    data-testid="textarea-price-text"
-                  />
-                </div>
-              )}
-
-              {/* Accepted Payment Methods Section */}
-              <div className="rounded-xl border bg-gradient-to-br from-green-50/50 to-white p-6 space-y-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                    <CreditCard className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Accepted Payment Methods *</h3>
-                    <p className="text-sm text-muted-foreground">How would you like to get paid for this service?</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Card Payment */}
-                  <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("card")
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                  >
-                    <Checkbox
-                      checked={formData.acceptedPaymentMethods.includes("card")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "card"] });
-                        } else {
-                          setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "card") });
-                        }
-                      }}
-                      data-testid="checkbox-payment-card"
-                    />
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-blue-500" />
-                      <div>
-                        <span className="font-medium">Card</span>
-                        <p className="text-xs text-muted-foreground">Credit/Debit via Stripe</p>
-                      </div>
-                    </div>
-                  </label>
-
-                  {/* TWINT Payment */}
-                  <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("twint")
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                  >
-                    <Checkbox
-                      checked={formData.acceptedPaymentMethods.includes("twint")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "twint"] });
-                        } else {
-                          setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "twint") });
-                        }
-                      }}
-                      data-testid="checkbox-payment-twint"
-                    />
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 bg-[#00AAFF] rounded flex items-center justify-center text-white text-[10px] font-bold">T</div>
-                      <div>
-                        <span className="font-medium">TWINT</span>
-                        <p className="text-xs text-muted-foreground">Swiss mobile payment</p>
-                      </div>
-                    </div>
-                  </label>
-
-                  {/* Cash Payment */}
-                  <label
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("cash")
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                  >
-                    <Checkbox
-                      checked={formData.acceptedPaymentMethods.includes("cash")}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "cash"] });
-                        } else {
-                          setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "cash") });
-                        }
-                      }}
-                      data-testid="checkbox-payment-cash"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Banknote className="w-5 h-5 text-green-600" />
-                      <div>
-                        <span className="font-medium">Cash</span>
-                        <p className="text-xs text-muted-foreground">Pay in person</p>
-                      </div>
-                    </div>
-                  </label>
-                </div>
-
-                {formData.acceptedPaymentMethods.length === 0 && (
-                  <p className="text-xs text-red-500 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Please select at least one payment method
-                  </p>
-                )}
-              </div>
-
-              {/* Promotional Packages Section */}
-              <div className="space-y-4 mt-8 pt-8 border-t">
-                <div>
-                  <Label>Boost Your Service (Optional)</Label>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">
-                    Select a promotional package to increase visibility
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Standard - Free */}
-                  <div
-                    onClick={() => setFormData({ ...formData, selectedPromotionalPackage: null })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === null
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                    data-testid="package-standard"
-                  >
-                    <div className="font-semibold">Standard Listing</div>
-                    <div className="text-2xl font-bold text-primary mt-2">Free</div>
-                    <ul className="text-sm text-muted-foreground mt-3 space-y-1">
-                      <li>✓ Regular listing</li>
-                      <li>✓ Basic visibility</li>
-                      <li>✓ Customer reviews</li>
-                    </ul>
-                  </div>
-
-                  {/* Featured Service */}
-                  <div
-                    onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "featured" })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${formData.selectedPromotionalPackage === "featured"
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                    data-testid="package-featured"
-                  >
-                    <div className="absolute -top-2 left-4 bg-primary text-white text-xs px-2 py-1 rounded-full">Popular</div>
-                    <div className="font-semibold">Featured Service</div>
-                    <div className="text-2xl font-bold text-primary mt-2">CHF 9.99</div>
-                    <ul className="text-sm text-muted-foreground mt-3 space-y-1">
-                      <li>✓ Everything in Standard</li>
-                      <li>✓ Featured badge</li>
-                      <li>✓ Higher in search</li>
-                    </ul>
-                  </div>
-
-                  {/* Premium Service */}
-                  <div
-                    onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "premium" })}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === "premium"
-                      ? 'border-primary bg-primary/5'
-                      : 'border-border hover:border-primary/50'
-                      }`}
-                    data-testid="package-premium"
-                  >
-                    <div className="font-semibold">Premium Service</div>
-                    <div className="text-2xl font-bold text-primary mt-2">CHF 19.99</div>
-                    <ul className="text-sm text-muted-foreground mt-3 space-y-1">
-                      <li>✓ Everything in Featured</li>
-                      <li>✓ Premium badge</li>
-                      <li>✓ Gallery boost (8 images)</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Account Plans Info - Collapsible */}
-                <div className="mt-6 pt-6 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowAccountPlans(!showAccountPlans)}
-                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
-                    data-testid="button-toggle-account-plans"
-                  >
-                    <span>{showAccountPlans ? "▼" : "▶"}</span>
-                    💡 Account-wide Packages (See more)
-                  </button>
-
-                  {showAccountPlans && (
-                    <div className="mt-4 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Professional Badge */}
-                        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-                          <div className="font-semibold text-amber-900 dark:text-amber-100">Professional Badge</div>
-                          <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-2">CHF 5/mo</div>
-                          <ul className="text-sm text-amber-800 dark:text-amber-200 mt-3 space-y-1">
-                            <li>✓ Badge on all services</li>
-                            <li>✓ Build trust & credibility</li>
-                            <li>✓ Higher customer confidence</li>
-                            <li>✓ Account-wide visibility boost</li>
-                          </ul>
-                        </div>
-
-                        {/* Pro Account */}
-                        <div className="p-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950 dark:border-purple-800">
-                          <div className="font-semibold text-purple-900 dark:text-purple-100">Pro Account</div>
-                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-2">CHF 29/mo</div>
-                          <ul className="text-sm text-purple-800 dark:text-purple-200 mt-3 space-y-1">
-                            <li>✓ Everything in Professional</li>
-                            <li>✓ Featured in category</li>
-                            <li>✓ Priority customer support</li>
-                            <li>✓ Advanced analytics (coming soon)</li>
-                          </ul>
+                        <div>
+                          <h3 className="font-semibold text-purple-900">AI Auto-Fill</h3>
+                          <p className="text-sm text-purple-700">
+                            Generate title, description, category & hashtags in one click
+                          </p>
                         </div>
                       </div>
-                      {/* CTA Button to Plans Page */}
-                      <div className="text-center pt-2">
-                        <Link href="/plans">
+                      <div className="flex items-center gap-2">
+                        {previousFormState && (
                           <Button
                             type="button"
                             variant="outline"
-                            className="gap-2"
-                            data-testid="button-view-all-plans"
+                            size="sm"
+                            onClick={handleUndoAI}
+                            className="gap-2 border-orange-200 hover:border-orange-300 hover:bg-orange-50"
+                            data-testid="button-undo-ai"
                           >
-                            <Sparkles className="w-4 h-4" />
-                            View All Plans & Subscribe
-                            <ChevronRight className="w-4 h-4" />
+                            <Undo2 className="w-4 h-4 text-orange-600" />
+                            Undo
                           </Button>
-                        </Link>
+                        )}
+                        <Button
+                          type="button"
+                          onClick={handleAISuggestAll}
+                          disabled={formData.images.length === 0 || isAiSuggestingAll}
+                          className="gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md"
+                          data-testid="button-ai-suggest-all"
+                        >
+                          {isAiSuggestingAll ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Wand2 className="w-4 h-4" />
+                              Autocomplete with AI
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    {formData.images.length === 0 && (
+                      <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
+                        <Camera className="w-3 h-3" />
+                        Upload at least one image to use AI auto-fill
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Title & Description */}
+                  <div className="rounded-xl border p-6 space-y-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Title & Description</h3>
+                        <p className="text-sm text-muted-foreground">Describe your service</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="title">Service Title * <span className="text-xs text-muted-foreground">(min. 5 characters)</span></Label>
+                      <Input
+                        id="title"
+                        ref={titleRef}
+                        placeholder="e.g., Professional House Cleaning"
+                        value={formData.title}
+                        onChange={(e) => {
+                          setFormData({ ...formData, title: e.target.value });
+                          // Clear error when typing
+                          if (touchedFields.title && e.target.value.trim().length >= 5) {
+                            setFieldErrors(prev => ({ ...prev, title: '' }));
+                          }
+                        }}
+                        onBlur={() => handleFieldBlur('title')}
+                        className={`text-lg ${touchedFields.title && fieldErrors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                        data-testid="input-service-title"
+                      />
+                      {touchedFields.title && fieldErrors.title && (
+                        <p className="text-sm text-red-500 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          {fieldErrors.title}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description * <span className="text-xs text-muted-foreground">(min. 20 characters)</span></Label>
+                      <Textarea
+                        id="description"
+                        ref={descriptionRef}
+                        placeholder="Describe your service in detail..."
+                        rows={5}
+                        value={formData.description}
+                        onChange={(e) => {
+                          setFormData({ ...formData, description: e.target.value });
+                          // Clear error when typing
+                          if (touchedFields.description && e.target.value.trim().length >= 20) {
+                            setFieldErrors(prev => ({ ...prev, description: '' }));
+                          }
+                        }}
+                        onBlur={() => handleFieldBlur('description')}
+                        className={touchedFields.description && fieldErrors.description ? 'border-red-500 focus-visible:ring-red-500' : ''}
+                        data-testid="textarea-service-description"
+                      />
+                      {touchedFields.description && fieldErrors.description && (
+                        <p className="text-sm text-red-500 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          {fieldErrors.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div ref={categoryRef}>
+                    <CategorySubcategorySelector
+                      categoryId={formData.categoryId}
+                      subcategoryId={formData.subcategoryId}
+                      onCategoryChange={handleCategoryChange}
+                      onSubcategoryChange={handleSubcategoryChange}
+                      isManualOverride={isManualOverride}
+                      aiSuggestion={aiSuggestion}
+                      onResetToAI={handleResetToAI}
+                      isAiLoading={isAiCategoryLoading}
+                    />
+                    {onSuggestCategory && !isEditMode && (
+                      <p className="text-sm text-muted-foreground">
+                        Can't find the right category?{" "}
+                        <button
+                          type="button"
+                          onClick={onSuggestCategory}
+                          className="text-primary hover:underline font-medium"
+                          data-testid="button-suggest-category-inline"
+                        >
+                          Suggest a new one
+                        </button>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Hashtags Section */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Hashtags (Optional)</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Add up to 3 hashtags to help users discover your service
+                      </p>
+                    </div>
+
+                    {/* Current Hashtags */}
+                    {formData.hashtags.length > 0 && (
+                      <div className="flex flex-wrap gap-2" data-testid="hashtags-container">
+                        {formData.hashtags.map((tag: string) => (
+                          <Badge
+                            key={tag}
+                            variant="secondary"
+                            className="pl-3 pr-2 py-1.5 text-sm flex items-center gap-1"
+                            data-testid={`hashtag-badge-${tag}`}
+                          >
+                            <Hash className="w-3 h-3" />
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => removeHashtag(tag)}
+                              className="ml-1 hover:text-destructive"
+                              data-testid={`button-remove-hashtag-${tag}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Hashtag Input */}
+                    {formData.hashtags.length < 3 && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Type a hashtag and press Enter"
+                          value={hashtagInput}
+                          onChange={(e) => setHashtagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addHashtag(hashtagInput);
+                            }
+                          }}
+                          data-testid="input-hashtag"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => addHashtag(hashtagInput)}
+                          disabled={!hashtagInput.trim()}
+                          data-testid="button-add-hashtag"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Location & Contacts Tab */}
+                <TabsContent value="location" className="space-y-6 mt-0">
+                  {/* Locations Section */}
+                  <div ref={locationRef} className="rounded-xl border bg-gradient-to-br from-blue-50/50 to-white p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <MapPin className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Service Locations</h3>
+                        <p className="text-sm text-muted-foreground">Where do you offer this service?</p>
+                      </div>
+                    </div>
+
+                    {/* Quick select from user's saved addresses (i) */}
+                    {!isEditMode && userAddresses.length > 1 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Quick Select from Your Addresses</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {userAddresses.map((addr: any, idx: number) => {
+                            const fullAddr = addr.fullAddress || `${addr.street}, ${addr.postalCode} ${addr.city}`;
+                            const isSelected = formData.locations.includes(fullAddr);
+                            return (
+                              <Button
+                                key={idx}
+                                type="button"
+                                variant={isSelected ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setFormData((prev: FormData | null) => ({
+                                      ...prev!,
+                                      locations: prev!.locations.filter(l => l !== fullAddr)
+                                    }));
+                                  } else {
+                                    setFormData((prev: FormData | null) => ({
+                                      ...prev!,
+                                      locations: [...prev!.locations, fullAddr]
+                                    }));
+                                  }
+                                }}
+                                className="text-xs gap-1.5"
+                                data-testid={`select-address-${idx}`}
+                              >
+                                <MapPin className="w-3 h-3" />
+                                {addr.label || `${addr.city} ${addr.postalCode}`}
+                                {addr.isMain && <Badge variant="secondary" className="ml-1 text-[10px] px-1">Main</Badge>}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Click to add/remove addresses, or search for new ones below</p>
+                      </div>
+                    )}
+
+                    {addressErrors.length > 0 && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <ul className="list-disc pl-4">
+                            {addressErrors.map((error: string, idx: number) => (
+                              <li key={idx}>{error}</li>
+                            ))}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <LocationAutocomplete
+                      locations={formData.locations.filter((l: string | undefined) => l && typeof l === 'string' && l.trim())}
+                      onLocationsChange={(locations: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, locations }))}
+                      maxLocations={10}
+                      label=""
+                      required={true}
+                      testIdPrefix="service-location"
+                    />
+                    {settings?.enableSwissAddressValidation && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-green-500" />
+                        Addresses will be validated for Switzerland
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Contacts Section - Only show if enabled */}
+                  {contactsEnabled && (
+                    <div ref={contactRef} className="rounded-xl border p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <Phone className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold">
+                              Contact Information
+                              {!contactsRequired && <span className="text-muted-foreground font-normal ml-1">(optional)</span>}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">How can customers reach you? Add phone and/or email.</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={addContact}
+                          disabled={formData.contacts.length >= 3}
+                          className="gap-1.5"
+                          data-testid="button-add-contact"
+                        >
+                          <Plus className="w-4 h-4" /> Add Contact
+                        </Button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {formData.contacts.map((contact: Contact, idx: number) => (
+                          <ContactInput
+                            key={idx}
+                            contact={contact}
+                            index={idx}
+                            canRemove={formData.contacts.length > 1 || !contactsRequired}
+                            verificationEnabled={!!verificationEnabled}
+                            showVerification={false}
+                            onUpdate={updateContact}
+                            onRemove={removeContact}
+                          />
+                        ))}
+
+                        {formData.contacts.length === 0 && contactsRequired && (
+                          <div className="text-center py-6 text-muted-foreground">
+                            <Phone className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">Please add at least one contact method</p>
+                          </div>
+                        )}
+
+                        {formData.contacts.length === 0 && !contactsRequired && (
+                          <div className="text-center py-4 text-muted-foreground border-2 border-dashed rounded-lg">
+                            <p className="text-sm">No contact info added yet</p>
+                            <p className="text-xs mt-1">Customers will contact you through the platform</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </form>
+                </TabsContent>
 
-        {/* Fixed Footer with Navigation - Outside form, uses form attribute */}
-        <div className="flex items-center justify-between pt-4 pb-2 border-t bg-background flex-shrink-0">
-          {/* Left side - Back button and Save Draft */}
-          <div className="flex gap-2">
-            {!isFirstTab && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={goToPreviousTab}
-                data-testid="button-previous-step"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
-            )}
-            {/* Save Draft button - always visible in create mode (h) */}
-            {!isEditMode && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSaveDraft}
-                disabled={!formData.title.trim() || createServiceMutation.isPending}
-                data-testid="button-save-draft"
-                className={draftSaved ? "border-green-500 text-green-600" : ""}
-              >
-                {createServiceMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    Saving...
-                  </>
-                ) : draftSaved ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                    Draft Saved
-                  </>
-                ) : "Save Draft"}
-              </Button>
-            )}
-          </div>
+                {/* Pricing & Plans Tab */}
+                <TabsContent value="pricing" className="space-y-6 mt-0">
+                  {/* Pricing Type Section */}
+                  <div className="rounded-xl border bg-gradient-to-br from-amber-50/50 to-white p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Pricing Strategy</h3>
+                        <p className="text-sm text-muted-foreground">How would you like to price your service?</p>
+                      </div>
+                    </div>
 
-          {/* Right side - Cancel and Next/Publish */}
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              data-testid="button-cancel-service"
-            >
-              Cancel
-            </Button>
+                    <div className="grid grid-cols-3 gap-3">
+                      {(["fixed", "list", "text"] as PricingType[]).map((type) => (
+                        <label
+                          key={type}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.priceType === type
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border hover:border-primary/50'
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="priceType"
+                            value={type}
+                            checked={formData.priceType === type}
+                            onChange={(e) => setFormData({ ...formData, priceType: e.target.value as PricingType })}
+                            className="sr-only"
+                            data-testid={`radio-price-type-${type}`}
+                          />
+                          <span className="text-2xl">
+                            {type === "fixed" ? "💰" : type === "list" ? "📋" : "✍️"}
+                          </span>
+                          <span className="font-medium text-sm text-center">
+                            {type === "list" ? "Price List" : type === "text" ? "Text-based" : "Fixed Price"}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
-            {/* Show Next button if not on last tab, otherwise show Publish/Update */}
-            {!isLastTab ? (
-              <Button
-                type="button"
-                onClick={goToNextTab}
-                className="min-w-[100px]"
-                data-testid="button-next-step"
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                form="service-form"
-                disabled={isSubmitDisabled || !formProgress.isComplete}
-                className="min-w-[140px] bg-gradient-to-r from-primary to-primary/90"
-                data-testid="button-submit-service"
-              >
-                {validatingAddresses ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                    Validating...
-                  </>
-                ) : isEditMode ? (
-                  updateServiceMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                      Update Service
-                    </>
-                  )
-                ) : (
-                  createServiceMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                      Publishing...
-                    </>
-                  ) : formProgress.isComplete ? (
-                    "Publish Service"
-                  ) : (
-                    <>
-                      <span className="hidden sm:inline">
-                        Missing: {formProgress.steps.filter(s => !s.done).map(s => s.label).join(', ')}
-                      </span>
-                      <span className="sm:hidden">
-                        {formProgress.steps.filter(s => !s.done).length} steps left
-                      </span>
-                    </>
-                  )
+                  {/* Fixed Pricing */}
+                  {formData.priceType === "fixed" && (
+                    <div className="rounded-xl border p-6 space-y-4">
+                      <h4 className="font-medium">Set Your Price</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="price">Price (CHF) *</Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={formData.price}
+                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                            className="text-lg"
+                            data-testid="input-service-price"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="priceUnit">Per *</Label>
+                          <select
+                            id="priceUnit"
+                            value={formData.priceUnit}
+                            onChange={(e) => setFormData({ ...formData, priceUnit: e.target.value })}
+                            className="w-full px-3 py-2 border border-input rounded-md bg-background h-10"
+                            data-testid="select-service-price-unit"
+                          >
+                            <option value="hour">Hour</option>
+                            <option value="job">Job</option>
+                            <option value="consultation">Consultation</option>
+                            <option value="day">Day</option>
+                            <option value="month">Month</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price List */}
+                  {formData.priceType === "list" && (
+                    <div className="rounded-xl border p-6 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium">Price List Items</h4>
+                        <Button type="button" size="sm" variant="outline" onClick={addPriceItem} className="gap-1.5" data-testid="button-add-price-item">
+                          <Plus className="w-4 h-4" /> Add Item
+                        </Button>
+                      </div>
+                      {formData.priceList.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <span className="text-4xl block mb-2">📋</span>
+                          <p className="text-sm">Click "Add Item" to create your price list</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {formData.priceList.map((item: PriceItem, idx: number) => (
+                            <div key={idx} className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg">
+                              <Input
+                                placeholder="Description (e.g., Basic)"
+                                value={item.description}
+                                onChange={(e) => updatePriceItem(idx, "description", e.target.value)}
+                                data-testid={`input-price-item-description-${idx}`}
+                              />
+                              <Input
+                                placeholder="Price"
+                                type="number"
+                                step="0.01"
+                                value={item.price}
+                                onChange={(e) => updatePriceItem(idx, "price", e.target.value)}
+                                data-testid={`input-price-item-price-${idx}`}
+                              />
+                              <div className="flex gap-2">
+                                <Input
+                                  placeholder="Unit (e.g., hour)"
+                                  value={item.unit}
+                                  onChange={(e) => updatePriceItem(idx, "unit", e.target.value)}
+                                  data-testid={`input-price-item-unit-${idx}`}
+                                />
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => removePriceItem(idx)}
+                                  data-testid={`button-remove-price-item-${idx}`}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Text-based Pricing */}
+                  {formData.priceType === "text" && (
+                    <div className="rounded-xl border p-6 space-y-4">
+                      <h4 className="font-medium">Price Description</h4>
+                      <Textarea
+                        id="priceText"
+                        placeholder="e.g., Flexible pricing based on project scope. Contact for quote."
+                        rows={4}
+                        value={formData.priceText}
+                        onChange={(e) => setFormData({ ...formData, priceText: e.target.value })}
+                        data-testid="textarea-price-text"
+                      />
+                    </div>
+                  )}
+
+                  {/* Accepted Payment Methods Section */}
+                  <div className="rounded-xl border bg-gradient-to-br from-green-50/50 to-white p-6 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Accepted Payment Methods *</h3>
+                        <p className="text-sm text-muted-foreground">How would you like to get paid for this service?</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Card Payment */}
+                      <label
+                        className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("card")
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                      >
+                        <Checkbox
+                          checked={formData.acceptedPaymentMethods.includes("card")}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "card"] });
+                            } else {
+                              setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "card") });
+                            }
+                          }}
+                          data-testid="checkbox-payment-card"
+                        />
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <span className="font-medium">Card</span>
+                            <p className="text-xs text-muted-foreground">Credit/Debit via Stripe</p>
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* TWINT Payment */}
+                      <label
+                        className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("twint")
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                      >
+                        <Checkbox
+                          checked={formData.acceptedPaymentMethods.includes("twint")}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "twint"] });
+                            } else {
+                              setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "twint") });
+                            }
+                          }}
+                          data-testid="checkbox-payment-twint"
+                        />
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 bg-[#00AAFF] rounded flex items-center justify-center text-white text-[10px] font-bold">T</div>
+                          <div>
+                            <span className="font-medium">TWINT</span>
+                            <p className="text-xs text-muted-foreground">Swiss mobile payment</p>
+                          </div>
+                        </div>
+                      </label>
+
+                      {/* Cash Payment */}
+                      <label
+                        className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.acceptedPaymentMethods.includes("cash")
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                      >
+                        <Checkbox
+                          checked={formData.acceptedPaymentMethods.includes("cash")}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormData({ ...formData, acceptedPaymentMethods: [...formData.acceptedPaymentMethods, "cash"] });
+                            } else {
+                              setFormData({ ...formData, acceptedPaymentMethods: formData.acceptedPaymentMethods.filter(m => m !== "cash") });
+                            }
+                          }}
+                          data-testid="checkbox-payment-cash"
+                        />
+                        <div className="flex items-center gap-2">
+                          <Banknote className="w-5 h-5 text-green-600" />
+                          <div>
+                            <span className="font-medium">Cash</span>
+                            <p className="text-xs text-muted-foreground">Pay in person</p>
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+
+                    {formData.acceptedPaymentMethods.length === 0 && (
+                      <p className="text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Please select at least one payment method
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Promotional Packages Section */}
+                  <div className="space-y-4 mt-8 pt-8 border-t">
+                    <div>
+                      <Label>Boost Your Service (Optional)</Label>
+                      <p className="text-sm text-muted-foreground mt-1 mb-4">
+                        Select a promotional package to increase visibility
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Standard - Free */}
+                      <div
+                        onClick={() => setFormData({ ...formData, selectedPromotionalPackage: null })}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === null
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                        data-testid="package-standard"
+                      >
+                        <div className="font-semibold">Standard Listing</div>
+                        <div className="text-2xl font-bold text-primary mt-2">Free</div>
+                        <ul className="text-sm text-muted-foreground mt-3 space-y-1">
+                          <li>✓ Regular listing</li>
+                          <li>✓ Basic visibility</li>
+                          <li>✓ Customer reviews</li>
+                        </ul>
+                      </div>
+
+                      {/* Featured Service */}
+                      <div
+                        onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "featured" })}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all relative ${formData.selectedPromotionalPackage === "featured"
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                        data-testid="package-featured"
+                      >
+                        <div className="absolute -top-2 left-4 bg-primary text-white text-xs px-2 py-1 rounded-full">Popular</div>
+                        <div className="font-semibold">Featured Service</div>
+                        <div className="text-2xl font-bold text-primary mt-2">CHF 9.99</div>
+                        <ul className="text-sm text-muted-foreground mt-3 space-y-1">
+                          <li>✓ Everything in Standard</li>
+                          <li>✓ Featured badge</li>
+                          <li>✓ Higher in search</li>
+                        </ul>
+                      </div>
+
+                      {/* Premium Service */}
+                      <div
+                        onClick={() => setFormData({ ...formData, selectedPromotionalPackage: "premium" })}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${formData.selectedPromotionalPackage === "premium"
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border hover:border-primary/50'
+                          }`}
+                        data-testid="package-premium"
+                      >
+                        <div className="font-semibold">Premium Service</div>
+                        <div className="text-2xl font-bold text-primary mt-2">CHF 19.99</div>
+                        <ul className="text-sm text-muted-foreground mt-3 space-y-1">
+                          <li>✓ Everything in Featured</li>
+                          <li>✓ Premium badge</li>
+                          <li>✓ Gallery boost (8 images)</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Account Plans Info - Collapsible */}
+                    <div className="mt-6 pt-6 border-t">
+                      <button
+                        type="button"
+                        onClick={() => setShowAccountPlans(!showAccountPlans)}
+                        className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                        data-testid="button-toggle-account-plans"
+                      >
+                        <span>{showAccountPlans ? "▼" : "▶"}</span>
+                        💡 Account-wide Packages (See more)
+                      </button>
+
+                      {showAccountPlans && (
+                        <div className="mt-4 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Professional Badge */}
+                            <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+                              <div className="font-semibold text-amber-900 dark:text-amber-100">Professional Badge</div>
+                              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-2">CHF 5/mo</div>
+                              <ul className="text-sm text-amber-800 dark:text-amber-200 mt-3 space-y-1">
+                                <li>✓ Badge on all services</li>
+                                <li>✓ Build trust & credibility</li>
+                                <li>✓ Higher customer confidence</li>
+                                <li>✓ Account-wide visibility boost</li>
+                              </ul>
+                            </div>
+
+                            {/* Pro Account */}
+                            <div className="p-4 rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950 dark:border-purple-800">
+                              <div className="font-semibold text-purple-900 dark:text-purple-100">Pro Account</div>
+                              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-2">CHF 29/mo</div>
+                              <ul className="text-sm text-purple-800 dark:text-purple-200 mt-3 space-y-1">
+                                <li>✓ Everything in Professional</li>
+                                <li>✓ Featured in category</li>
+                                <li>✓ Priority customer support</li>
+                                <li>✓ Advanced analytics (coming soon)</li>
+                              </ul>
+                            </div>
+                          </div>
+                          {/* CTA Button to Plans Page */}
+                          <div className="text-center pt-2">
+                            <Link href="/plans">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="gap-2"
+                                data-testid="button-view-all-plans"
+                              >
+                                <Sparkles className="w-4 h-4" />
+                                View All Plans & Subscribe
+                                <ChevronRight className="w-4 h-4" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </form>
+
+            {/* Fixed Footer with Navigation - Outside form, uses form attribute */}
+            <div className="flex items-center justify-between pt-4 pb-2 border-t bg-background flex-shrink-0">
+              {/* Left side - Back button and Save Draft */}
+              <div className="flex gap-2">
+                {!isFirstTab && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={goToPreviousTab}
+                    data-testid="button-previous-step"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Back
+                  </Button>
                 )}
-              </Button>
-            )}
+                {/* Save Draft button - always visible in create mode (h) */}
+                {!isEditMode && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleSaveDraft}
+                    disabled={!formData.title.trim() || createServiceMutation.isPending}
+                    data-testid="button-save-draft"
+                    className={draftSaved ? "border-green-500 text-green-600" : ""}
+                  >
+                    {createServiceMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : draftSaved ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                        Draft Saved
+                      </>
+                    ) : "Save Draft"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Right side - Cancel and Next/Publish */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                  data-testid="button-cancel-service"
+                >
+                  Cancel
+                </Button>
+
+                {/* Show Next button if not on last tab, otherwise show Publish/Update */}
+                {!isLastTab ? (
+                  <Button
+                    type="button"
+                    onClick={goToNextTab}
+                    className="min-w-[100px]"
+                    data-testid="button-next-step"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    form="service-form"
+                    disabled={isSubmitDisabled || !formProgress.isComplete}
+                    className="min-w-[140px] bg-gradient-to-r from-primary to-primary/90"
+                    data-testid="button-submit-service"
+                  >
+                    {validatingAddresses ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                        Validating...
+                      </>
+                    ) : isEditMode ? (
+                      updateServiceMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          Update Service
+                        </>
+                      )
+                    ) : (
+                      createServiceMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                          Publishing...
+                        </>
+                      ) : formProgress.isComplete ? (
+                        "Publish Service"
+                      ) : (
+                        <>
+                          <span className="hidden sm:inline">
+                            Missing: {formProgress.steps.filter(s => !s.done).map(s => s.label).join(', ')}
+                          </span>
+                          <span className="sm:hidden">
+                            {formProgress.steps.filter(s => !s.done).length} steps left
+                          </span>
+                        </>
+                      )
+                    )}
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Right Side - Progress Sidebar (Desktop Only) */}
+          {!isEditMode && formData && (
+            <div className="hidden lg:flex flex-col w-80 border-l bg-muted/30 p-6">
+              <h3 className="text-lg font-semibold mb-4">Your Progress</h3>
+
+              {/* Progress percentage */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">Completion</span>
+                  <span className="font-bold text-2xl text-primary">{formProgress.percentage}%</span>
+                </div>
+                <Progress value={formProgress.percentage} className="h-3" />
+              </div>
+
+              {/* Step list */}
+              <div className="space-y-3 flex-1">
+                {formProgress.steps.map((step) => (
+                  <div
+                    key={step.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${step.done
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-background text-muted-foreground'
+                      }`}
+                  >
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${step.done
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                      }`}>
+                      {step.done ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <step.icon className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <p className={`font-medium ${step.done ? 'text-primary' : ''}`}>{step.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {step.done ? 'Completed' : 'Pending'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tips section */}
+              <div className="mt-6 p-4 bg-background rounded-lg border">
+                <h4 className="font-medium text-sm mb-2">💡 Tips</h4>
+                <p className="text-xs text-muted-foreground">
+                  Complete all steps for better visibility. Services with photos get 3x more views!
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
 
