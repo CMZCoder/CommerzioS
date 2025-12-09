@@ -1856,6 +1856,54 @@ export default function Profile() {
                     </TabsTrigger>
                   </TabsList>
 
+                  {/* Bulk Action Buttons */}
+                  {activeServices.length > 0 && listingsSubTab === 'active' && (
+                    <div className="flex items-center gap-2 mb-4 justify-end">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Pause all ${activeServices.length} active services?`)) {
+                            activeServices.forEach(s => updateServiceMutation.mutate({ id: s.id, data: { status: 'paused' } }));
+                          }
+                        }}
+                        disabled={updateServiceMutation.isPending}
+                      >
+                        Pause All
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Delete all ${activeServices.length} active services? This cannot be undone!`)) {
+                            activeServices.forEach(s => deleteServiceMutation.mutate(s.id));
+                          }
+                        }}
+                        disabled={deleteServiceMutation.isPending}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Delete All
+                      </Button>
+                    </div>
+                  )}
+                  {allServices.filter(s => s.status === 'paused').length > 0 && listingsSubTab === 'all' && (
+                    <div className="flex items-center gap-2 mb-4 justify-end">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => {
+                          const pausedServices = allServices.filter(s => s.status === 'paused');
+                          if (confirm(`Resume all ${pausedServices.length} paused services?`)) {
+                            pausedServices.forEach(s => updateServiceMutation.mutate({ id: s.id, data: { status: 'active' } }));
+                          }
+                        }}
+                        disabled={updateServiceMutation.isPending}
+                      >
+                        Resume All Paused
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Active Listings Tab */}
                   <TabsContent value="active">
                     {servicesLoading ? (
@@ -1867,18 +1915,22 @@ export default function Profile() {
                         {activeServices.map(service => {
                           const expired = isExpired(service.expiresAt);
                           return (
-                            <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:bg-accent transition-colors">
-                              <div className="w-full md:w-48 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
-                                <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''}`} />
+                            <div key={service.id} className="flex flex-col md:flex-row gap-6 p-4 border rounded-lg hover:border-primary/50 hover:shadow-sm transition-all">
+                              {/* Clickable Image */}
+                              <Link href={`/service/${service.id}`} className="w-full md:w-48 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative cursor-pointer group">
+                                <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired ? 'grayscale opacity-70' : ''} group-hover:scale-105 transition-transform duration-300`} />
                                 {expired && (
                                   <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                                     <Badge variant="destructive">Expired</Badge>
                                   </div>
                                 )}
-                              </div>
+                              </Link>
                               <div className="flex-1 py-1">
                                 <div className="flex items-start justify-between mb-2">
-                                  <h3 className="font-bold text-lg">{service.title}</h3>
+                                  {/* Clickable Title */}
+                                  <Link href={`/service/${service.id}`} className="font-bold text-lg hover:text-primary transition-colors cursor-pointer">
+                                    {service.title}
+                                  </Link>
                                   <Badge variant={service.status === 'active' && !expired ? 'default' : 'secondary'}>
                                     {expired ? 'Expired' : service.status}
                                   </Badge>
@@ -2031,19 +2083,23 @@ export default function Profile() {
                           const expired = isExpired(service.expiresAt);
                           const isDraft = service.status === 'draft';
                           return (
-                            <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg hover:bg-accent transition-colors">
-                              <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
+                            <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg hover:border-primary/50 hover:shadow-sm transition-all">
+                              {/* Clickable Image */}
+                              <Link href={`/service/${service.id}`} className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative cursor-pointer group">
                                 {service.images && service.images[0] ? (
-                                  <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired || isDraft ? 'opacity-70' : ''}`} />
+                                  <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired || isDraft ? 'opacity-70' : ''} group-hover:scale-105 transition-transform duration-300`} />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                                     <Camera className="w-6 h-6" />
                                   </div>
                                 )}
-                              </div>
+                              </Link>
                               <div className="flex-1 py-1">
                                 <div className="flex items-start justify-between mb-1">
-                                  <h3 className="font-medium">{service.title || <span className="text-muted-foreground italic">Untitled</span>}</h3>
+                                  {/* Clickable Title */}
+                                  <Link href={`/service/${service.id}`} className="font-medium hover:text-primary transition-colors cursor-pointer">
+                                    {service.title || <span className="text-muted-foreground italic">Untitled</span>}
+                                  </Link>
                                   <div className="flex gap-1">
                                     {isDraft && <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">Draft</Badge>}
                                     {!isDraft && expired && <Badge variant="destructive" className="text-xs">Expired</Badge>}
