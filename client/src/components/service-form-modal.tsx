@@ -799,7 +799,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         }),
       });
 
-      // Apply all suggestions at once
+      // Invalidate and refetch subcategories FIRST to ensure new subcategory appears in dropdown
+      // before we try to select it
+      await queryClient.invalidateQueries({ queryKey: ["/api/subcategories"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/subcategories"] });
+
+      // Apply all suggestions at once - NOW the subcategory will be in the dropdown
       setFormData((prev: FormData | null) => ({
         ...prev!,
         title: response.title || prev!.title,
@@ -821,9 +826,6 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         title: "AI Suggestions Applied!",
         description: "Title, description, category, and hashtags have been generated. Feel free to edit them!",
       });
-
-      // Invalidate subcategories query to ensure new subcategory appears in dropdown
-      queryClient.invalidateQueries({ queryKey: ["/api/subcategories"] });
     } catch (error: any) {
       console.error("AI suggest all error:", error);
       // Clear saved state on failure
