@@ -449,49 +449,35 @@ export default function Home() {
                     : "Browse services across Switzerland"
                   }
                 </p>
-                <div className="flex items-center gap-2">
-                  {/* Map Toggle Button - Fixed position */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`h-8 text-xs ${isMapVisible
-                      ? 'border-destructive/30 hover:bg-destructive/10 hover:text-destructive'
-                      : 'border-primary/20 hover:bg-primary/5 hover:text-primary'}`}
-                    onClick={() => {
-                      if (isMapVisible) {
-                        setIsMapVisible(false);
-                        setIsMapExpanded(false);
-                      } else {
-                        setIsMapVisible(true);
-                        setIsMapExpanded(true);
-                      }
-                    }}
-                  >
-                    {isMapVisible ? (
-                      <>
-                        <X className="w-3 h-3 mr-1" />
-                        Close Map
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="w-3 h-3 mr-1" />
-                        Open Map
-                      </>
-                    )}
-                  </Button>
-
-                  {/* Show expand button when we have services */}
-                  {nearbyServices.length > 0 && !nearbyLoading && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-primary hover:text-primary/80"
-                      onClick={() => setNearbyMode((m) => (m === "slider" ? "grid" : "slider"))}
-                    >
-                      {nearbyMode === "slider" ? "Expand to Grid" : "Minimize to Slider"}
-                    </Button>
+                {/* Map Toggle Button - Fixed position, alone */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-8 text-xs ${isMapVisible
+                    ? 'border-destructive/30 hover:bg-destructive/10 hover:text-destructive'
+                    : 'border-primary/20 hover:bg-primary/5 hover:text-primary'}`}
+                  onClick={() => {
+                    if (isMapVisible) {
+                      setIsMapVisible(false);
+                      setIsMapExpanded(false);
+                    } else {
+                      setIsMapVisible(true);
+                      setIsMapExpanded(true);
+                    }
+                  }}
+                >
+                  {isMapVisible ? (
+                    <>
+                      <X className="w-3 h-3 mr-1" />
+                      Close Map
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-3 h-3 mr-1" />
+                      Open Map
+                    </>
                   )}
-                </div>
+                </Button>
               </div>
             </div>
 
