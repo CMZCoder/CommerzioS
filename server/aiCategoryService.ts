@@ -20,18 +20,18 @@ export async function validateCategoryName(categoryName: string, description?: s
   // First, get all existing categories and subcategories
   const allCategories = await storage.getCategories();
   const allSubcategories = await storage.getSubcategories();
-  
+
   // Build a list of existing category/subcategory names for the AI
   const existingCategoriesStr = allCategories.map(c => `- ${c.name} (id: ${c.id})`).join('\\n');
   const existingSubcategoriesStr = allSubcategories.map(s => {
     const parent = allCategories.find(c => c.id === s.categoryId);
     return `- ${s.name} (id: ${s.id}, parent: ${parent?.name || 'unknown'})`;
   }).join('\\n');
-  
+
   // Check for fuzzy match first
   const fuzzyMatch = findSimilarCategoryName(categoryName, allCategories);
   const fuzzySubcategoryMatch = findSimilarSubcategoryName(categoryName, allSubcategories, allCategories);
-  
+
   const prompt = `Evaluate if this category name makes sense for a Swiss service marketplace.
 The user wants to create a NEW category named: "${categoryName}"
 ${description ? `Description: "${description}"` : ''}
@@ -86,7 +86,7 @@ Respond in JSON format:
     });
 
     const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
-    
+
     return {
       isValid: result.isValid || false,
       suggestedName: result.suggestedName,
@@ -99,7 +99,7 @@ Respond in JSON format:
     };
   } catch (error) {
     console.error("Error validating category:", error);
-    
+
     // If AI fails, still check for obvious matches
     if (fuzzyMatch.similarity > 0.85 && fuzzyMatch.category) {
       return {
@@ -110,7 +110,7 @@ Respond in JSON format:
         existingCategoryName: fuzzyMatch.category.name,
       };
     }
-    
+
     return {
       isValid: false,
       reasoning: "Failed to validate category. Please submit for admin review.",
@@ -150,37 +150,37 @@ Format as a conversational response suggesting the alternatives.`;
 }
 
 // Check if a category already exists (fuzzy matching)
-export function findSimilarCategoryName(categoryName: string, existingCategories: Array<{name: string; id: string}>): {category: {name: string; id: string} | null; similarity: number} {
+export function findSimilarCategoryName(categoryName: string, existingCategories: Array<{ name: string; id: string }>): { category: { name: string; id: string } | null; similarity: number } {
   const normalize = (str: string) => str.toLowerCase().trim().replace(/[&,]/g, '').replace(/\s+/g, ' ');
   const normalizedInput = normalize(categoryName);
-  
-  let bestMatch: {category: {name: string; id: string} | null; similarity: number} = {
+
+  let bestMatch: { category: { name: string; id: string } | null; similarity: number } = {
     category: null,
     similarity: 0
   };
 
   for (const existing of existingCategories) {
     const normalizedExisting = normalize(existing.name);
-    
+
     // Exact match after normalization
     if (normalizedInput === normalizedExisting) {
       return { category: existing, similarity: 1.0 };
     }
-    
+
     // Strong substring match - catches "Childcare Parenting" vs "Childcare Parenting Services"
     const inputWords = normalizedInput.split(' ').filter(w => w.length > 2);
     const existingWords = normalizedExisting.split(' ').filter(w => w.length > 2);
-    
+
     // Check if one contains most of the other's significant words
     const commonWords = inputWords.filter(w => existingWords.includes(w));
     const minWords = Math.min(inputWords.length, existingWords.length);
     const wordSimilarity = minWords > 0 ? commonWords.length / minWords : 0;
-    
+
     if (wordSimilarity >= 0.8) {
       // Very high word overlap - these are likely the same category
       return { category: existing, similarity: 0.95 };
     }
-    
+
     // Regular substring match
     if (normalizedInput.includes(normalizedExisting) || normalizedExisting.includes(normalizedInput)) {
       if (bestMatch.similarity < 0.85) {
@@ -188,75 +188,75 @@ export function findSimilarCategoryName(categoryName: string, existingCategories
       }
       continue;
     }
-    
+
     // Levenshtein distance for fuzzy matching
     const distance = levenshteinDistance(normalizedInput, normalizedExisting);
     const maxLen = Math.max(normalizedInput.length, normalizedExisting.length);
     const similarity = 1 - (distance / maxLen);
-    
+
     if (similarity > 0.75 && similarity > bestMatch.similarity) {
       bestMatch = { category: existing, similarity };
     }
   }
-  
+
   return bestMatch;
 }
 
 // Check if a subcategory already exists (fuzzy matching)
 export function findSimilarSubcategoryName(
-  name: string, 
-  existingSubcategories: Array<{name: string; id: string; categoryId: string}>,
-  existingCategories: Array<{name: string; id: string}>
-): {subcategory: {name: string; id: string; categoryId: string; categoryName?: string} | null; similarity: number} {
+  name: string,
+  existingSubcategories: Array<{ name: string; id: string; categoryId: string }>,
+  existingCategories: Array<{ name: string; id: string }>
+): { subcategory: { name: string; id: string; categoryId: string; categoryName?: string } | null; similarity: number } {
   const normalize = (str: string) => str.toLowerCase().trim().replace(/[&,]/g, '').replace(/\s+/g, ' ');
   const normalizedInput = normalize(name);
-  
-  let bestMatch: {subcategory: {name: string; id: string; categoryId: string; categoryName?: string} | null; similarity: number} = {
+
+  let bestMatch: { subcategory: { name: string; id: string; categoryId: string; categoryName?: string } | null; similarity: number } = {
     subcategory: null,
     similarity: 0
   };
 
   for (const existing of existingSubcategories) {
     const normalizedExisting = normalize(existing.name);
-    
+
     // Exact match after normalization
     if (normalizedInput === normalizedExisting) {
       const parentCat = existingCategories.find(c => c.id === existing.categoryId);
-      return { 
-        subcategory: { ...existing, categoryName: parentCat?.name }, 
-        similarity: 1.0 
+      return {
+        subcategory: { ...existing, categoryName: parentCat?.name },
+        similarity: 1.0
       };
     }
-    
+
     // Word-based similarity
     const inputWords = normalizedInput.split(' ').filter(w => w.length > 2);
     const existingWords = normalizedExisting.split(' ').filter(w => w.length > 2);
     const commonWords = inputWords.filter(w => existingWords.includes(w));
     const minWords = Math.min(inputWords.length, existingWords.length);
     const wordSimilarity = minWords > 0 ? commonWords.length / minWords : 0;
-    
+
     if (wordSimilarity >= 0.8) {
       const parentCat = existingCategories.find(c => c.id === existing.categoryId);
-      return { 
-        subcategory: { ...existing, categoryName: parentCat?.name }, 
-        similarity: 0.95 
+      return {
+        subcategory: { ...existing, categoryName: parentCat?.name },
+        similarity: 0.95
       };
     }
-    
+
     // Levenshtein distance
     const distance = levenshteinDistance(normalizedInput, normalizedExisting);
     const maxLen = Math.max(normalizedInput.length, normalizedExisting.length);
     const similarity = 1 - (distance / maxLen);
-    
+
     if (similarity > 0.75 && similarity > bestMatch.similarity) {
       const parentCat = existingCategories.find(c => c.id === existing.categoryId);
-      bestMatch = { 
-        subcategory: { ...existing, categoryName: parentCat?.name }, 
-        similarity 
+      bestMatch = {
+        subcategory: { ...existing, categoryName: parentCat?.name },
+        similarity
       };
     }
   }
-  
+
   return bestMatch;
 }
 
@@ -380,7 +380,7 @@ ${categoriesAndSubcategories}
 
 Instructions:
 1. Choose the MOST SPECIFIC category slug that matches this service
-2. If a subcategory is a very close match (confidence > 0.7), include the subcategory SLUG
+2. If a subcategory is a very close match (confidence > 0.85), include the subcategory SLUG
 3. If no subcategory is a strong match, set subcategoryId to null
 4. Provide a confidence score (0-1) for your overall categorization
 
@@ -403,7 +403,7 @@ Respond in JSON format:
       messages: [
         {
           role: "system",
-          content: "You are an AI that categorizes service listings. Be precise and only suggest subcategories when there's a strong match (confidence > 0.7). Use the exact slugs provided.",
+          content: "You are an AI that categorizes service listings. Be precise and only suggest subcategories when there's a strong match (confidence > 0.85). Use the exact slugs provided.",
         },
         { role: "user", content: prompt },
       ],
@@ -413,10 +413,10 @@ Respond in JSON format:
     });
 
     const result = JSON.parse(completion.choices[0]?.message?.content || "{}");
-    
+
     return {
       categorySlug: result.categorySlug || "home-services",
-      subcategoryId: result.confidence > 0.7 ? result.subcategoryId : null,
+      subcategoryId: result.confidence > 0.85 ? result.subcategoryId : null,
       confidence: result.confidence || 0.5,
     };
   } catch (error) {
