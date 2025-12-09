@@ -1673,9 +1673,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 {/* Location & Contacts Tab */}
                 <TabsContent value="location" className="space-y-6 mt-0">
                   {/* Locations Section */}
-                  <div ref={locationRef} className="rounded-xl border bg-gradient-to-br from-blue-50/50 to-white p-6 space-y-4">
+                  <div ref={locationRef} className="rounded-xl border bg-gradient-to-br from-blue-500/10 to-card p-6 space-y-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
                         <MapPin className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
@@ -1758,7 +1758,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     <div ref={contactRef} className="rounded-xl border p-6 space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
                             <Phone className="w-5 h-5 text-green-600" />
                           </div>
                           <div>
