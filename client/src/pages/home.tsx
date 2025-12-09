@@ -44,7 +44,12 @@ export default function Home() {
   const nearbyServicesSectionRef = useRef<HTMLElement>(null);
   const autoExpandTriggeredRef = useRef(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const serviceSearchRef = useRef<HTMLDivElement>(null);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
+  // Service search autocomplete state
+  const [serviceSuggestions, setServiceSuggestions] = useState<Array<{ id: string; title: string; category: string; price: string; priceUnit: string }>>([]);
+  const [isServiceSearchOpen, setIsServiceSearchOpen] = useState(false);
+  const [isServiceSearchLoading, setIsServiceSearchLoading] = useState(false);
   // Map is hidden by default, only shown when user explicitly opens it or searches
   const [isMapVisible, setIsMapVisible] = useState(false);
   // Track if this is a fresh user-initiated search (not localStorage restore)
@@ -92,6 +97,56 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(interval);
   }, [carouselApi, nearbyMode, isPaused]);
+
+  // Service search autocomplete - debounced API call
+  useEffect(() => {
+    if (!serviceSearchQuery.trim()) {
+      setServiceSuggestions([]);
+      setIsServiceSearchOpen(false);
+      setIsServiceSearchLoading(false);
+      return;
+    }
+
+    setIsServiceSearchLoading(true);
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/services/search?q=${encodeURIComponent(serviceSearchQuery)}&limit=5`,
+          { signal: abortController.signal }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setServiceSuggestions(data);
+          setIsServiceSearchOpen(data.length > 0);
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          setServiceSuggestions([]);
+          setIsServiceSearchOpen(false);
+        }
+      } finally {
+        setIsServiceSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+      abortController.abort();
+      setIsServiceSearchLoading(false);
+    };
+  }, [serviceSearchQuery]);
+
+  // Close service search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (serviceSearchRef.current && !serviceSearchRef.current.contains(event.target as Node)) {
+        setIsServiceSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (user?.locationLat && user?.locationLng && !searchLocation) {
@@ -311,15 +366,53 @@ export default function Home() {
             <div ref={searchContainerRef} className="bg-background rounded-2xl p-2 md:p-3 max-w-3xl mx-auto mb-6 shadow-2xl">
               <div className="flex flex-col md:flex-row gap-2">
                 {/* Service Search */}
-                <div className="relative flex-1">
+                <div ref={serviceSearchRef} className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   <Input
                     value={serviceSearchQuery}
                     onChange={(e) => setServiceSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCombinedSearch()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        setIsServiceSearchOpen(false);
+                        handleCombinedSearch();
+                      }
+                    }}
+                    onFocus={() => {
+                      if (serviceSuggestions.length > 0) setIsServiceSearchOpen(true);
+                    }}
                     placeholder="What service are you looking for?"
-                    className="pl-12 h-14 text-base border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="pl-12 pr-10 h-14 text-base border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
+                  {isServiceSearchLoading && (
+                    <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                  )}
+                  {isServiceSearchOpen && serviceSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-2xl z-[100] max-h-80 overflow-y-auto">
+                      {serviceSuggestions.map((result) => (
+                        <button
+                          key={result.id}
+                          onClick={() => {
+                            setIsServiceSearchOpen(false);
+                            setServiceSearchQuery("");
+                            setServiceSuggestions([]);
+                            window.location.href = `/service/${result.id}`;
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-muted border-b border-border/50 last:border-0 text-foreground transition-colors"
+                        >
+                          <p className="font-medium text-sm">{result.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                            <span>{result.category}</span>
+                            <span>•</span>
+                            <span className="font-semibold text-primary">CHF {result.price}/{result.priceUnit}</span>
+                          </p>
+                        </button>
+                      ))}
+                      <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/50 border-t flex items-center justify-between">
+                        <span>Press <kbd className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">Enter</kbd> to see all results</span>
+                        <span>{serviceSuggestions.length} suggestions</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Divider */}
