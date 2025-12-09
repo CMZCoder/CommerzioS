@@ -350,8 +350,18 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   }, [service, open, isEditMode]);
 
   // Enrich contacts with fetched data when available (Bug Fix #2)
+  // Use ref to prevent infinite loop - only enrich once
+  const contactsEnrichedRef = useRef(false);
+
   useEffect(() => {
-    if (isEditMode && service && open && existingContacts.length > 0 && formData) {
+    // Reset enrichment flag when modal closes
+    if (!open) {
+      contactsEnrichedRef.current = false;
+      return;
+    }
+
+    // Only enrich once and only in edit mode with existing contacts
+    if (isEditMode && service && existingContacts.length > 0 && !contactsEnrichedRef.current) {
       const mappedContacts: Contact[] = existingContacts.map(c => ({
         id: c.id,
         contactType: c.contactType,
@@ -366,8 +376,10 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         ...prev!,
         contacts: mappedContacts,
       }));
+
+      contactsEnrichedRef.current = true; // Mark as enriched to prevent loop
     }
-  }, [existingContacts, isEditMode, service, open, formData]);
+  }, [existingContacts, isEditMode, service, open]); // Removed formData from dependencies!
 
   // Initialize contacts and locations with user's profile data (only in create mode)
   // This runs only ONCE when the form opens, not on every render
