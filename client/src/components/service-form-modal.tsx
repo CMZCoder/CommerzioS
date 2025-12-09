@@ -134,6 +134,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const [showPublishWarning, setShowPublishWarning] = useState(false);
   const [pendingPublishAction, setPendingPublishAction] = useState<"publish" | "draft" | null>(null);
 
+  // Ref to hold AI-suggested subcategoryId to prevent it from being lost during React batching
+  const pendingAISubcategoryRef = useRef<string | null>(null);
+
   // Refs for scrolling to error fields
   const titleRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -303,6 +306,24 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         : formData.priceList?.length > 0;
     contextActions.updateFormProgress("hasPrice", hasPrice);
   }, [formData, open, isEditMode]);
+
+  // Recovery effect: if AI set a subcategoryId but it got lost during React batching, restore it
+  useEffect(() => {
+    if (
+      formData &&
+      !formData.subcategoryId &&
+      pendingAISubcategoryRef.current &&
+      formData.categoryId // Only restore if category is also set
+    ) {
+
+      setFormData((prev: FormData | null) => ({
+        ...prev!,
+        subcategoryId: pendingAISubcategoryRef.current,
+      }));
+      // Clear the ref after restoring to prevent infinite loop
+      // pendingAISubcategoryRef.current = null; // Don't clear yet - might need multiple restores
+    }
+  }, [formData?.subcategoryId, formData?.categoryId]);
 
   // Initialize form data immediately from service prop (Bug Fix #2)
   useEffect(() => {
@@ -901,23 +922,39 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       await queryClient.invalidateQueries({ queryKey: ["/api/subcategories"] });
       await queryClient.refetchQueries({ queryKey: ["/api/subcategories"] });
 
-      // Apply all suggestions at once - NOW the subcategory will be in the dropdown
-      setFormData((prev: FormData | null) => ({
-        ...prev!,
-        title: response.title || prev!.title,
-        description: response.description || prev!.description,
-        categoryId: response.categoryId || prev!.categoryId,
-        subcategoryId: response.subcategoryId || null,
-        hashtags: response.hashtags?.length > 0 ? response.hashtags : prev!.hashtags,
-      }));
+      // Store the subcategoryId we're about to set
+      const newSubcategoryId = response.subcategoryId || null;
+      const newCategoryId = response.categoryId || "";
 
-      // Update AI category suggestion state for consistency
+      // Store in ref for recovery if React batching loses it
+      pendingAISubcategoryRef.current = newSubcategoryId;
+
+
+
+      // Update aiSuggestion FIRST - this won't trigger selector re-render
       if (response.categoryId) {
         setAiSuggestion({
-          categoryId: response.categoryId,
-          subcategoryId: response.subcategoryId,
+          categoryId: newCategoryId,
+          subcategoryId: newSubcategoryId,
         });
       }
+
+      // Apply all suggestions at once - use explicit spread to ensure subcategoryId is set
+      setFormData((prev: FormData | null) => {
+        if (!prev) return prev;
+
+        const newData = {
+          ...prev,
+          title: response.title || prev.title,
+          description: response.description || prev.description,
+          categoryId: newCategoryId || prev.categoryId,
+          subcategoryId: newSubcategoryId, // Explicitly set, not falling back to prev
+          hashtags: response.hashtags?.length > 0 ? response.hashtags : prev.hashtags,
+        };
+
+
+        return newData;
+      });
 
       toast({
         title: "AI Suggestions Applied!",
