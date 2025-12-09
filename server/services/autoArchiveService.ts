@@ -3,8 +3,8 @@
  * Automatically archives service listings that have been expired for more than 10 days
  */
 
-import { db } from './db';
-import { services } from '../shared/schema';
+import { db } from '../db';
+import { services } from '@shared/schema';
 import { and, lt, ne, eq, sql } from 'drizzle-orm';
 
 const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000;

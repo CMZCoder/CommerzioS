@@ -1969,7 +1969,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   )}
 
                   {/* Accepted Payment Methods Section */}
-                  <div className="rounded-xl border bg-gradient-to-br from-green-500/10 to-card p-6 space-y-4">
+                  <div className="rounded-xl border bg-gradient-to-br from-green-500/5 to-card p-6 space-y-4">
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 flex items-center justify-center">
                         <CreditCard className="w-5 h-5 text-green-600" />

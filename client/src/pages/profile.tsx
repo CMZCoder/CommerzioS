@@ -99,6 +99,7 @@ export default function Profile() {
 
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
+  const [email, setEmail] = useState(user?.email || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
 
   const [mainLocationName, setMainLocationName] = useState(user?.preferredLocationName || "");
@@ -150,6 +151,7 @@ export default function Profile() {
   const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
   const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
   const [listingsSubTab, setListingsSubTab] = useState<'all' | 'active' | 'drafts' | 'toRenew' | 'expired' | 'archived'>('active');
+  const [paymentsSubTab, setPaymentsSubTab] = useState<'overview' | 'escrow' | 'methods'>('overview');
   const [paymentHistoryTab, setPaymentHistoryTab] = useState<'all' | 'purchases' | 'sales' | 'commission' | 'promotional'>('all');
 
   // Multi-criteria ratings for comprehensive reviews
@@ -160,6 +162,16 @@ export default function Profile() {
   const [customerCommunicationRating, setCustomerCommunicationRating] = useState(5);
   const [customerPunctualityRating, setCustomerPunctualityRating] = useState(5);
   const [customerRespectRating, setCustomerRespectRating] = useState(5);
+
+  // Sync state with user data when loaded
+  useEffect(() => {
+    if (user) {
+      setFirstName(user.firstName || "");
+      setLastName(user.lastName || "");
+      setPhoneNumber(user.phoneNumber || "");
+      setEmail(user.email || "");
+    }
+  }, [user]);
 
   // Edit review modal
   const [showEditReviewModal, setShowEditReviewModal] = useState(false);
@@ -729,7 +741,7 @@ export default function Profile() {
       return;
     }
 
-    updateProfileMutation.mutate({ firstName, lastName, phoneNumber });
+    updateProfileMutation.mutate({ firstName, lastName, phoneNumber, email });
   };
 
   const handleAddressSubmit = (e: React.FormEvent) => {
@@ -759,10 +771,17 @@ export default function Profile() {
     // Note: When editing, we allow saving without re-validation since it's already a saved address
     // Users can manually update fields if needed
 
+
+    // For new addresses, check if it's the first one
+    let isPrimary = addressForm.isPrimary;
+    if (!editingAddress && addresses.length === 0) {
+      isPrimary = true;
+    }
+
     if (editingAddress) {
-      updateAddressMutation.mutate({ id: editingAddress.id, data: addressForm });
+      updateAddressMutation.mutate({ id: editingAddress.id, data: { ...addressForm, isPrimary } });
     } else {
-      createAddressMutation.mutate(addressForm);
+      createAddressMutation.mutate({ ...addressForm, isPrimary });
     }
   };
 
@@ -1112,6 +1131,21 @@ export default function Profile() {
                     </div>
 
                     <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your.email@example.com"
+                        data-testid="input-email"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Changing your email may require re-verification.
+                      </p>
+                    </div>
+
+                    <div>
                       <Label htmlFor="firstName">First Name</Label>
                       <Input
                         id="firstName"
@@ -1271,6 +1305,17 @@ export default function Profile() {
                             </p>
                           </div>
                           <div className="flex gap-2">
+                            {!address.isPrimary && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => updateAddressMutation.mutate({ id: address.id, data: { isPrimary: true } })}
+                                disabled={updateAddressMutation.isPending}
+                                className="text-xs"
+                              >
+                                Set as Primary
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -2659,393 +2704,402 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Financial Summary Cards */}
-              <div className="grid gap-4 md:grid-cols-3 mb-6">
-                <Card className="border-l-4 border-l-green-500">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Earned</p>
-                        <p className="text-2xl font-bold text-green-600">
-                          CHF {receivedReviews.length > 0 ? (receivedReviews.length * 85).toFixed(2) : '0.00'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">From {receivedReviews.length} completed bookings</p>
-                      </div>
-                      <TrendingUp className="w-8 h-8 text-green-500 opacity-50" />
-                    </div>
-                  </CardContent>
-                </Card>
+              <Tabs value={paymentsSubTab} onValueChange={(v) => setPaymentsSubTab(v as any)} className="w-full">
+                <TabsList className="mb-6 bg-card p-1 border border-border w-auto inline-flex flex-wrap">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="escrow">Escrow Transactions</TabsTrigger>
+                  <TabsTrigger value="methods">Payment Methods</TabsTrigger>
+                </TabsList>
 
-                <Card className="border-l-4 border-l-blue-500">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Spent</p>
-                        <p className="text-2xl font-bold text-blue-600">
-                          CHF {givenReviews.length > 0 ? (givenReviews.length * 75).toFixed(2) : '0.00'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">On {givenReviews.length} services</p>
-                      </div>
-                      <BarChart3 className="w-8 h-8 text-blue-500 opacity-50" />
-                    </div>
-                  </CardContent>
-                </Card>
+                {/* Overview Subtab */}
+                <TabsContent value="overview" className="space-y-6 mt-0">
+                  {/* Financial Summary Cards */}
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="border-l-4 border-l-green-500">
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Earned</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              CHF {receivedReviews.length > 0 ? (receivedReviews.length * 85).toFixed(2) : '0.00'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">From {receivedReviews.length} completed bookings</p>
+                          </div>
+                          <TrendingUp className="w-8 h-8 text-green-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-                <Card className="border-l-4 border-l-amber-500">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Platform Fees</p>
-                        <p className="text-2xl font-bold text-amber-600">
-                          CHF {receivedReviews.length > 0 ? (receivedReviews.length * 6.8).toFixed(2) : '0.00'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">8% commission + processing</p>
-                      </div>
-                      <DollarSign className="w-8 h-8 text-amber-500 opacity-50" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+                    <Card className="border-l-4 border-l-blue-500">
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Spent</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              CHF {givenReviews.length > 0 ? (givenReviews.length * 75).toFixed(2) : '0.00'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">On {givenReviews.length} services</p>
+                          </div>
+                          <BarChart3 className="w-8 h-8 text-blue-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
 
-              {/* Payment Methods Breakdown (coming soon - placeholder) */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    Income by Payment Method
-                  </CardTitle>
-                  <CardDescription>
-                    Breakdown of your earnings by payment type
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="w-5 h-5 text-blue-600" />
-                        <span>Card Payments</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">CHF {(receivedReviews.length * 50).toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">~60% of income</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Smartphone className="w-5 h-5 text-purple-600" />
-                        <span>TWINT</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">CHF {(receivedReviews.length * 20).toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">~25% of income</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Banknote className="w-5 h-5 text-green-600" />
-                        <span>Cash</span>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold">CHF {(receivedReviews.length * 15).toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">~15% of income</p>
-                      </div>
-                    </div>
+                    <Card className="border-l-4 border-l-amber-500">
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Platform Fees</p>
+                            <p className="text-2xl font-bold text-amber-600">
+                              CHF {receivedReviews.length > 0 ? (receivedReviews.length * 6.8).toFixed(2) : '0.00'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">8% commission + processing</p>
+                          </div>
+                          <DollarSign className="w-8 h-8 text-amber-500 opacity-50" />
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-4 text-center italic">
-                    Note: These are estimated values based on completed reviews. Full transaction history coming soon.
-                  </p>
-                </CardContent>
-              </Card>
 
-              {/* Stripe Connect Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
-                    Stripe Connect
-                  </CardTitle>
-                  <CardDescription>
-                    Connect your Stripe account to receive card payments directly
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {connectStatusLoading ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-muted-foreground">Loading account status...</span>
-                    </div>
-                  ) : connectStatus?.isOnboarded ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="font-medium">Account Connected</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className={connectStatus.chargesEnabled ? "text-green-600" : "text-amber-600"}>
-                            {connectStatus.chargesEnabled ? "✓" : "○"}
-                          </span>
-                          <span>Charges Enabled</span>
+                  {/* Income by Payment Method */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="w-5 h-5" />
+                        Income by Payment Method
+                      </CardTitle>
+                      <CardDescription>
+                        Breakdown of your earnings by payment type
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <CreditCard className="w-5 h-5 text-blue-600" />
+                            <span>Card Payments</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">CHF {(receivedReviews.length * 50).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">~60% of income</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={connectStatus.payoutsEnabled ? "text-green-600" : "text-amber-600"}>
-                            {connectStatus.payoutsEnabled ? "✓" : "○"}
-                          </span>
-                          <span>Payouts Enabled</span>
+                        <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Smartphone className="w-5 h-5 text-purple-600" />
+                            <span>TWINT</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">CHF {(receivedReviews.length * 20).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">~25% of income</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Banknote className="w-5 h-5 text-green-600" />
+                            <span>Cash</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">CHF {(receivedReviews.length * 15).toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">~15% of income</p>
+                          </div>
                         </div>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => createConnectAccountMutation.mutate()}
-                        disabled={createConnectAccountMutation.isPending}
-                      >
-                        {createConnectAccountMutation.isPending ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Manage Account in Stripe"
-                        )}
-                      </Button>
-                    </div>
-                  ) : connectStatus?.hasAccount ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-amber-600">
-                        <Clock className="w-5 h-5" />
-                        <span className="font-medium">Onboarding Incomplete</span>
+                      <p className="text-xs text-muted-foreground mt-4 text-center italic">
+                        Note: These are estimated values based on completed reviews. Full transaction history coming soon.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment History Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <History className="w-5 h-5" />
+                        Payment History
+                      </CardTitle>
+                      <CardDescription>
+                        Complete history of all your transactions
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Tabs value={paymentHistoryTab} onValueChange={(v) => setPaymentHistoryTab(v as any)} className="w-full">
+                        <TabsList className="grid w-full grid-cols-5 mb-4">
+                          <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+                          <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
+                          <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
+                          <TabsTrigger value="commission" className="text-xs sm:text-sm">Commission</TabsTrigger>
+                          <TabsTrigger value="promotional" className="text-xs sm:text-sm">Promotional</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="all" className="mt-0">
+                          <div className="text-center py-8 text-muted-foreground">
+                            <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No transactions yet</p>
+                            <p className="text-sm mt-1">Your complete payment history will appear here</p>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="purchases" className="mt-0">
+                          <div className="text-center py-8 text-muted-foreground">
+                            <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No purchases yet</p>
+                            <p className="text-sm mt-1">Services you've paid for will appear here</p>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="sales" className="mt-0">
+                          <div className="text-center py-8 text-muted-foreground">
+                            <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No sales yet</p>
+                            <p className="text-sm mt-1">Payments received from customers will appear here</p>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="commission" className="mt-0">
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No commission charges yet</p>
+                            <p className="text-sm mt-1">Platform commission fees will appear here</p>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="promotional" className="mt-0">
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                            <p>No promotional packages</p>
+                            <p className="text-sm mt-1">Featured listings and promotional package purchases will appear here</p>
+                          </div>
+                        </TabsContent>
+                      </Tabs>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Escrow Subtab */}
+                <TabsContent value="escrow" className="mt-0">
+                  <VendorEscrowDashboard />
+                </TabsContent>
+
+                {/* Methods Subtab */}
+                <TabsContent value="methods" className="space-y-6 mt-0">
+                  {/* Stripe Connect Section */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <CreditCard className="w-5 h-5" />
+                        Stripe Connect
+                      </CardTitle>
+                      <CardDescription>
+                        Connect your Stripe account to receive card payments directly
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {connectStatusLoading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-muted-foreground">Loading account status...</span>
+                        </div>
+                      ) : connectStatus?.isOnboarded ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="w-5 h-5" />
+                            <span className="font-medium">Account Connected</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className={connectStatus.chargesEnabled ? "text-green-600" : "text-amber-600"}>
+                                {connectStatus.chargesEnabled ? "✓" : "○"}
+                              </span>
+                              <span>Charges Enabled</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={connectStatus.payoutsEnabled ? "text-green-600" : "text-amber-600"}>
+                                {connectStatus.payoutsEnabled ? "✓" : "○"}
+                              </span>
+                              <span>Payouts Enabled</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => createConnectAccountMutation.mutate()}
+                            disabled={createConnectAccountMutation.isPending}
+                          >
+                            {createConnectAccountMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Manage Account in Stripe"
+                            )}
+                          </Button>
+                        </div>
+                      ) : connectStatus?.hasAccount ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 text-amber-600">
+                            <Clock className="w-5 h-5" />
+                            <span className="font-medium">Onboarding Incomplete</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Complete your Stripe Connect onboarding to start receiving payments.
+                          </p>
+                          <Button
+                            onClick={() => createConnectAccountMutation.mutate()}
+                            disabled={createConnectAccountMutation.isPending}
+                          >
+                            {createConnectAccountMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              "Complete Onboarding"
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <p className="text-sm text-muted-foreground">
+                            Set up Stripe Connect to receive card payments directly into your bank account.
+                            This is required if you want to accept card payments for your services.
+                          </p>
+                          <Button
+                            onClick={() => createConnectAccountMutation.mutate()}
+                            disabled={createConnectAccountMutation.isPending}
+                          >
+                            {createConnectAccountMutation.isPending ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Creating Account...
+                              </>
+                            ) : (
+                              <>
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                Set Up Stripe Connect
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Payment Methods Accepted */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Accepted Payment Methods</CardTitle>
+                      <CardDescription>
+                        Choose which payment methods you accept for your services
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <CreditCard className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">Card Payments</p>
+                              <p className="text-xs text-muted-foreground">Visa, Mastercard, AMEX (via Stripe)</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={user?.acceptCardPayments ?? true}
+                            onCheckedChange={(checked) => {
+                              updateProfileMutation.mutate({ acceptCardPayments: checked });
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-purple-100 rounded-lg">
+                              <Smartphone className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">TWINT</p>
+                              <p className="text-xs text-muted-foreground">Swiss mobile payment</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={user?.acceptTwintPayments ?? true}
+                            onCheckedChange={(checked) => {
+                              updateProfileMutation.mutate({ acceptTwintPayments: checked });
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <Banknote className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium">Cash</p>
+                              <p className="text-xs text-muted-foreground">Pay on service completion</p>
+                            </div>
+                          </div>
+                          <Switch
+                            checked={user?.acceptCashPayments ?? true}
+                            onCheckedChange={(checked) => {
+                              updateProfileMutation.mutate({ acceptCashPayments: checked });
+                            }}
+                          />
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Complete your Stripe Connect onboarding to start receiving payments.
+                    </CardContent>
+                  </Card>
+
+                  {/* TWINT Eligibility Info */}
+                  <Card className="border-purple-200 bg-purple-50/50 dark:bg-purple-900/10">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                        <Smartphone className="w-5 h-5" />
+                        About TWINT Payments
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 text-sm">
+                      <p className="text-muted-foreground">
+                        TWINT is a trust-based payment option available to established vendors. To accept TWINT payments from customers, you need:
                       </p>
-                      <Button
-                        onClick={() => createConnectAccountMutation.mutate()}
-                        disabled={createConnectAccountMutation.isPending}
-                      >
-                        {createConnectAccountMutation.isPending ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Complete Onboarding"
-                        )}
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Set up Stripe Connect to receive card payments directly into your bank account.
-                        This is required if you want to accept card payments for your services.
+                      <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                        <li>At least 5 completed bookings</li>
+                        <li>Account age of 30+ days</li>
+                        <li>Average rating of 4.0+ stars</li>
+                        <li>Low dispute rate (&lt;10%)</li>
+                      </ul>
+                      <p className="text-muted-foreground">
+                        Customers must also complete at least one card payment with you before using TWINT for trust verification.
                       </p>
-                      <Button
-                        onClick={() => createConnectAccountMutation.mutate()}
-                        disabled={createConnectAccountMutation.isPending}
-                      >
-                        {createConnectAccountMutation.isPending ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Creating Account...
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            Set Up Stripe Connect
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                      <p className="text-xs text-muted-foreground italic mt-2">
+                        Note: TWINT payments are limited to bookings under CHF 200 for platform protection.
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Account Billing (for vendors) */}
+                  {user?.paymentMethodLast4 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Billing Card on File</CardTitle>
+                        <CardDescription>
+                          Used for platform fees on cash/TWINT transactions
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-3 p-3 border rounded-lg">
+                          <CreditCard className="w-5 h-5" />
+                          <div>
+                            <p className="font-medium">{user.paymentMethodBrand || "Card"} •••• {user.paymentMethodLast4}</p>
+                            <p className="text-xs text-muted-foreground">Default payment method for fees</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
-                </CardContent>
-              </Card>
-
-              {/* Payment Methods Accepted */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Accepted Payment Methods</CardTitle>
-                  <CardDescription>
-                    Choose which payment methods you accept for your services
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <CreditCard className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Card Payments</p>
-                          <p className="text-xs text-muted-foreground">Visa, Mastercard, AMEX (via Stripe)</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={user?.acceptCardPayments ?? true}
-                        onCheckedChange={(checked) => {
-                          updateProfileMutation.mutate({ acceptCardPayments: checked });
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <Smartphone className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">TWINT</p>
-                          <p className="text-xs text-muted-foreground">Swiss mobile payment</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={user?.acceptTwintPayments ?? true}
-                        onCheckedChange={(checked) => {
-                          updateProfileMutation.mutate({ acceptTwintPayments: checked });
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-green-100 rounded-lg">
-                          <Banknote className="w-5 h-5 text-green-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Cash</p>
-                          <p className="text-xs text-muted-foreground">Pay on service completion</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={user?.acceptCashPayments ?? true}
-                        onCheckedChange={(checked) => {
-                          updateProfileMutation.mutate({ acceptCashPayments: checked });
-                        }}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Escrow Dashboard for Vendors */}
-              {myServices && myServices.length > 0 && (
-                <VendorEscrowDashboard />
-              )}
-
-              {/* TWINT Eligibility Info */}
-              <Card className="border-purple-200 bg-purple-50/50 dark:bg-purple-900/10">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                    <Smartphone className="w-5 h-5" />
-                    About TWINT Payments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <p className="text-muted-foreground">
-                    TWINT is a trust-based payment option available to established vendors. To accept TWINT payments from customers, you need:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>At least 5 completed bookings</li>
-                    <li>Account age of 30+ days</li>
-                    <li>Average rating of 4.0+ stars</li>
-                    <li>Low dispute rate (&lt;10%)</li>
-                  </ul>
-                  <p className="text-muted-foreground">
-                    Customers must also complete at least one card payment with you before using TWINT for trust verification.
-                  </p>
-                  <p className="text-xs text-muted-foreground italic mt-2">
-                    Note: TWINT payments are limited to bookings under CHF 200 for platform protection.
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Account Billing (for vendors) */}
-              {user?.paymentMethodLast4 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Billing Card on File</CardTitle>
-                    <CardDescription>
-                      Used for platform fees on cash/TWINT transactions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <CreditCard className="w-5 h-5" />
-                      <div>
-                        <p className="font-medium">{user.paymentMethodBrand || "Card"} •••• {user.paymentMethodLast4}</p>
-                        <p className="text-xs text-muted-foreground">Default payment method for fees</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Payment History Section */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="w-5 h-5" />
-                    Payment History
-                  </CardTitle>
-                  <CardDescription>
-                    Complete history of all your transactions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={paymentHistoryTab} onValueChange={(v) => setPaymentHistoryTab(v as any)} className="w-full">
-                    <TabsList className="grid w-full grid-cols-5 mb-4">
-                      <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
-                      <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
-                      <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
-                      <TabsTrigger value="commission" className="text-xs sm:text-sm">Commission</TabsTrigger>
-                      <TabsTrigger value="promotional" className="text-xs sm:text-sm">Promotional</TabsTrigger>
-                    </TabsList>
-
-                    {/* All Transactions */}
-                    <TabsContent value="all" className="mt-0">
-                      <div className="text-center py-8 text-muted-foreground">
-                        <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No transactions yet</p>
-                        <p className="text-sm mt-1">Your complete payment history will appear here</p>
-                      </div>
-                    </TabsContent>
-
-                    {/* Purchases - Services you bought */}
-                    <TabsContent value="purchases" className="mt-0">
-                      <div className="text-center py-8 text-muted-foreground">
-                        <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No purchases yet</p>
-                        <p className="text-sm mt-1">Services you've paid for will appear here</p>
-                      </div>
-                    </TabsContent>
-
-                    {/* Sales - Services you sold */}
-                    <TabsContent value="sales" className="mt-0">
-                      <div className="text-center py-8 text-muted-foreground">
-                        <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No sales yet</p>
-                        <p className="text-sm mt-1">Payments received from customers will appear here</p>
-                      </div>
-                    </TabsContent>
-
-                    {/* Commission - Platform fees */}
-                    <TabsContent value="commission" className="mt-0">
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No commission charges yet</p>
-                        <p className="text-sm mt-1">Platform commission fees will appear here</p>
-                      </div>
-                    </TabsContent>
-
-                    {/* Promotional Packages */}
-                    <TabsContent value="promotional" className="mt-0">
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        <p>No promotional packages</p>
-                        <p className="text-sm mt-1">Featured listings and promotional package purchases will appear here</p>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
+                </TabsContent>
+              </Tabs>
             </TabsContent>
 
             {/* Referrals Tab */}
