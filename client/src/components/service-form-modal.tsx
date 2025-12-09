@@ -1253,6 +1253,18 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                       onImagesChange={(images: string[]) => setFormData((prev: FormData | null) => ({ ...prev!, images }))}
                       onMetadataChange={(metadata: ImageMetadata[]) => setFormData((prev: FormData | null) => ({ ...prev!, imageMetadata: metadata }))}
                       onMainImageChange={(index: number) => setFormData((prev: FormData | null) => ({ ...prev!, mainImageIndex: index }))}
+                      onUpgradeClick={() => {
+                        // Navigate to pricing tab and preselect Featured package for more images
+                        setActiveTab("pricing");
+                        setFormData((prev: FormData | null) => ({
+                          ...prev!,
+                          selectedPromotionalPackage: "featured",
+                        }));
+                        toast({
+                          title: "Upgrade Selected",
+                          description: "Featured Service package has been selected for you. Complete the form to get up to 10 photos!",
+                        });
+                      }}
                     />
                   </div>
 

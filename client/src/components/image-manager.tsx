@@ -34,6 +34,7 @@ interface ImageManagerProps {
   onImagesChange: (images: string[]) => void;
   onMetadataChange: (metadata: ImageMetadata[]) => void;
   onMainImageChange: (index: number) => void;
+  onUpgradeClick?: () => void; // Called when user clicks upgrade for more photos
 }
 
 interface DragPosition {
@@ -52,6 +53,7 @@ export function ImageManager({
   onImagesChange,
   onMetadataChange,
   onMainImageChange,
+  onUpgradeClick,
 }: ImageManagerProps) {
   const { toast } = useToast();
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -448,28 +450,27 @@ export function ImageManager({
           </AnimatePresence>
 
           {/* Upgrade for more slot - show when at max capacity with free plan */}
-          {images.length >= maxImages && maxImages === 4 && (
-            <Link href="/pricing" className="block">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative w-full h-32 rounded border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-purple-400 hover:shadow-lg hover:shadow-purple-100 transition-all"
-                data-testid="upgrade-image-slot"
-              >
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center">
-                    <Lock className="w-3 h-3 text-white" />
-                  </div>
+          {images.length >= maxImages && maxImages === 4 && onUpgradeClick && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              onClick={onUpgradeClick}
+              className="relative w-full h-32 rounded border-2 border-dashed border-purple-300 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-purple-400 hover:shadow-lg hover:shadow-purple-100 transition-all"
+              data-testid="upgrade-image-slot"
+            >
+              <div className="relative">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-5 h-5 text-white" />
                 </div>
-                <div className="text-center px-2">
-                  <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Upgrade for more</p>
-                  <p className="text-[10px] text-purple-500 dark:text-purple-400">Get up to 10 photos</p>
+                <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center">
+                  <Lock className="w-3 h-3 text-white" />
                 </div>
-              </motion.div>
-            </Link>
+              </div>
+              <div className="text-center px-2">
+                <p className="text-xs font-semibold text-purple-700 dark:text-purple-300">Upgrade for more</p>
+                <p className="text-[10px] text-purple-500 dark:text-purple-400">Get up to 10 photos</p>
+              </div>
+            </motion.div>
           )}
         </div>
       )}

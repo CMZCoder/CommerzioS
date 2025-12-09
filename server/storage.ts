@@ -71,31 +71,31 @@ export interface IStorage {
   createPlan(plan: InsertPlan): Promise<Plan>;
   updatePlan(id: string, plan: Partial<InsertPlan>): Promise<Plan | undefined>;
   deletePlan(id: string): Promise<void>;
-  
+
   // User operations
   getUser(id: string): Promise<UserWithPlan | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserVerification(id: string, isVerified: boolean): Promise<User | undefined>;
   updateUserPlan(userId: string, planId: string): Promise<User | undefined>;
   updateUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
-  updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string }): Promise<User>;
-  
+  updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string; acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean }): Promise<User>;
+
   // Address operations
   getAddresses(userId: string): Promise<SelectAddress[]>;
   createAddress(userId: string, data: InsertAddress): Promise<SelectAddress>;
   updateAddress(addressId: string, userId: string, data: Partial<InsertAddress>): Promise<SelectAddress>;
   deleteAddress(addressId: string, userId: string): Promise<void>;
-  
+
   // Category operations
   getCategories(): Promise<Category[]>;
   getCategoryBySlug(slug: string): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
-  
+
   // Subcategory operations
   getSubcategories(): Promise<Subcategory[]>;
   getSubcategoriesByCategoryId(categoryId: string): Promise<Subcategory[]>;
   createSubcategory(subcategory: { name: string; slug: string; categoryId: string }): Promise<Subcategory>;
-  
+
   // Service operations
   getServices(filters?: {
     categoryId?: string;
@@ -111,11 +111,11 @@ export interface IStorage {
   incrementViewCount(id: string): Promise<void>;
   renewService(id: string): Promise<Service | undefined>;
   expireOldServices(): Promise<void>;
-  
+
   // Review operations
   getReviewsForService(serviceId: string): Promise<Array<Review & { user: User }>>;
   createReview(review: InsertReview): Promise<Review>;
-  
+
   // Favorites operations
   getUserFavorites(userId: string): Promise<Array<Favorite & { service: ServiceWithRelations }>>;
   addFavorite(userId: string, serviceId: string): Promise<Favorite>;
@@ -143,30 +143,30 @@ export interface IStorage {
   getAiConversations(userId?: string, type?: string): Promise<AiConversation[]>;
   createAiConversation(conversation: InsertAiConversation): Promise<AiConversation>;
   updateAiConversation(id: string, conversation: Partial<InsertAiConversation>): Promise<AiConversation | undefined>;
-  
+
   // Temporary category operations
   getTemporaryCategories(userId?: string): Promise<TemporaryCategory[]>;
   createTemporaryCategory(category: InsertTemporaryCategory): Promise<TemporaryCategory>;
   deleteTemporaryCategory(id: string): Promise<void>;
   cleanupExpiredTemporaryCategories(): Promise<void>;
   getAllUsers(): Promise<User[]>;
-  
+
   // New user profile operations
   getUserById(userId: string): Promise<UserWithPlan | undefined>;
   getUserServices(userId: string, includeExpired: boolean): Promise<ServiceWithRelations[]>;
   getUserReviews(userId: string): Promise<Array<Review & { user: User; service: ServiceWithRelations }>>;
-  
+
   // Hashtag operations
   getServicesByHashtag(hashtag: string): Promise<ServiceWithRelations[]>;
-  
+
   // Location-based operations
   getNearbyServices(lat: number, lng: number, radiusKm: number, categoryId?: string, limit?: number): Promise<Array<ServiceWithRelations & { distance: number }>>;
   updateUserLocation(userId: string, data: { locationLat?: string; locationLng?: string; preferredLocationName?: string; preferredSearchRadiusKm?: number }): Promise<User | undefined>;
-  
+
   // New services indicator operations
   getNewServiceCountsSince(userId: string, since: Date | null): Promise<Array<{ categoryId: string; newCount: number }>>;
   updateUserLastHomeVisit(userId: string, visitTime?: Date): Promise<void>;
-  
+
   // User moderation operations
   moderateUser(userId: string, action: "warn" | "suspend" | "ban" | "kick" | "reactivate", adminId: string, reason?: string, ipAddress?: string): Promise<User>;
   getUserModerationHistory(userId: string): Promise<UserModerationAction[]>;
@@ -174,7 +174,7 @@ export interface IStorage {
   addBannedIdentifier(data: InsertBannedIdentifier): Promise<BannedIdentifier>;
   removeBannedIdentifier(id: string): Promise<void>;
   checkIfBanned(email?: string, phone?: string, ip?: string): Promise<{ isBanned: boolean; reason?: string }>;
-  
+
   // Category CRUD operations (admin)
   updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<void>;
@@ -191,9 +191,9 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .leftJoin(plans, eq(users.planId, plans.id))
       .where(eq(users.id, id));
-    
+
     if (results.length === 0) return undefined;
-    
+
     const row = results[0];
     return {
       ...row.user,
@@ -281,19 +281,19 @@ export class DatabaseStorage implements IStorage {
       .$dynamic();
 
     const conditions = [];
-    
+
     if (filters?.categoryId) {
       conditions.push(eq(services.categoryId, filters.categoryId));
     }
-    
+
     if (filters?.ownerId) {
       conditions.push(eq(services.ownerId, filters.ownerId));
     }
-    
+
     if (filters?.status) {
       conditions.push(eq(services.status, filters.status as any));
     }
-    
+
     if (filters?.search) {
       conditions.push(
         or(
@@ -308,7 +308,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     const results = await query;
-    
+
     return results.map((row) => ({
       ...row.service,
       owner: row.owner!,
@@ -382,10 +382,10 @@ export class DatabaseStorage implements IStorage {
   async renewService(id: string): Promise<Service | undefined> {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 14);
-    
+
     const [renewed] = await db
       .update(services)
-      .set({ 
+      .set({
         expiresAt,
         status: "active",
         updatedAt: new Date(),
@@ -592,7 +592,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).orderBy(desc(users.createdAt));
   }
 
-  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string }): Promise<User> {
+  async updateUserProfile(userId: string, data: { firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string; locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string; acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean }): Promise<User> {
     const updateData: any = { updatedAt: new Date() };
     if (data.firstName !== undefined) updateData.firstName = data.firstName;
     if (data.lastName !== undefined) updateData.lastName = data.lastName;
@@ -601,7 +601,12 @@ export class DatabaseStorage implements IStorage {
     if (data.locationLat !== undefined) updateData.locationLat = data.locationLat;
     if (data.locationLng !== undefined) updateData.locationLng = data.locationLng;
     if (data.preferredLocationName !== undefined) updateData.preferredLocationName = data.preferredLocationName;
-    
+    // Vendor payment settings
+    if (data.acceptCardPayments !== undefined) updateData.acceptCardPayments = data.acceptCardPayments;
+    if (data.acceptTwintPayments !== undefined) updateData.acceptTwintPayments = data.acceptTwintPayments;
+    if (data.acceptCashPayments !== undefined) updateData.acceptCashPayments = data.acceptCashPayments;
+    if (data.requireBookingApproval !== undefined) updateData.requireBookingApproval = data.requireBookingApproval;
+
     const [user] = await db
       .update(users)
       .set(updateData)
@@ -627,7 +632,7 @@ export class DatabaseStorage implements IStorage {
         .set({ isPrimary: false })
         .where(eq(addresses.userId, userId));
     }
-    
+
     const [address] = await db
       .insert(addresses)
       .values({ ...data, userId })
@@ -646,7 +651,7 @@ export class DatabaseStorage implements IStorage {
           sql`${addresses.id} != ${addressId}`
         ));
     }
-    
+
     const [address] = await db
       .update(addresses)
       .set({ ...data, updatedAt: new Date() })
@@ -655,11 +660,11 @@ export class DatabaseStorage implements IStorage {
         eq(addresses.userId, userId)
       ))
       .returning();
-    
+
     if (!address) {
       throw new Error("Address not found or unauthorized");
     }
-    
+
     return address;
   }
 
@@ -730,7 +735,7 @@ export class DatabaseStorage implements IStorage {
           eq(serviceContacts.id, id),
           eq(serviceContacts.verificationCode, code)
         ));
-      
+
       if (!contact || !contact.verificationExpiresAt) return false;
       if (new Date() > contact.verificationExpiresAt) return false;
 
@@ -751,14 +756,14 @@ export class DatabaseStorage implements IStorage {
 
   async getAiConversations(userId?: string, type?: string): Promise<AiConversation[]> {
     let query = db.select().from(aiConversations).$dynamic();
-    
+
     if (userId) {
       query = query.where(eq(aiConversations.userId, userId));
     }
     if (type) {
       query = query.where(eq(aiConversations.conversationType, type as any));
     }
-    
+
     return await query.orderBy(desc(aiConversations.updatedAt));
   }
 
@@ -779,11 +784,11 @@ export class DatabaseStorage implements IStorage {
   // Temporary category operations
   async getTemporaryCategories(userId?: string): Promise<TemporaryCategory[]> {
     let query = db.select().from(temporaryCategories).$dynamic();
-    
+
     if (userId) {
       query = query.where(eq(temporaryCategories.userId, userId));
     }
-    
+
     return await query.where(sql`${temporaryCategories.expiresAt} > now()`).orderBy(temporaryCategories.createdAt);
   }
 
@@ -807,11 +812,11 @@ export class DatabaseStorage implements IStorage {
 
   async getUserServices(userId: string, includeExpired: boolean): Promise<ServiceWithRelations[]> {
     const filters: any = { ownerId: userId };
-    
+
     if (!includeExpired) {
       filters.status = 'active';
     }
-    
+
     return this.getServices(filters);
   }
 
@@ -914,7 +919,7 @@ export class DatabaseStorage implements IStorage {
     limit: number = 20
   ): Promise<Array<ServiceWithRelations & { distance: number }>> {
     const conditions = [eq(services.status, 'active')];
-    
+
     if (categoryId) {
       conditions.push(eq(services.categoryId, categoryId));
     }
@@ -940,10 +945,10 @@ export class DatabaseStorage implements IStorage {
       const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     };
 
@@ -952,7 +957,7 @@ export class DatabaseStorage implements IStorage {
         // Use service's own location first, fallback to owner's location
         let serviceLat: number | null = null;
         let serviceLng: number | null = null;
-        
+
         // Try service's own location first
         if (row.service.locationLat) {
           const parsed = parseFloat(row.service.locationLat as string);
@@ -960,14 +965,14 @@ export class DatabaseStorage implements IStorage {
             serviceLat = parsed;
           }
         }
-        
+
         if (row.service.locationLng) {
           const parsed = parseFloat(row.service.locationLng as string);
           if (!isNaN(parsed)) {
             serviceLng = parsed;
           }
         }
-        
+
         // Fallback to owner's location if service doesn't have its own
         if (serviceLat === null || serviceLng === null) {
           serviceLat = row.owner?.locationLat ? parseFloat(row.owner.locationLat as string) : null;
@@ -1046,11 +1051,11 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserLastHomeVisit(userId: string, visitTime?: Date): Promise<void> {
     const timestamp = visitTime || new Date();
-    
+
     await db
       .update(users)
-      .set({ 
-        lastHomeVisitAt: sql`GREATEST(COALESCE(${users.lastHomeVisitAt}, '1970-01-01'::timestamp), ${timestamp}::timestamp)` 
+      .set({
+        lastHomeVisitAt: sql`GREATEST(COALESCE(${users.lastHomeVisitAt}, '1970-01-01'::timestamp), ${timestamp}::timestamp)`
       })
       .where(eq(users.id, userId));
   }
@@ -1072,18 +1077,18 @@ export class DatabaseStorage implements IStorage {
       }
 
       const previousStatus = user.status;
-      const newStatus = 
+      const newStatus =
         action === "reactivate" ? "active" :
-        action === "warn" ? "warned" :
-        action === "suspend" ? "suspended" :
-        action === "ban" ? "banned" :
-        action === "kick" ? "kicked" :
-        "active" as "active" | "warned" | "suspended" | "banned" | "kicked";
+          action === "warn" ? "warned" :
+            action === "suspend" ? "suspended" :
+              action === "ban" ? "banned" :
+                action === "kick" ? "kicked" :
+                  "active" as "active" | "warned" | "suspended" | "banned" | "kicked";
 
       // Update user status
       const [updatedUser] = await tx
         .update(users)
-        .set({ 
+        .set({
           status: newStatus as "active" | "warned" | "suspended" | "banned" | "kicked",
           statusReason: reason || null,
           updatedAt: new Date()
@@ -1102,109 +1107,109 @@ export class DatabaseStorage implements IStorage {
         ipAddress,
       });
 
-    // If banning or kicking, add identifiers to banned list (with uniqueness check)
-    if (action === "ban" || action === "kick") {
-      const bannedData: InsertBannedIdentifier[] = [];
-      
-      if (user.email) {
-        // Check if this identifier already exists
-        const existing = await tx
-          .select()
-          .from(bannedIdentifiers)
-          .where(
-            and(
-              eq(bannedIdentifiers.identifierType, "email"),
-              eq(bannedIdentifiers.identifierValue, user.email)
+      // If banning or kicking, add identifiers to banned list (with uniqueness check)
+      if (action === "ban" || action === "kick") {
+        const bannedData: InsertBannedIdentifier[] = [];
+
+        if (user.email) {
+          // Check if this identifier already exists
+          const existing = await tx
+            .select()
+            .from(bannedIdentifiers)
+            .where(
+              and(
+                eq(bannedIdentifiers.identifierType, "email"),
+                eq(bannedIdentifiers.identifierValue, user.email)
+              )
             )
-          )
-          .limit(1);
-        
-        if (existing.length === 0) {
-          bannedData.push({
-            identifierType: "email",
-            identifierValue: user.email,
-            userId,
-            bannedBy: adminId,
-            reason,
-          });
-        } else {
-          // Reactivate if it was deactivated
-          await tx
-            .update(bannedIdentifiers)
-            .set({ isActive: true, bannedBy: adminId, reason })
-            .where(eq(bannedIdentifiers.id, existing[0].id));
+            .limit(1);
+
+          if (existing.length === 0) {
+            bannedData.push({
+              identifierType: "email",
+              identifierValue: user.email,
+              userId,
+              bannedBy: adminId,
+              reason,
+            });
+          } else {
+            // Reactivate if it was deactivated
+            await tx
+              .update(bannedIdentifiers)
+              .set({ isActive: true, bannedBy: adminId, reason })
+              .where(eq(bannedIdentifiers.id, existing[0].id));
+          }
+        }
+
+        if (user.phoneNumber) {
+          const existing = await tx
+            .select()
+            .from(bannedIdentifiers)
+            .where(
+              and(
+                eq(bannedIdentifiers.identifierType, "phone"),
+                eq(bannedIdentifiers.identifierValue, user.phoneNumber)
+              )
+            )
+            .limit(1);
+
+          if (existing.length === 0) {
+            bannedData.push({
+              identifierType: "phone",
+              identifierValue: user.phoneNumber,
+              userId,
+              bannedBy: adminId,
+              reason,
+            });
+          } else {
+            await tx
+              .update(bannedIdentifiers)
+              .set({ isActive: true, bannedBy: adminId, reason })
+              .where(eq(bannedIdentifiers.id, existing[0].id));
+          }
+        }
+
+        if (ipAddress) {
+          const existing = await tx
+            .select()
+            .from(bannedIdentifiers)
+            .where(
+              and(
+                eq(bannedIdentifiers.identifierType, "ip"),
+                eq(bannedIdentifiers.identifierValue, ipAddress)
+              )
+            )
+            .limit(1);
+
+          if (existing.length === 0) {
+            bannedData.push({
+              identifierType: "ip",
+              identifierValue: ipAddress,
+              userId,
+              bannedBy: adminId,
+              reason,
+            });
+          } else {
+            await tx
+              .update(bannedIdentifiers)
+              .set({ isActive: true, bannedBy: adminId, reason })
+              .where(eq(bannedIdentifiers.id, existing[0].id));
+          }
+        }
+
+        // Insert new identifiers in batch
+        if (bannedData.length > 0) {
+          await tx.insert(bannedIdentifiers).values(bannedData);
         }
       }
-      
-      if (user.phoneNumber) {
-        const existing = await tx
-          .select()
-          .from(bannedIdentifiers)
-          .where(
-            and(
-              eq(bannedIdentifiers.identifierType, "phone"),
-              eq(bannedIdentifiers.identifierValue, user.phoneNumber)
-            )
-          )
-          .limit(1);
-        
-        if (existing.length === 0) {
-          bannedData.push({
-            identifierType: "phone",
-            identifierValue: user.phoneNumber,
-            userId,
-            bannedBy: adminId,
-            reason,
-          });
-        } else {
-          await tx
-            .update(bannedIdentifiers)
-            .set({ isActive: true, bannedBy: adminId, reason })
-            .where(eq(bannedIdentifiers.id, existing[0].id));
-        }
+
+      // If reactivating or suspending (lifting ban), deactivate all banned identifiers for this user
+      if (action === "reactivate" || action === "suspend") {
+        await tx
+          .update(bannedIdentifiers)
+          .set({ isActive: false })
+          .where(eq(bannedIdentifiers.userId, userId));
       }
-      
-      if (ipAddress) {
-        const existing = await tx
-          .select()
-          .from(bannedIdentifiers)
-          .where(
-            and(
-              eq(bannedIdentifiers.identifierType, "ip"),
-              eq(bannedIdentifiers.identifierValue, ipAddress)
-            )
-          )
-          .limit(1);
-        
-        if (existing.length === 0) {
-          bannedData.push({
-            identifierType: "ip",
-            identifierValue: ipAddress,
-            userId,
-            bannedBy: adminId,
-            reason,
-          });
-        } else {
-          await tx
-            .update(bannedIdentifiers)
-            .set({ isActive: true, bannedBy: adminId, reason })
-            .where(eq(bannedIdentifiers.id, existing[0].id));
-        }
-      }
-      
-      // Insert new identifiers in batch
-      if (bannedData.length > 0) {
-        await tx.insert(bannedIdentifiers).values(bannedData);
-      }
-    }
-    
-    // If reactivating or suspending (lifting ban), deactivate all banned identifiers for this user
-    if (action === "reactivate" || action === "suspend") {
-      await tx
-        .update(bannedIdentifiers)
-        .set({ isActive: false })
-        .where(eq(bannedIdentifiers.userId, userId));
-    }
 
       return updatedUser;
     });
@@ -1220,7 +1225,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(userModerationActions.adminId, users.id))
       .where(eq(userModerationActions.userId, userId))
       .orderBy(desc(userModerationActions.createdAt));
-    
+
     return results.map((row) => ({
       ...row.action,
       adminName: row.admin ? `${row.admin.firstName || ''} ${row.admin.lastName || ''}`.trim() || row.admin.email : 'System',
@@ -1249,7 +1254,7 @@ export class DatabaseStorage implements IStorage {
 
   async checkIfBanned(email?: string, phone?: string, ip?: string): Promise<{ isBanned: boolean; reason?: string }> {
     const conditions = [];
-    
+
     if (email) {
       conditions.push(
         and(
@@ -1259,7 +1264,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
     }
-    
+
     if (phone) {
       conditions.push(
         and(
@@ -1269,7 +1274,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
     }
-    
+
     if (ip) {
       conditions.push(
         and(
@@ -1331,13 +1336,13 @@ export class DatabaseStorage implements IStorage {
     // Get pricing option if specified
     let unitPrice = service.price ? parseFloat(service.price) : 0;
     let priceLabel = '';
-    
+
     if (data.pricingOptionId) {
       const [option] = await db.select()
         .from(servicePricingOptions)
         .where(eq(servicePricingOptions.id, data.pricingOptionId))
         .limit(1);
-      
+
       if (option) {
         unitPrice = parseFloat(option.price);
         priceLabel = option.label;
@@ -1381,34 +1386,34 @@ export class DatabaseStorage implements IStorage {
 
   async getCustomerOrders(customerId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
     const query = db.select().from(orders).where(
-      status 
+      status
         ? and(eq(orders.customerId, customerId), eq(orders.status, status as any))
         : eq(orders.customerId, customerId)
     )
-    .orderBy(desc(orders.createdAt))
-    .limit(limit)
-    .offset(offset);
-    
+      .orderBy(desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
     return await query;
   }
 
   async getVendorOrders(vendorId: string, status?: string, limit: number = 20, offset: number = 0): Promise<Order[]> {
     const query = db.select().from(orders).where(
-      status 
+      status
         ? and(eq(orders.vendorId, vendorId), eq(orders.status, status as any))
         : eq(orders.vendorId, vendorId)
     )
-    .orderBy(desc(orders.createdAt))
-    .limit(limit)
-    .offset(offset);
-    
+      .orderBy(desc(orders.createdAt))
+      .limit(limit)
+      .offset(offset);
+
     return await query;
   }
 
   async updateOrderStatus(id: string, status: string, vendorNotes?: string): Promise<Order | null> {
     const [updated] = await db.update(orders)
-      .set({ 
-        status: status as any, 
+      .set({
+        status: status as any,
         vendorNotes,
         updatedAt: new Date()
       })

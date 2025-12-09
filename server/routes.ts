@@ -1681,13 +1681,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Not authorized" });
       }
 
-      const validated = insertServiceContactSchema.parse({
-        ...req.body,
-        serviceId: req.params.serviceId,
-      });
+      // Transform frontend format (phone, email) to database format (contactType, value)
+      const { phone, email, name, role, isPrimary } = req.body;
+      const createdContacts = [];
 
-      const contact = await storage.createServiceContact(validated);
-      res.status(201).json(contact);
+      // Create phone contact if provided
+      if (phone?.trim()) {
+        const phoneContact = insertServiceContactSchema.parse({
+          serviceId: req.params.serviceId,
+          contactType: "phone",
+          value: phone.trim(),
+          name,
+          role,
+          isPrimary: isPrimary && !email?.trim(), // Primary only if no email or this is the only contact
+        });
+        const created = await storage.createServiceContact(phoneContact);
+        createdContacts.push(created);
+      }
+
+      // Create email contact if provided
+      if (email?.trim()) {
+        const emailContact = insertServiceContactSchema.parse({
+          serviceId: req.params.serviceId,
+          contactType: "email",
+          value: email.trim(),
+          name,
+          role,
+          isPrimary: isPrimary || false,
+        });
+        const created = await storage.createServiceContact(emailContact);
+        createdContacts.push(created);
+      }
+
+      if (createdContacts.length === 0) {
+        return res.status(400).json({ message: "At least one contact (phone or email) is required" });
+      }
+
+      res.status(201).json(createdContacts.length === 1 ? createdContacts[0] : createdContacts);
     } catch (error: any) {
       if (error.name === 'ZodError') {
         return res.status(400).json({ message: fromZodError(error).message });
