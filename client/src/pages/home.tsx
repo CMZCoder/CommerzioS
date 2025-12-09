@@ -45,7 +45,8 @@ export default function Home() {
   const autoExpandTriggeredRef = useRef(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [serviceSearchQuery, setServiceSearchQuery] = useState("");
-  const [isMapVisible, setIsMapVisible] = useState(true);
+  // Default to false, only open if user searches or toggle it.
+  const [isMapVisible, setIsMapVisible] = useState(false);
 
   // Auto-show map when location changes
   useEffect(() => {
@@ -416,7 +417,8 @@ export default function Home() {
         </div>
       </section>
 
-      {searchLocation && (
+      {/* Sticky Category Bar - Show if we have search location OR map is visible */}
+      {(searchLocation || isMapVisible) && (
         <>
           <StickyCategoryBar
             categories={categories}
@@ -525,8 +527,14 @@ export default function Home() {
               {isMapVisible && (
                 <GoogleMaps
                   services={nearbyServices}
-                  userLocation={searchLocation}
-                  maxServices={20}
+                  userLocation={
+                    searchLocation || {
+                      lat: 46.8182, // Switzerland Center
+                      lng: 8.2275,
+                      name: "Switzerland"
+                    }
+                  }
+                  maxServices={100}
                   apiKey={mapsConfig?.apiKey || ""}
                   isExpanded={isMapExpanded}
                   onExpandedChange={setIsMapExpanded}
@@ -538,7 +546,7 @@ export default function Home() {
                   <div className="flex justify-center py-12">
                     <Loader2 className="animate-spin" />
                   </div>
-                ) : nearbyServices.length === 0 ? (
+                ) : nearbyServices.length === 0 && searchLocation ? (
                   <div className="text-center py-12 text-muted-foreground">No services found in this area.</div>
                 ) : (
                   <>
