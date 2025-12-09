@@ -920,7 +920,7 @@ export const insertServiceSchema = createInsertSchema(services, {
   price: z.string().optional(),
   priceText: z.string().optional(),
   priceList: z.any().optional(),
-  hashtags: z.array(z.string().min(1, "Hashtag must have at least 1 character")).max(3, "Maximum 3 hashtags allowed").optional(),
+  hashtags: z.array(z.string().min(1, "Hashtag must have at least 1 character")).max(5, "Maximum 5 hashtags allowed").optional(),
   subcategoryId: z.string().optional().nullable(),
 }).omit({
   id: true,

@@ -586,7 +586,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
 
   const addHashtag = (tag: string) => {
     const cleaned = tag.replace(/^#/, '').trim().toLowerCase();
-    if (cleaned && cleaned.length > 0 && formData!.hashtags.length < 3 && !formData!.hashtags.includes(cleaned)) {
+    if (cleaned && cleaned.length > 0 && formData!.hashtags.length < 5 && !formData!.hashtags.includes(cleaned)) {
       setFormData((prev: FormData | null) => ({
         ...prev!,
         hashtags: [...prev!.hashtags, cleaned],
@@ -1385,7 +1385,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     )}
 
                     {/* Hashtag Input */}
-                    {formData.hashtags.length < 3 && (
+                    {formData.hashtags.length < 5 && (
                       <div className="flex gap-2">
                         <Input
                           placeholder="Type a hashtag and press Enter"
@@ -2126,7 +2126,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 <div className="flex flex-wrap gap-2">
                   {suggestedHashtags.map((tag: string) => {
                     const isAdded = formData.hashtags.includes(tag);
-                    const canAdd = formData.hashtags.length < 3;
+                    const canAdd = formData.hashtags.length < 5;
 
                     return (
                       <Badge
@@ -2148,7 +2148,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                   })}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {formData.hashtags.length}/3 hashtags selected
+                  {formData.hashtags.length}/5 hashtags selected
                 </p>
               </>
             ) : (

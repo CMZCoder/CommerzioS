@@ -23,7 +23,7 @@ export async function analyzeImagesForHashtags(imageUrls: string[]): Promise<str
           content: [
             {
               type: "text",
-              text: "Analyze these images and suggest up to 10 relevant hashtags for a Swiss service marketplace. Focus on the service type, industry, and key features visible. Return only the hashtags as a comma-separated list without the # symbol. Examples: plumbing, renovation, bathroom"
+              text: "Analyze these images and suggest up to 5 relevant hashtags for a Swiss service marketplace. Focus on the service type, industry, and key features visible. Return only the hashtags as a comma-separated list without the # symbol. Examples: plumbing, renovation, bathroom"
             },
             ...imageContents
           ]
@@ -38,7 +38,7 @@ export async function analyzeImagesForHashtags(imageUrls: string[]): Promise<str
       .split(/[,\n]/)
       .map(tag => tag.trim().toLowerCase().replace(/^#/, ''))
       .filter(tag => tag.length > 0)
-      .slice(0, 10);
+      .slice(0, 5);
 
     return hashtags;
   } catch (error) {
@@ -343,7 +343,7 @@ export async function suggestAllFields(
 2. **Description**: A detailed, professional description (100-300 words) highlighting features and benefits
 3. **Category**: The most appropriate category slug from the list below
 4. **Subcategory**: ALWAYS provide a subcategory slug. If one from the list fits well, use it. If not, CREATE a new descriptive subcategory slug (lowercase-with-dashes format, e.g., "accordion-lessons", "pet-photography", "custom-tailoring")
-5. **Hashtags**: 5-8 relevant hashtags (without # symbol) for discoverability
+5. **Hashtags**: Up to 5 relevant hashtags (without # symbol) for discoverability
 
 IMPORTANT: You MUST always provide a subcategorySlug - never return null. Create a descriptive new subcategory if needed.
 
@@ -379,7 +379,7 @@ Return a JSON object with this exact structure:
       categorySlug: result.categorySlug || "home-services",
       subcategorySlug: result.subcategorySlug || null,
       hashtags: Array.isArray(result.hashtags)
-        ? result.hashtags.map((t: string) => t.toLowerCase().replace(/^#/, '').trim()).filter(Boolean).slice(0, 10)
+        ? result.hashtags.map((t: string) => t.toLowerCase().replace(/^#/, '').trim()).filter(Boolean).slice(0, 5)
         : [],
       confidence: result.confidence || 0.7,
     };
