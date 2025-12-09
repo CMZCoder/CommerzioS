@@ -5,9 +5,9 @@ export function Footer() {
     return (
         <footer className="bg-card dark:bg-background border-t border-border text-muted-foreground py-16 mt-20">
             <div className="container mx-auto px-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12">
-                    {/* Brand Column */}
-                    <div className="lg:col-span-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
+                    {/* Brand Column - Only on large screens */}
+                    <div className="col-span-2 md:col-span-4 lg:col-span-1 lg:order-first order-last">
                         <div className="flex items-center gap-2 mb-4">
                             <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-lg">
                                 <svg width="24" height="24" viewBox="0 0 32 32" fill="none" className="text-primary-foreground">
@@ -23,33 +23,29 @@ export function Footer() {
                                 <span className="text-xs font-medium text-accent -mt-0.5">Services</span>
                             </div>
                         </div>
-                        <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mb-4">
+                        <p className="text-muted-foreground text-sm leading-relaxed max-w-xs hidden lg:block">
                             {BRAND.description}
                         </p>
-                        <p className="text-xs text-muted-foreground/70">
-                            A <span className="font-medium text-muted-foreground">{BRAND.parentCompany}</span> company
-                        </p>
-                        {/* Trust badges */}
-                        <div className="flex items-center gap-4 mt-6 pt-6 border-t border-border">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                                <svg className="w-4 h-4 text-success" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                                <span>SSL Secured</span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                                <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                                <span>Verified Providers</span>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Platform */}
                     <div>
                         <h4 className="font-semibold text-foreground mb-4">Platform</h4>
                         <ul className="space-y-3 text-sm">
-                            <li><Link href="/"><span className="hover:text-foreground transition-colors cursor-pointer">Browse Services</span></Link></li>
-                            <li><Link href="/register"><span className="hover:text-foreground transition-colors cursor-pointer">Post a Service</span></Link></li>
-                            <li><Link href="/how-it-works"><span className="hover:text-foreground transition-colors cursor-pointer">How it Works</span></Link></li>
-                            <li><Link href="/referrals"><span className="hover:text-foreground transition-colors cursor-pointer">Refer & Earn</span></Link></li>
+                            <li><Link href="/about"><span className="hover:text-foreground transition-colors cursor-pointer">About</span></Link></li>
+                            <li><Link href="/how-it-works"><span className="hover:text-foreground transition-colors cursor-pointer">How It Works</span></Link></li>
+                            <li><Link href="/trust-safety"><span className="hover:text-foreground transition-colors cursor-pointer">Trust & Safety</span></Link></li>
+                            <li><Link href="/pricing"><span className="hover:text-foreground transition-colors cursor-pointer">Pricing</span></Link></li>
+                        </ul>
+                    </div>
+
+                    {/* For Vendors */}
+                    <div>
+                        <h4 className="font-semibold text-foreground mb-4">For Vendors</h4>
+                        <ul className="space-y-3 text-sm">
+                            <li><Link href="/register"><span className="hover:text-foreground transition-colors cursor-pointer">Become a Vendor</span></Link></li>
+                            <li><Link href="/vendor-resources"><span className="hover:text-foreground transition-colors cursor-pointer">Resources</span></Link></li>
+                            <li><Link href="/success-stories"><span className="hover:text-foreground transition-colors cursor-pointer">Success Stories</span></Link></li>
                         </ul>
                     </div>
 
@@ -58,8 +54,8 @@ export function Footer() {
                         <h4 className="font-semibold text-foreground mb-4">Support</h4>
                         <ul className="space-y-3 text-sm">
                             <li><Link href="/help-center"><span className="hover:text-foreground transition-colors cursor-pointer">Help Center</span></Link></li>
-                            <li><Link href="/trust-safety"><span className="hover:text-foreground transition-colors cursor-pointer">Trust & Safety</span></Link></li>
-                            <li><Link href="/contact"><span className="hover:text-foreground transition-colors cursor-pointer">Contact Us</span></Link></li>
+                            <li><Link href="/contact"><span className="hover:text-foreground transition-colors cursor-pointer">Contact</span></Link></li>
+                            <li><Link href="/dispute-resolution"><span className="hover:text-foreground transition-colors cursor-pointer">Dispute Resolution</span></Link></li>
                         </ul>
                     </div>
 
@@ -67,20 +63,37 @@ export function Footer() {
                     <div>
                         <h4 className="font-semibold text-foreground mb-4">Legal</h4>
                         <ul className="space-y-3 text-sm">
-                            <li><Link href="/terms"><span className="hover:text-foreground transition-colors cursor-pointer">Terms of Service</span></Link></li>
-                            <li><Link href="/privacy"><span className="hover:text-foreground transition-colors cursor-pointer">Privacy Policy</span></Link></li>
+                            <li><Link href="/terms"><span className="hover:text-foreground transition-colors cursor-pointer">Terms</span></Link></li>
+                            <li><Link href="/privacy"><span className="hover:text-foreground transition-colors cursor-pointer">Privacy</span></Link></li>
+                            <li><Link href="/cookies"><span className="hover:text-foreground transition-colors cursor-pointer">Cookies</span></Link></li>
                         </ul>
                     </div>
                 </div>
 
                 {/* Bottom bar */}
                 <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-sm text-muted-foreground/70">
-                        {BRAND.copyright}
-                    </p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-                        <span>🇨🇭</span>
-                        <span>Made in Switzerland</span>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground/70">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                            <span className="text-xs font-bold text-foreground">C</span>
+                        </div>
+                        <span>© 2025 Commerzio Services. Made in Switzerland with</span>
+                        <span className="text-red-500">❤</span>
+                    </div>
+
+                    {/* Payment Methods */}
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-muted-foreground/70">Payment Methods:</span>
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
+                                Card
+                            </span>
+                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
+                                TWINT
+                            </span>
+                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
+                                Cash
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>

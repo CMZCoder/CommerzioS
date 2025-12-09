@@ -547,23 +547,200 @@ export default function Home() {
         </>
       )}
 
-      <section className="py-16 md:py-24 bg-gradient-to-br from-accent/5 via-muted/20 to-success/5">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-12">How Commerzio Works</h2>
-          <div className="grid md:grid-cols-3 gap-8">
+      {/* How Commerzio Works Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-b from-background via-background to-muted/30">
+        <div className="container mx-auto px-4">
+          {/* Section Badge */}
+          <div className="flex justify-center mb-6">
+            <span className="px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium border border-primary/20">
+              Simple Process
+            </span>
+          </div>
+
+          {/* Section Heading */}
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center mb-4 bg-gradient-to-r from-primary via-cyan-400 to-primary bg-clip-text text-transparent italic">
+            How Commerzio Works
+          </h2>
+          <p className="text-center text-muted-foreground max-w-xl mx-auto mb-16">
+            Book trusted services in three simple steps with complete security and transparency
+          </p>
+
+          {/* Steps Grid */}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {[
-              { step: 1, title: "Discover & Book", desc: "Browse verified providers" },
-              { step: 2, title: "Secure Payment", desc: "Funds held in escrow" },
-              { step: 3, title: "Leave a Review", desc: "Help build the community" },
+              {
+                step: 1,
+                title: "Discover & Book",
+                desc: "Browse verified service providers, compare reviews, and book your preferred time slot instantly."
+              },
+              {
+                step: 2,
+                title: "Secure Payment",
+                desc: "Pay securely with escrow protection. Funds are held until you confirm the service is completed."
+              },
+              {
+                step: 3,
+                title: "Leave a Review",
+                desc: "Share your experience and help others make informed decisions. Build trust in our community."
+              }
             ].map((item, i) => (
-              <div key={i} className="bg-card p-8 rounded-2xl shadow-sm border">
-                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center font-bold mx-auto mb-4">
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.4 }}
+                whileHover={{ y: -8, transition: { duration: 0.2 } }}
+                className="bg-card/50 dark:bg-card/30 backdrop-blur-sm p-8 rounded-2xl border border-border/50 hover:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-primary/5"
+              >
+                {/* Step Number */}
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-400 to-primary text-white flex items-center justify-center font-bold text-lg mb-6 shadow-lg shadow-primary/20">
                   {item.step}
                 </div>
-                <h3 className="font-bold text-xl mb-2">{item.title}</h3>
-                <p className="text-muted-foreground">{item.desc}</p>
-              </div>
+                <h3 className="font-bold text-xl mb-3 text-foreground">{item.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+              </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose Commerzio Section */}
+      <section className="py-20 md:py-28 bg-muted/30 dark:bg-muted/10">
+        <div className="container mx-auto px-4">
+          {/* Section Heading */}
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">
+            Why Choose Commerzio
+          </h2>
+          <p className="text-center text-muted-foreground max-w-xl mx-auto mb-16">
+            Built for the Swiss market with security and trust at its core
+          </p>
+
+          {/* Features Grid - 2 rows of 3 */}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {[
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                ),
+                iconBg: "from-cyan-500/20 to-cyan-500/10",
+                iconColor: "text-cyan-400",
+                title: "Escrow Protection",
+                desc: "Your payment is held securely until service completion. Full refund guarantee for disputes."
+              },
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                ),
+                iconBg: "from-primary/20 to-primary/10",
+                iconColor: "text-primary",
+                title: "Verified Vendors",
+                desc: "All service providers are verified with background checks and review systems."
+              },
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                iconBg: "from-emerald-500/20 to-emerald-500/10",
+                iconColor: "text-emerald-400",
+                title: "Quality Guarantee",
+                desc: "98% satisfaction rate backed by our dispute resolution system and customer support."
+              },
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                iconBg: "from-cyan-500/20 to-cyan-500/10",
+                iconColor: "text-cyan-400",
+                title: "Real-Time Booking",
+                desc: "Instant availability checks and booking confirmations. No more endless phone calls."
+              },
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                iconBg: "from-amber-500/20 to-amber-500/10",
+                iconColor: "text-amber-400",
+                title: "Rewards Program",
+                desc: "Earn points with every booking and referral. Redeem for discounts on future services."
+              },
+              {
+                icon: (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                ),
+                iconBg: "from-primary/20 to-primary/10",
+                iconColor: "text-primary",
+                title: "Trusted Reviews",
+                desc: "Only verified customers can leave reviews, ensuring authentic feedback."
+              }
+            ].map((feature, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.08, duration: 0.4 }}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className="bg-card dark:bg-card/50 p-6 rounded-xl border border-border/50 hover:border-primary/30 transition-all duration-300"
+              >
+                {/* Icon */}
+                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.iconBg} ${feature.iconColor} flex items-center justify-center mb-4`}>
+                  {feature.icon}
+                </div>
+                <h3 className="font-semibold text-lg mb-2 text-foreground">{feature.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Ready to Get Started CTA Section */}
+      <section className="py-20 md:py-28 bg-gradient-to-br from-primary/10 via-background to-cyan-500/10 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent pointer-events-none" />
+
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-6 text-foreground">
+              Ready to get started?
+            </h2>
+            <p className="text-muted-foreground text-lg mb-10 leading-relaxed">
+              Join thousands of satisfied customers and verified vendors on Switzerland's most trusted service platform
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/search">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="min-w-[160px] h-12 text-base font-medium border-2 border-border hover:border-primary hover:bg-primary/5 transition-all duration-300"
+                >
+                  Find Services
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button
+                  size="lg"
+                  className="min-w-[160px] h-12 text-base font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all duration-300"
+                >
+                  Become a Vendor
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </section>
