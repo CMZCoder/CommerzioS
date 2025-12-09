@@ -311,7 +311,7 @@ async function seedComprehensive() {
     
     // Phase 1 - Direct Negotiation
     const dispute1Id = "d1sp-pha1-0001-0000-000000000001";
-    let existingDispute1 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute1Id)).limit(1);
+    const existingDispute1 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute1Id)).limit(1);
     if (existingDispute1.length === 0) {
       // Create the main escrow dispute
       await db.insert(escrowDisputes).values({
@@ -340,7 +340,7 @@ async function seedComprehensive() {
 
     // Phase 2 - AI Mediation
     const dispute2Id = "d1sp-pha2-0002-0000-000000000002";
-    let existingDispute2 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute2Id)).limit(1);
+    const existingDispute2 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute2Id)).limit(1);
     if (existingDispute2.length === 0) {
       // Create the main escrow dispute
       await db.insert(escrowDisputes).values({
@@ -468,7 +468,7 @@ async function seedComprehensive() {
 
     // Phase 3 - AI Decision
     const dispute3Id = "d1sp-pha3-0003-0000-000000000003";
-    let existingDispute3 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute3Id)).limit(1);
+    const existingDispute3 = await db.select().from(escrowDisputes).where(eq(escrowDisputes.id, dispute3Id)).limit(1);
     if (existingDispute3.length === 0) {
       // Create the main escrow dispute
       await db.insert(escrowDisputes).values({

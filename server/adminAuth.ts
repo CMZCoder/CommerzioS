@@ -29,7 +29,7 @@ export const isAdmin: RequestHandler = async (req: any, res, next) => {
   if (req.isAuthenticated && req.isAuthenticated() && req.user) {
     try {
       const user = await storage.getUser(req.user.id);
-      
+
       if (user && user.isAdmin) {
         // Store admin info in request for use in routes
         req.adminUser = user;
@@ -75,7 +75,7 @@ export const adminLogin: RequestHandler = async (req, res) => {
 
     // Check if user is an admin
     const user = await storage.getUser(result.user!.id);
-    
+
     if (!user || !user.isAdmin) {
       return res.status(403).json({
         success: false,
@@ -124,7 +124,7 @@ export const adminLogout: RequestHandler = (req, res) => {
       console.error("Admin logout error:", err);
       return res.status(500).json({ success: false, message: "Logout failed" });
     }
-    
+
     req.session.destroy((destroyErr) => {
       if (destroyErr) {
         console.error("Session destroy error:", destroyErr);
@@ -143,7 +143,7 @@ export const getAdminSession: RequestHandler = async (req, res) => {
   if (req.isAuthenticated && req.isAuthenticated() && req.user) {
     try {
       const user = await storage.getUser((req.user as any).id);
-      
+
       if (user && user.isAdmin) {
         return res.json({
           isAdmin: true,
@@ -159,7 +159,7 @@ export const getAdminSession: RequestHandler = async (req, res) => {
       console.error("Error getting admin session:", error);
     }
   }
-  
+
   return res.json({ isAdmin: false });
 };
 
@@ -176,7 +176,7 @@ export async function createAdminUser(data: {
   lastName: string;
 }): Promise<{ success: boolean; message: string; userId?: string }> {
   const { email, password, firstName, lastName } = data;
-  
+
   try {
     // Check if user already exists
     const [existingUser] = await db
@@ -184,24 +184,24 @@ export async function createAdminUser(data: {
       .from(users)
       .where(eq(users.email, email.toLowerCase()))
       .limit(1);
-    
+
     if (existingUser) {
       // Promote existing user to admin
       await db
         .update(users)
         .set({ isAdmin: true, updatedAt: new Date() })
         .where(eq(users.id, existingUser.id));
-      
+
       return {
         success: true,
         message: "User promoted to admin",
         userId: existingUser.id,
       };
     }
-    
+
     // Create new admin user
     const passwordHash = await hashPassword(password);
-    
+
     const result = await db
       .insert(users)
       .values({
@@ -215,7 +215,7 @@ export async function createAdminUser(data: {
       })
       .returning();
     const [newUser] = result as any[];
-    
+
     return {
       success: true,
       message: "Admin user created",
@@ -231,6 +231,24 @@ export async function createAdminUser(data: {
 }
 
 /**
+ * Validate password strength
+ * Returns true if password meets requirements, false otherwise
+ */
+function isStrongPassword(password: string): boolean {
+  // Minimum 12 characters
+  if (password.length < 12) return false;
+  // Must contain uppercase
+  if (!/[A-Z]/.test(password)) return false;
+  // Must contain lowercase
+  if (!/[a-z]/.test(password)) return false;
+  // Must contain number
+  if (!/[0-9]/.test(password)) return false;
+  // Must contain special character
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return false;
+  return true;
+}
+
+/**
  * Seed default admin user if no admins exist
  * Called during application startup
  */
@@ -242,27 +260,50 @@ export async function seedAdminIfNeeded(): Promise<void> {
       .from(users)
       .where(eq(users.isAdmin, true))
       .limit(1);
-    
+
     if (existingAdmin) {
       console.log("Admin user already exists:", existingAdmin.email);
       return;
     }
-    
-    // Create default admin user
-    // In production, you should change these credentials immediately
-    const defaultAdminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
-    const defaultAdminPassword = process.env.ADMIN_PASSWORD || "Admin123!";
-    
+
+    // Get admin credentials from environment
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    // In production, require environment variables
+    const isProduction = process.env.NODE_ENV === "production";
+
+    if (isProduction) {
+      if (!adminEmail || !adminPassword) {
+        console.error("❌ Production requires ADMIN_EMAIL and ADMIN_PASSWORD environment variables");
+        return;
+      }
+      if (!isStrongPassword(adminPassword)) {
+        console.error("❌ ADMIN_PASSWORD does not meet strength requirements (12+ chars, upper, lower, number, special)");
+        return;
+      }
+    }
+
+    // For development, allow defaults but warn
+    const defaultAdminEmail = adminEmail || "admin@example.com";
+    const defaultAdminPassword = adminPassword || "DevAdmin123!@";
+
+    if (!adminEmail || !adminPassword) {
+      console.warn("⚠️  Using default admin credentials. Set ADMIN_EMAIL and ADMIN_PASSWORD for production.");
+    }
+
     const result = await createAdminUser({
       email: defaultAdminEmail,
       password: defaultAdminPassword,
       firstName: "Admin",
       lastName: "User",
     });
-    
+
     if (result.success) {
       console.log(`Default admin user created: ${defaultAdminEmail}`);
-      console.log("⚠️  Please change the default admin password immediately!");
+      if (!adminPassword) {
+        console.log("⚠️  Please set ADMIN_PASSWORD environment variable!");
+      }
     } else {
       console.error("Failed to create default admin user:", result.message);
     }
@@ -270,3 +311,4 @@ export async function seedAdminIfNeeded(): Promise<void> {
     console.error("Error seeding admin user:", error);
   }
 }
+
