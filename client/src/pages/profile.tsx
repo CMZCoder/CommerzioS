@@ -149,7 +149,7 @@ export default function Profile() {
   const [reviewBackText, setReviewBackText] = useState("");
   const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
   const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
-  const [listingsSubTab, setListingsSubTab] = useState<'active' | 'drafts'>('active');
+  const [listingsSubTab, setListingsSubTab] = useState<'all' | 'active' | 'drafts' | 'toRenew' | 'expired' | 'archived'>('active');
 
   // Multi-criteria ratings for comprehensive reviews
   const [serviceRating, setServiceRating] = useState(5);
@@ -660,11 +660,51 @@ export default function Profile() {
     return myServices.reduce((sum, service) => sum + service.viewCount, 0);
   }, [myServices]);
 
-  // Separate drafts from active/paused services
-  const { activeServices, draftServices } = useMemo(() => {
+  // Helper: check if expired more than 10 days ago (should auto-archive)
+  const isExpiredOver10Days = (date: string | Date) => {
+    const expiryDate = new Date(date).getTime();
+    const tenDaysAgo = new Date().getTime() - (10 * 24 * 60 * 60 * 1000);
+    return expiryDate < tenDaysAgo;
+  };
+
+  // Categorize services into 6 groups
+  const { allServices, activeServices, draftServices, toRenewServices, expiredServices, archivedServices } = useMemo(() => {
+    const now = new Date().getTime();
+    const tenDaysAgo = now - (10 * 24 * 60 * 60 * 1000);
+
     const drafts = myServices.filter(s => s.status === 'draft');
-    const active = myServices.filter(s => s.status !== 'draft');
-    return { activeServices: active, draftServices: drafts };
+    const archived = myServices.filter(s => s.status === 'archived');
+
+    // Active = status is 'active' and NOT expired
+    const active = myServices.filter(s =>
+      s.status === 'active' && new Date(s.expiresAt).getTime() >= now
+    );
+
+    // To Renew = expired within last 10 days (not archived)
+    const toRenew = myServices.filter(s => {
+      if (s.status === 'draft' || s.status === 'archived') return false;
+      const expiryTime = new Date(s.expiresAt).getTime();
+      return expiryTime < now && expiryTime >= tenDaysAgo;
+    });
+
+    // Expired = expired more than 10 days ago but not yet archived (frontend display only)
+    const expired = myServices.filter(s => {
+      if (s.status === 'draft' || s.status === 'archived') return false;
+      const expiryTime = new Date(s.expiresAt).getTime();
+      return expiryTime < tenDaysAgo;
+    });
+
+    // All = everything except archived
+    const all = myServices.filter(s => s.status !== 'archived');
+
+    return {
+      allServices: all,
+      activeServices: active,
+      draftServices: drafts,
+      toRenewServices: toRenew,
+      expiredServices: expired,
+      archivedServices: archived
+    };
   }, [myServices]);
 
   const validateSwissPhoneNumber = (phone: string): boolean => {
@@ -1697,17 +1737,41 @@ export default function Profile() {
 
               <div className="bg-card rounded-xl border border-border shadow-sm p-6">
                 <Tabs value={listingsSubTab} onValueChange={(v) => setListingsSubTab(v as any)} className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="active" className="relative">
-                      Active
-                      {activeServices.length > 0 && (
-                        <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] text-xs">{activeServices.length}</Badge>
+                  <TabsList className="grid w-full grid-cols-6 mb-6">
+                    <TabsTrigger value="all" className="relative text-xs sm:text-sm">
+                      All
+                      {allServices.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] text-xs">{allServices.length}</Badge>
                       )}
                     </TabsTrigger>
-                    <TabsTrigger value="drafts" className="relative">
+                    <TabsTrigger value="active" className="relative text-xs sm:text-sm">
+                      Active
+                      {activeServices.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] text-xs">{activeServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="drafts" className="relative text-xs sm:text-sm">
                       Drafts
                       {draftServices.length > 0 && (
-                        <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] text-xs">{draftServices.length}</Badge>
+                        <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] text-xs">{draftServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="toRenew" className="relative text-xs sm:text-sm">
+                      To Renew
+                      {toRenewServices.length > 0 && (
+                        <Badge variant="outline" className="ml-1 h-5 min-w-[20px] text-xs text-amber-600 border-amber-400">{toRenewServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="expired" className="relative text-xs sm:text-sm">
+                      Expired
+                      {expiredServices.length > 0 && (
+                        <Badge variant="destructive" className="ml-1 h-5 min-w-[20px] text-xs">{expiredServices.length}</Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="archived" className="relative text-xs sm:text-sm">
+                      Archived
+                      {archivedServices.length > 0 && (
+                        <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] text-xs opacity-60">{archivedServices.length}</Badge>
                       )}
                     </TabsTrigger>
                   </TabsList>
@@ -1871,6 +1935,174 @@ export default function Profile() {
                       <div className="text-center py-12">
                         <p className="text-muted-foreground">No drafts saved.</p>
                         <p className="text-sm text-muted-foreground mt-1">Drafts will appear here when you save a service listing without publishing.</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* All Listings Tab */}
+                  <TabsContent value="all">
+                    {servicesLoading ? (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">Loading your services...</p>
+                      </div>
+                    ) : allServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {allServices.map(service => {
+                          const expired = isExpired(service.expiresAt);
+                          const isDraft = service.status === 'draft';
+                          return (
+                            <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border rounded-lg hover:bg-accent transition-colors">
+                              <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
+                                {service.images && service.images[0] ? (
+                                  <img src={service.images[0]} alt="" className={`w-full h-full object-cover ${expired || isDraft ? 'opacity-70' : ''}`} />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                    <Camera className="w-6 h-6" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 py-1">
+                                <div className="flex items-start justify-between mb-1">
+                                  <h3 className="font-medium">{service.title || <span className="text-muted-foreground italic">Untitled</span>}</h3>
+                                  <div className="flex gap-1">
+                                    {isDraft && <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">Draft</Badge>}
+                                    {!isDraft && expired && <Badge variant="destructive" className="text-xs">Expired</Badge>}
+                                    {!isDraft && !expired && <Badge variant="default" className="text-xs">Active</Badge>}
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground line-clamp-1">{service.description || 'No description'}</p>
+                              </div>
+                              <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                                <Button variant="outline" size="sm" onClick={() => setEditingService(service)}>Edit</Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">No listings yet.</p>
+                        <Button variant="link" className="mt-2" onClick={() => setShowCreateModal(true)}>Create your first listing</Button>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* To Renew Tab */}
+                  <TabsContent value="toRenew">
+                    {toRenewServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {toRenewServices.map(service => (
+                          <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border border-amber-300 bg-amber-50/50 dark:bg-amber-900/10 rounded-lg">
+                            <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
+                              <img src={service.images?.[0]} alt="" className="w-full h-full object-cover grayscale opacity-70" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Clock className="w-6 h-6 text-amber-500" />
+                              </div>
+                            </div>
+                            <div className="flex-1 py-1">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="font-medium">{service.title}</h3>
+                                <Badge variant="outline" className="text-amber-600 border-amber-400 text-xs">Needs Renewal</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-1 mb-1">{service.description}</p>
+                              <p className="text-xs text-amber-600">Expired: {new Date(service.expiresAt).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                              <Button size="sm" onClick={() => handleRenew(service.id)} disabled={renewServiceMutation.isPending}>
+                                <RefreshCw className="w-3 h-3 mr-2" />
+                                Renew
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => setEditingService(service)}>Edit</Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <Clock className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                        <p className="text-muted-foreground">No listings to renew.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Listings that expire will appear here for up to 10 days.</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Expired Tab */}
+                  <TabsContent value="expired">
+                    {expiredServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {expiredServices.map(service => (
+                          <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border border-destructive/30 bg-destructive/5 rounded-lg">
+                            <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0 relative">
+                              <img src={service.images?.[0]} alt="" className="w-full h-full object-cover grayscale opacity-50" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <Badge variant="destructive">Expired</Badge>
+                              </div>
+                            </div>
+                            <div className="flex-1 py-1">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="font-medium text-muted-foreground">{service.title}</h3>
+                                <Badge variant="destructive" className="text-xs">Expired 10+ days</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-1 mb-1">{service.description}</p>
+                              <p className="text-xs text-destructive">Expired: {new Date(service.expiresAt).toLocaleDateString()}</p>
+                            </div>
+                            <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                              <Button size="sm" onClick={() => handleRenew(service.id)} disabled={renewServiceMutation.isPending}>
+                                <RefreshCw className="w-3 h-3 mr-2" />
+                                Reactivate
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleStatusChange(service.id, 'archived' as any)}>
+                                Archive
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">No expired listings.</p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  {/* Archived Tab */}
+                  <TabsContent value="archived">
+                    {archivedServices.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {archivedServices.map(service => (
+                          <div key={service.id} className="flex flex-col md:flex-row gap-4 p-4 border border-dashed rounded-lg opacity-60 hover:opacity-100 transition-opacity">
+                            <div className="w-full md:w-32 aspect-video bg-muted rounded-md overflow-hidden shrink-0">
+                              {service.images && service.images[0] ? (
+                                <img src={service.images[0]} alt="" className="w-full h-full object-cover grayscale" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                  <Camera className="w-6 h-6" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 py-1">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="font-medium text-muted-foreground">{service.title}</h3>
+                                <Badge variant="secondary" className="text-xs opacity-60">Archived</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-1">{service.description}</p>
+                            </div>
+                            <div className="flex md:flex-col gap-2 justify-center shrink-0">
+                              <Button variant="outline" size="sm" onClick={() => handleStatusChange(service.id, 'active')}>
+                                Restore
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => handleDelete(service.id)} disabled={deleteServiceMutation.isPending}>
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">No archived listings.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Expired listings are automatically archived after 10 days.</p>
                       </div>
                     )}
                   </TabsContent>
