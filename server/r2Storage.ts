@@ -145,7 +145,7 @@ export class ObjectStorageService {
    * Get the object key from an object path
    * Converts /objects/uploads/uuid to uploads/uuid
    */
-  private getObjectKeyFromPath(objectPath: string): string {
+  getObjectKeyFromPath(objectPath: string): string {
     if (objectPath.startsWith("/objects/")) {
       return objectPath.slice(9); // Remove "/objects/"
     }
@@ -226,7 +226,7 @@ export class ObjectStorageService {
         // For web streams, convert to Node.js readable
         const webStream = response.Body as ReadableStream;
         const reader = webStream.getReader();
-        
+
         const pump = async () => {
           while (true) {
             const { done, value } = await reader.read();
@@ -237,7 +237,7 @@ export class ObjectStorageService {
             res.write(value);
           }
         };
-        
+
         pump().catch((err) => {
           console.error("Error streaming response:", err);
           if (!res.headersSent) {
@@ -268,12 +268,12 @@ export class ObjectStorageService {
       try {
         const url = new URL(rawPath);
         const pathParts = url.pathname.split("/").filter(Boolean);
-        
+
         // Remove bucket name if present
         if (pathParts[0] === this.bucketName) {
           pathParts.shift();
         }
-        
+
         return `/objects/${pathParts.join("/")}`;
       } catch {
         // If URL parsing fails, return as is
@@ -298,7 +298,7 @@ export class ObjectStorageService {
     aclPolicy: ObjectAclPolicy
   ): Promise<string> {
     const normalizedPath = this.normalizeObjectEntityPath(rawPath);
-    
+
     if (!normalizedPath.startsWith("/objects/")) {
       return normalizedPath;
     }
@@ -313,14 +313,14 @@ export class ObjectStorageService {
       });
 
       const existingObject = await this.client.send(getCommand);
-      
+
       // Re-upload with metadata (R2 doesn't support updating metadata in place)
       // For public objects, we don't need to do anything special since 
       // public access is controlled at the bucket/custom domain level
-      
+
       // Store ACL policy in metadata for reference
       const bodyBuffer = await existingObject.Body?.transformToByteArray();
-      
+
       if (bodyBuffer) {
         const putCommand = new PutObjectCommand({
           Bucket: this.bucketName,

@@ -2594,3 +2594,63 @@ export type InsertTip = typeof tips.$inferInsert;
 // Review Removal Request types
 export type ReviewRemovalRequest = typeof reviewRemovalRequests.$inferSelect;
 export type InsertReviewRemovalRequest = typeof reviewRemovalRequests.$inferInsert;
+
+// ============================================
+// Orphan Image Archiving System
+// ============================================
+
+// Reason why an image was archived
+export const archiveReasonEnum = pgEnum("archive_reason", [
+  "draft_deleted",
+  "form_abandoned",
+  "service_deleted",
+  "unlinked_cleanup",
+  "manual"
+]);
+
+// Archived images table - stores compressed versions of orphaned images
+export const archivedImages = pgTable("archived_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  originalPath: varchar("original_path", { length: 500 }).notNull(), // Original path in storage
+  archivePath: varchar("archive_path", { length: 500 }).notNull(), // Compressed archive path
+  originalSizeBytes: integer("original_size_bytes"),
+  compressedSizeBytes: integer("compressed_size_bytes"),
+  compressionQuality: integer("compression_quality").default(70).notNull(),
+  reason: archiveReasonEnum("reason").notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }), // User who uploaded (if known)
+  serviceId: varchar("service_id"), // Associated service ID (if any, at time of archival)
+  metadata: jsonb("metadata"), // Additional context
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(), // 6 months from creation
+}, (table) => [
+  index("idx_archived_images_expires").on(table.expiresAt),
+  index("idx_archived_images_user").on(table.userId),
+]);
+
+// Orphan image cleanup logs - for admin visibility
+export const orphanImageLogs = pgTable("orphan_image_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  action: varchar("action", { enum: ["archived", "deleted", "cleanup_started", "cleanup_completed"] }).notNull(),
+  imagePath: varchar("image_path", { length: 500 }),
+  archiveId: varchar("archive_id").references(() => archivedImages.id, { onDelete: "set null" }),
+  reason: varchar("reason", { length: 255 }),
+  details: jsonb("details"), // Additional details (count, duration, etc.)
+  triggeredBy: varchar("triggered_by", { enum: ["system", "user", "scheduled", "admin"] }).default("system").notNull(),
+  adminId: varchar("admin_id").references(() => users.id, { onDelete: "set null" }), // If triggered by admin
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertArchivedImageSchema = createInsertSchema(archivedImages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertOrphanImageLogSchema = createInsertSchema(orphanImageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ArchivedImage = typeof archivedImages.$inferSelect;
+export type InsertArchivedImage = typeof archivedImages.$inferInsert;
+export type OrphanImageLog = typeof orphanImageLogs.$inferSelect;
+export type InsertOrphanImageLog = typeof orphanImageLogs.$inferInsert;
