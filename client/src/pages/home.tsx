@@ -419,7 +419,7 @@ export default function Home() {
             newCounts={{}}
           />
 
-          <section ref={nearbyServicesSectionRef} className="py-16 md:py-24 bg-muted/30 border-y border-border">
+          <section ref={nearbyServicesSectionRef} className="py-8 md:py-12 bg-muted/30 border-y border-border">
             <div className="container mx-auto px-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div className="flex-1">
@@ -565,7 +565,7 @@ export default function Home() {
       )}
 
       {/* How Commerzio Works Section */}
-      <section className="py-16 md:py-24 bg-gradient-to-b from-background via-background to-muted/30">
+      <section className="pt-16 md:pt-24 pb-12 md:pb-16 bg-gradient-to-b from-background via-background to-muted/30">
         <div className="container mx-auto px-4">
           {/* Section Badge */}
           <div className="flex justify-center mb-6">
@@ -623,7 +623,7 @@ export default function Home() {
       </section>
 
       {/* Why Choose Commerzio Section */}
-      <section className="py-16 md:py-24 bg-muted/30 dark:bg-muted/10">
+      <section className="pt-12 md:pt-16 pb-16 md:pb-24 bg-muted/30 dark:bg-muted/10">
         <div className="container mx-auto px-4">
           {/* Section Heading */}
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">
