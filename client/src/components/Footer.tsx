@@ -3,7 +3,7 @@ import { BRAND } from "@/lib/brand"
 
 export function Footer() {
     return (
-        <footer className="bg-card dark:bg-background border-t border-border text-muted-foreground py-16 mt-20">
+        <footer className="bg-card dark:bg-background border-t border-border text-muted-foreground py-16">
             <div className="container mx-auto px-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
                     {/* Brand Column - Only on large screens */}
