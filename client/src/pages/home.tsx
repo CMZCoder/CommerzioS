@@ -441,19 +441,11 @@ export default function Home() {
                     }
                   </span>
                 </h2>
-              </div>
-              <div className="flex items-center justify-between mt-2 gap-4">
-                <p className="text-sm text-muted-foreground">
-                  {searchLocation
-                    ? `Found ${nearbyServices.length} services within ${radiusKm}km`
-                    : "Browse services across Switzerland"
-                  }
-                </p>
-                {/* Map Toggle Button - Fixed position, alone */}
+                {/* Map Toggle Button - Fixed position next to title */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className={`h-8 text-xs ${isMapVisible
+                  className={`h-8 text-xs flex-shrink-0 ${isMapVisible
                     ? 'border-destructive/30 hover:bg-destructive/10 hover:text-destructive'
                     : 'border-primary/20 hover:bg-primary/5 hover:text-primary'}`}
                   onClick={() => {
@@ -479,6 +471,12 @@ export default function Home() {
                   )}
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground">
+                {searchLocation
+                  ? `Found ${nearbyServices.length} services within ${radiusKm}km`
+                  : "Browse services across Switzerland"
+                }
+              </p>
             </div>
 
             {/* Radius controls - only show when map is visible AND expanded */}
