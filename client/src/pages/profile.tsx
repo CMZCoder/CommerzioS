@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, CheckCircle, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, MessageSquare, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote, CalendarDays, Lock } from "lucide-react";
+import { PlusCircle, Settings, CreditCard, BarChart3, RefreshCw, Clock, Trash2, Plus, Edit2, MapPin, CheckCircle2, CheckCircle, User as UserIcon, Camera, Loader2, Edit, Trash, Pencil, Check, Gift, Users, Star, TrendingUp, Copy, Share2, ChevronDown, ChevronRight, DollarSign, MessageCircle, MessageSquare, Bell, AlertTriangle, Key, Mail, Smartphone, Banknote, CalendarDays, Lock, History, ShoppingBag, Receipt, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -150,6 +150,7 @@ export default function Profile() {
   const [reviewBackBookingId, setReviewBackBookingId] = useState<string | null>(null);
   const [reviewsSubTab, setReviewsSubTab] = useState<'received' | 'given' | 'to-review' | 'pending'>('received');
   const [listingsSubTab, setListingsSubTab] = useState<'all' | 'active' | 'drafts' | 'toRenew' | 'expired' | 'archived'>('active');
+  const [paymentHistoryTab, setPaymentHistoryTab] = useState<'all' | 'purchases' | 'sales' | 'commission' | 'promotional'>('all');
 
   // Multi-criteria ratings for comprehensive reviews
   const [serviceRating, setServiceRating] = useState(5);
@@ -2976,6 +2977,75 @@ export default function Profile() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Payment History Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Payment History
+                  </CardTitle>
+                  <CardDescription>
+                    Complete history of all your transactions
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={paymentHistoryTab} onValueChange={(v) => setPaymentHistoryTab(v as any)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-5 mb-4">
+                      <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+                      <TabsTrigger value="purchases" className="text-xs sm:text-sm">Purchases</TabsTrigger>
+                      <TabsTrigger value="sales" className="text-xs sm:text-sm">Sales</TabsTrigger>
+                      <TabsTrigger value="commission" className="text-xs sm:text-sm">Commission</TabsTrigger>
+                      <TabsTrigger value="promotional" className="text-xs sm:text-sm">Promotional</TabsTrigger>
+                    </TabsList>
+
+                    {/* All Transactions */}
+                    <TabsContent value="all" className="mt-0">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No transactions yet</p>
+                        <p className="text-sm mt-1">Your complete payment history will appear here</p>
+                      </div>
+                    </TabsContent>
+
+                    {/* Purchases - Services you bought */}
+                    <TabsContent value="purchases" className="mt-0">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <ShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No purchases yet</p>
+                        <p className="text-sm mt-1">Services you've paid for will appear here</p>
+                      </div>
+                    </TabsContent>
+
+                    {/* Sales - Services you sold */}
+                    <TabsContent value="sales" className="mt-0">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No sales yet</p>
+                        <p className="text-sm mt-1">Payments received from customers will appear here</p>
+                      </div>
+                    </TabsContent>
+
+                    {/* Commission - Platform fees */}
+                    <TabsContent value="commission" className="mt-0">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Receipt className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No commission charges yet</p>
+                        <p className="text-sm mt-1">Platform commission fees will appear here</p>
+                      </div>
+                    </TabsContent>
+
+                    {/* Promotional Packages */}
+                    <TabsContent value="promotional" className="mt-0">
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Sparkles className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>No promotional packages</p>
+                        <p className="text-sm mt-1">Featured listings and promotional package purchases will appear here</p>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             {/* Referrals Tab */}
