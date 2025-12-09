@@ -108,7 +108,7 @@ export function ImageManager({
       const remainingSlots = maxImages - images.length;
       toast({
         title: "Image limit reached",
-        description: `You can only upload ${remainingSlots} more image(s) with your current plan (${maxImages} total).`,
+        description: `You can only upload ${remainingSlots} more image(s) with your current plan (${maxImages} total). Upgrade your plan for up to 10 images!`,
         variant: "destructive",
       });
       // Only upload up to the limit
@@ -127,7 +127,7 @@ export function ImageManager({
       // Upload all files in parallel
       const uploadPromises = files.map(file => uploadImage(file));
       const objectPaths = await Promise.all(uploadPromises);
-      
+
       // Create metadata for all new images
       const newMetadata = objectPaths.map(() => ({
         rotation: 0,
@@ -135,10 +135,10 @@ export function ImageManager({
         crop: { x: 0, y: 0, width: 100, height: 100 },
         cropPixels: undefined  // Will be set when user edits the image
       }));
-      
+
       onImagesChange([...images, ...objectPaths]);
       onMetadataChange([...imageMetadata, ...newMetadata]);
-      
+
       toast({
         title: "Images uploaded",
         description: `${files.length} image(s) uploaded successfully`,
@@ -166,7 +166,7 @@ export function ImageManager({
     const newMetadata = imageMetadata.filter((_, i) => i !== index);
     onImagesChange(newImages);
     onMetadataChange(newMetadata);
-    
+
     // Adjust main image index if needed
     if (mainImageIndex === index) {
       onMainImageChange(0);
@@ -191,24 +191,24 @@ export function ImageManager({
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
-    
+
     // Only reorder if we're hovering over a different position
     if (hoveredIndex === index) return;
-    
+
     setHoveredIndex(index);
 
     const newImages = [...images];
     const newMetadata = [...imageMetadata];
-    
+
     const draggedImage = newImages[draggedIndex];
     const draggedMeta = newMetadata[draggedIndex];
-    
+
     newImages.splice(draggedIndex, 1);
     newImages.splice(index, 0, draggedImage);
-    
+
     newMetadata.splice(draggedIndex, 1);
     newMetadata.splice(index, 0, draggedMeta);
-    
+
     onImagesChange(newImages);
     onMetadataChange(newMetadata);
     // Main image is always the first image (index 0)
@@ -231,18 +231,18 @@ export function ImageManager({
     // Move the selected image to first position
     const newImages = [...images];
     const newMetadata = [...imageMetadata];
-    
+
     const selectedImage = newImages[index];
     const selectedMeta = newMetadata[index];
-    
+
     // Remove from current position
     newImages.splice(index, 1);
     newMetadata.splice(index, 1);
-    
+
     // Insert at first position
     newImages.unshift(selectedImage);
     newMetadata.unshift(selectedMeta);
-    
+
     // Update all state
     onImagesChange(newImages);
     onMetadataChange(newMetadata);
@@ -317,8 +317,8 @@ export function ImageManager({
           onDrop={handleDrop}
           className={`
             border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200
-            ${isDraggingOver 
-              ? 'border-primary bg-primary/5 scale-[1.02]' 
+            ${isDraggingOver
+              ? 'border-primary bg-primary/5 scale-[1.02]'
               : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/30'
             }
             ${uploadingImage ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -335,8 +335,8 @@ export function ImageManager({
             data-testid="input-image-upload"
             disabled={uploadingImage}
           />
-          <label 
-            htmlFor="image-upload" 
+          <label
+            htmlFor="image-upload"
             className={`flex flex-col items-center gap-3 ${uploadingImage ? 'pointer-events-none' : 'cursor-pointer'}`}
           >
             <div className="relative">
@@ -345,14 +345,14 @@ export function ImageManager({
                 <ImageIcon className="w-6 h-6 text-primary absolute -right-2 -bottom-1 animate-bounce" />
               )}
             </div>
-            
+
             <div className="space-y-1">
               <p className={`text-base font-medium transition-colors ${isDraggingOver ? 'text-primary' : 'text-foreground'}`}>
-                {uploadingImage 
-                  ? 'Uploading...' 
-                  : isDraggingOver 
-                  ? 'Drop images here!' 
-                  : 'Drag and drop images here'
+                {uploadingImage
+                  ? 'Uploading...'
+                  : isDraggingOver
+                    ? 'Drop images here!'
+                    : 'Drag and drop images here'
                 }
               </p>
               {!uploadingImage && !isDraggingOver && (
@@ -361,7 +361,7 @@ export function ImageManager({
                 </p>
               )}
             </div>
-            
+
             {!uploadingImage && (
               <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
                 <p>Supports: JPG, PNG, WebP, GIF</p>
@@ -391,63 +391,62 @@ export function ImageManager({
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
                 onDragEnd={handleDragEnd}
-                className={`relative group cursor-move transition-all ${
-                  draggedIndex === idx ? 'opacity-40 scale-95' : ''
-                }`}
+                className={`relative group cursor-move transition-all ${draggedIndex === idx ? 'opacity-40 scale-95' : ''
+                  }`}
                 data-testid={`image-preview-${idx}`}
               >
-              <img 
-                src={getImageUrl(img)} 
-                alt={`Service ${idx}`} 
-                className="w-full h-32 object-cover rounded border-2 border-border" 
-              />
-              
-              {/* Main image badge - always on first image */}
-              {idx === 0 && (
-                <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                  <Star className="w-3 h-3 fill-current" />
-                  Main
-                </div>
-              )}
+                <img
+                  src={getImageUrl(img)}
+                  alt={`Service ${idx}`}
+                  className="w-full h-32 object-cover rounded border-2 border-border"
+                />
 
-              {/* Action buttons */}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleSetMainImage(idx)}
-                  data-testid={`button-set-main-${idx}`}
-                  title="Set as main image (move to first)"
-                  disabled={idx === 0}
-                >
-                  <Star className={`w-3 h-3 ${idx === 0 ? 'fill-current' : ''}`} />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setEditingIndex(idx)}
-                  data-testid={`button-edit-image-${idx}`}
-                  title="Edit image"
-                >
-                  <Edit className="w-3 h-3" />
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => removeImage(idx)}
-                  data-testid={`button-remove-image-${idx}`}
-                  title="Remove image"
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
-            </motion.div>
-          ))}
+                {/* Main image badge - always on first image */}
+                {idx === 0 && (
+                  <div className="absolute top-2 left-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                    <Star className="w-3 h-3 fill-current" />
+                    Main
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleSetMainImage(idx)}
+                    data-testid={`button-set-main-${idx}`}
+                    title="Set as main image (move to first)"
+                    disabled={idx === 0}
+                  >
+                    <Star className={`w-3 h-3 ${idx === 0 ? 'fill-current' : ''}`} />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setEditingIndex(idx)}
+                    data-testid={`button-edit-image-${idx}`}
+                    title="Edit image"
+                  >
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => removeImage(idx)}
+                    data-testid={`button-remove-image-${idx}`}
+                    title="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
           </AnimatePresence>
-          
+
           {/* Upgrade for more slot - show when at max capacity with free plan */}
           {images.length >= maxImages && maxImages === 4 && (
             <Link href="/pricing" className="block">

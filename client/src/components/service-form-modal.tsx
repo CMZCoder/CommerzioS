@@ -768,6 +768,9 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         title: "AI Suggestions Applied!",
         description: "Title, description, category, and hashtags have been generated. Feel free to edit them!",
       });
+
+      // Invalidate subcategories query to ensure new subcategory appears in dropdown
+      queryClient.invalidateQueries({ queryKey: ["/api/subcategories"] });
     } catch (error: any) {
       console.error("AI suggest all error:", error);
       // Clear saved state on failure
