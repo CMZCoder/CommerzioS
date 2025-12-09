@@ -471,25 +471,12 @@ export default function Home() {
                   </Button>
                 </h2>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted-foreground">
-                  {searchLocation
-                    ? `Found ${nearbyServices.length} services within ${radiusKm}km`
-                    : "Browse services across Switzerland"
-                  }
-                </p>
-                {/* Expand to Grid button */}
-                {nearbyServices.length > 0 && !nearbyLoading && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-primary hover:text-primary/80"
-                    onClick={() => setNearbyMode((m) => (m === "slider" ? "grid" : "slider"))}
-                  >
-                    {nearbyMode === "slider" ? "Expand to Grid" : "Minimize to Slider"}
-                  </Button>
-                )}
-              </div>
+              <p className="text-sm text-muted-foreground">
+                {searchLocation
+                  ? `Found ${nearbyServices.length} services within ${radiusKm}km`
+                  : "Browse services across Switzerland"
+                }
+              </p>
             </div>
 
             {/* Radius controls - only show when map is visible AND expanded */}
