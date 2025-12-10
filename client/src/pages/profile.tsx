@@ -101,6 +101,7 @@ export default function Profile() {
   const [lastName, setLastName] = useState(user?.lastName || "");
   const [email, setEmail] = useState(user?.email || "");
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || "");
+  const [vendorBio, setVendorBio] = useState(user?.vendorBio || "");
 
   const [mainLocationName, setMainLocationName] = useState(user?.preferredLocationName || "");
   const [mainLocationLat, setMainLocationLat] = useState(user?.locationLat ? parseFloat(user.locationLat as any) : null);
@@ -170,6 +171,7 @@ export default function Profile() {
       setLastName(user.lastName || "");
       setPhoneNumber(user.phoneNumber || "");
       setEmail(user.email || "");
+      setVendorBio(user.vendorBio || "");
     }
   }, [user]);
 
@@ -472,6 +474,7 @@ export default function Profile() {
       firstName?: string; lastName?: string; phoneNumber?: string; profileImageUrl?: string;
       locationLat?: number | null; locationLng?: number | null; preferredLocationName?: string;
       acceptCardPayments?: boolean; acceptTwintPayments?: boolean; acceptCashPayments?: boolean; requireBookingApproval?: boolean;
+      vendorBio?: string;
     }) => {
       const response = await fetch('/api/users/me', {
         method: 'PATCH',
@@ -775,7 +778,7 @@ export default function Profile() {
       return;
     }
 
-    updateProfileMutation.mutate({ firstName, lastName, phoneNumber });
+    updateProfileMutation.mutate({ firstName, lastName, phoneNumber, vendorBio });
   };
 
   const handleAddressSubmit = (e: React.FormEvent) => {
@@ -1216,6 +1219,24 @@ export default function Profile() {
                         </p>
                       )}
                     </div>
+
+                    {/* About Me Section */}
+                    <div>
+                      <Label htmlFor="vendorBio">About Me</Label>
+                      <Textarea
+                        id="vendorBio"
+                        value={vendorBio}
+                        onChange={(e) => setVendorBio(e.target.value)}
+                        placeholder="Tell potential customers about yourself, your experience, and what makes your services special..."
+                        rows={4}
+                        className="resize-none"
+                        data-testid="input-vendorBio"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This appears on your service listings under "About Vendor"
+                      </p>
+                    </div>
+
                     <Button
                       type="submit"
                       disabled={updateProfileMutation.isPending}
