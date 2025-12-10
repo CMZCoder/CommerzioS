@@ -656,9 +656,9 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
           {/* Booking Sidebar */}
           <div className="lg:col-span-1">
             <Card className="sticky top-20">
-              <CardContent className="p-6">
-                <div className="mb-6">
-                  <div className="flex items-end gap-2 mb-2">
+              <CardContent className="p-5">
+                <div className="mb-4">
+                  <div className="flex items-end gap-2 mb-1">
                     <span className="text-3xl font-bold">CHF {service.price}</span>
                     <span className="text-muted-foreground mb-1">/{service.priceUnit}</span>
                   </div>
@@ -668,7 +668,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                 </div>
 
                 {service.status === "active" ? (
-                  <Button size="lg" className="w-full mb-3" onClick={() => {
+                  <Button size="lg" className="w-full mb-2" onClick={() => {
                     if (!isAuthenticated) { toast({ title: "Sign in required", variant: "destructive" }); setLocation("/auth"); return; }
                     setLocation(`/service/${serviceId}/book`);
                   }}>
@@ -676,13 +676,13 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                     Book Now
                   </Button>
                 ) : (
-                  <div className="p-4 rounded-lg bg-muted text-center mb-3">
-                    <AlertCircle className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                  <div className="p-3 rounded-lg bg-muted text-center mb-2">
+                    <AlertCircle className="w-5 h-5 mx-auto mb-1 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Booking unavailable - listing is {service.status}</p>
                   </div>
                 )}
 
-                <Button size="lg" variant="outline" className="w-full mb-6 bg-transparent" onClick={() => {
+                <Button size="lg" variant="outline" className="w-full mb-4 bg-transparent" onClick={() => {
                   if (!isAuthenticated) { setLocation("/auth"); return; }
                   setLocation(`/chat?vendor=${service.owner.id}&service=${serviceId}`);
                 }}>
@@ -690,42 +690,41 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   Contact Vendor
                 </Button>
 
-                <Separator className="mb-6" />
+                <Separator className="mb-4" />
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <div className="flex items-center gap-3 text-sm">
-                    <Shield className="h-5 w-5 text-accent flex-shrink-0" />
+                    <Shield className="h-4 w-4 text-accent flex-shrink-0" />
                     <div>
-                      <p className="font-medium">Escrow Protection</p>
-                      <p className="text-muted-foreground text-xs">Payment held until service confirmed</p>
+                      <p className="font-medium text-sm">Escrow Protection</p>
+                      <p className="text-muted-foreground text-xs">Payment held until confirmed</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm">
-                    <Clock className="h-5 w-5 text-accent flex-shrink-0" />
+                    <Clock className="h-4 w-4 text-accent flex-shrink-0" />
                     <div>
-                      <p className="font-medium">Instant Booking</p>
-                      <p className="text-muted-foreground text-xs">Confirmation within minutes</p>
+                      <p className="font-medium text-sm">Instant Booking</p>
+                      <p className="text-muted-foreground text-xs">Confirmation in minutes</p>
                     </div>
                   </div>
                   {satisfactionRate > 0 && (
                     <div className="flex items-center gap-3 text-sm">
-                      <CheckCircle2 className="h-5 w-5 text-accent flex-shrink-0" />
+                      <CheckCircle2 className="h-4 w-4 text-accent flex-shrink-0" />
                       <div>
-                        <p className="font-medium">Satisfaction Guarantee</p>
-                        <p className="text-muted-foreground text-xs">{satisfactionRate.toFixed(0)}% customer satisfaction rate</p>
+                        <p className="font-medium text-sm">Satisfaction Guarantee</p>
+                        <p className="text-muted-foreground text-xs">{satisfactionRate.toFixed(0)}% satisfaction rate</p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Accepted Payment Methods - Data-driven, scalable */}
+                {/* Accepted Payment Methods - Compact with hover effects */}
                 {(() => {
-                  // Payment methods configuration - add new methods here and they'll appear automatically
                   const PAYMENT_METHODS = [
-                    { key: 'card', label: 'Credit/Debit Card', icon: '💳' },
+                    { key: 'card', label: 'Card', icon: '💳' },
                     { key: 'twint', label: 'TWINT', icon: '📱' },
                     { key: 'cash', label: 'Cash', icon: '💵' },
-                    { key: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' },
+                    { key: 'bank_transfer', label: 'Bank', icon: '🏦' },
                     { key: 'crypto', label: 'Crypto', icon: '₿' },
                   ];
 
@@ -736,12 +735,16 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
 
                   return (
                     <>
-                      <Separator className="my-6" />
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-sm">Accepted Payment Methods</h4>
-                        <div className="flex flex-wrap gap-2">
+                      <Separator className="my-4" />
+                      <div className="space-y-2">
+                        <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wide">Payment Methods</h4>
+                        <div className="flex flex-wrap gap-1.5">
                           {activeMethods.map(method => (
-                            <Badge key={method.key} variant="secondary" className="text-xs py-1.5 px-3 gap-1.5">
+                            <Badge
+                              key={method.key}
+                              variant="outline"
+                              className="text-xs py-1 px-2 gap-1 cursor-default hover:bg-primary/10 hover:border-primary/50 hover:scale-105 transition-all duration-200"
+                            >
                               <span>{method.icon}</span>
                               {method.label}
                             </Badge>
@@ -752,18 +755,18 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   );
                 })()}
 
-                <Separator className="my-6" />
-
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-sm">Share this service</h4>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="flex-1 bg-transparent" onClick={copyServiceLink}>
+                {/* Compact Share & Report row */}
+                <Separator className="my-4" />
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm" className="h-8 px-2" onClick={copyServiceLink} title="Copy link">
                       <Share2 className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant="outline"
-                      size="icon"
-                      className="flex-1 bg-transparent"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      title={isSaved ? "Remove from saved" : "Save service"}
                       onClick={() => {
                         if (!isAuthenticated) { setLocation("/auth"); return; }
                         toggleSaved.mutate({ action: isSaved ? 'remove' : 'add' });
@@ -772,12 +775,9 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       <Heart className={`h-4 w-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
                     </Button>
                   </div>
-                </div>
-
-                <div className="mt-6 text-center">
-                  <Button variant="link" className="text-muted-foreground text-xs gap-1">
+                  <Button variant="ghost" size="sm" className="h-8 text-muted-foreground text-xs gap-1 hover:text-destructive">
                     <Flag className="w-3 h-3" />
-                    Report this service
+                    Report
                   </Button>
                 </div>
               </CardContent>
