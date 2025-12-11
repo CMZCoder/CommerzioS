@@ -166,9 +166,12 @@ export function StickyCategoryBar({
   const checkScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (container) {
-      const { scrollLeft, scrollWidth, clientWidth } = container;
-      setCanScrollLeft(scrollLeft > 5);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+      // Use requestAnimationFrame to avoid ResizeObserver loop limit exceeded error
+      requestAnimationFrame(() => {
+        const { scrollLeft, scrollWidth, clientWidth } = container;
+        setCanScrollLeft(scrollLeft > 5);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+      });
     }
   }, []);
 
