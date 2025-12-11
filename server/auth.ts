@@ -74,9 +74,9 @@ export function getSession() {
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: true,
+    createTableIfMissing: false, // Table is managed by drizzle schema
     ttl: SESSION_TTL / 1000, // in seconds
-    tableName: "sessions",
+    tableName: "session", // Matches drizzle schema
   });
   
   const sessionSecret = process.env.SESSION_SECRET;
