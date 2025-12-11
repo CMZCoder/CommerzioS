@@ -1,10 +1,13 @@
+"use client"
+
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
+import { StickyCategoryNav } from "@/components/sticky-category-nav"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Search, Shield, Clock, Star, ChevronRight, MapPin, Sparkles, Award, Lock, CheckCircle2 } from "lucide-react"
+import { Search, Shield, Clock, Star, MapPin, Sparkles, Award, Lock, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 
 export default function HomePage() {
@@ -12,6 +15,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Navigation />
 
+      {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-primary/5 via-background to-accent/5 border-b overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f08_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="container mx-auto px-4 py-20 md:py-32 relative">
@@ -79,6 +83,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Stats Section */}
       <section className="py-12 border-b bg-gradient-to-r from-background via-muted/30 to-background">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
@@ -110,48 +115,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold">
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                Popular Categories
-              </span>
-            </h2>
-            <Button variant="ghost" asChild className="text-primary hover:text-primary hover:bg-primary/10">
-              <Link href="/categories">
-                View All
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+      {/* Sticky Category Navigation Component */}
+      <StickyCategoryNav />
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { name: "Home Services", count: "1,234", icon: "🏠", gradient: "from-primary/10 to-accent/10" },
-              { name: "Health & Wellness", count: "892", icon: "💪", gradient: "from-accent/10 to-primary/10" },
-              { name: "Education", count: "654", icon: "📚", gradient: "from-primary/10 to-success/10" },
-              { name: "Events", count: "423", icon: "🎉", gradient: "from-accent/10 to-success/10" },
-              { name: "Tech Support", count: "567", icon: "💻", gradient: "from-success/10 to-primary/10" },
-              { name: "Transportation", count: "345", icon: "🚗", gradient: "from-success/10 to-accent/10" },
-            ].map((category) => (
-              <Card
-                key={category.name}
-                className="hover:shadow-lg transition-all duration-300 cursor-pointer group hover:-translate-y-1 bg-gradient-to-br from-card to-muted/30"
-              >
-                <CardContent className="p-6 text-center">
-                  <div className="text-4xl mb-3 group-hover:scale-110 transition-transform duration-300">
-                    {category.icon}
-                  </div>
-                  <h3 className="font-semibold mb-1 group-hover:text-primary transition-colors">{category.name}</h3>
-                  <p className="text-sm text-muted-foreground">{category.count} services</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
+      {/* How It Works Section */}
       <section className="py-16 md:py-24 bg-gradient-to-br from-accent/5 via-muted/20 to-success/5">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -208,6 +175,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Why Choose Section */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -295,6 +263,7 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* CTA Section */}
       <section className="py-16 md:py-24 bg-gradient-to-br from-primary via-accent to-primary text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         <div className="container mx-auto px-4 relative text-center">

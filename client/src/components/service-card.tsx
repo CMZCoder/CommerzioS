@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Star, MapPin, CheckCircle2, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, MapPin, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "wouter";
-import { cn } from "@/lib/utils";
+import { cn, getFuzzyLocation } from "@/lib/utils";
 import { useCroppedImage } from "@/hooks/useCroppedImage";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -262,10 +262,10 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                     disabled={isAuthenticated && toggleSaved.isPending}
                     data-testid={`button-favorite-${service.id}`}
                   >
-                    <Heart
+                    <Star
                       className={cn(
-                        "w-3.5 h-3.5 transition-all duration-100",
-                        isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
+                        "w-3.5 h-3.5 transition-all duration-200",
+                        isSaved ? "fill-amber-400 text-amber-400" : "text-muted-foreground hover:text-amber-400"
                       )}
                     />
                   </button>
@@ -439,10 +439,10 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
                   disabled={isAuthenticated && toggleSaved.isPending}
                   data-testid={`button-favorite-${service.id}`}
                 >
-                  <Heart
+                  <Star
                     className={cn(
-                      "h-4 w-4 transition-all duration-100",
-                      isSaved ? "fill-destructive text-destructive" : "text-muted-foreground"
+                      "h-4 w-4 transition-all duration-200",
+                      isSaved ? "fill-amber-400 text-amber-400" : "text-muted-foreground hover:text-amber-400"
                     )}
                   />
                 </Button>
@@ -481,7 +481,7 @@ export function ServiceCard({ service, compact = false, isSaved: initialIsSaved 
             </div>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <MapPin className="h-3 w-3" />
-              <span className="truncate">{service.locations?.[0] || (service as any).location || "N/A"}</span>
+              <span className="truncate">{getFuzzyLocation(service.locations?.[0] || (service as any).location) || getFuzzyLocation(service.preferredLocationName) || 'Location not set'}</span>
             </div>
           </div>
 

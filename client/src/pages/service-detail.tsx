@@ -48,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import useEmblaCarousel from "embla-carousel-react";
+import { getFuzzyLocation } from "@/lib/utils";
 
 // Route guard wrapper
 export default function ServiceDetail() {
@@ -147,6 +148,14 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
     queryFn: () => apiRequest(`/api/services/${serviceId}/questions/unanswered-count`),
     enabled: !!service && user?.id === service.ownerId, // Only for vendors
     refetchInterval: 10000, // Poll every 10 seconds for real-time badge updates
+  });
+
+  // Query for user's new replies count (for question askers, not vendors)
+  const { data: userReplyCounts } = useQuery<{ total: number; newReplies: number }>({
+    queryKey: [`/api/services/${serviceId}/questions/my-replies-count`],
+    queryFn: () => apiRequest(`/api/services/${serviceId}/questions/my-replies-count`),
+    enabled: !!service && isAuthenticated && user?.id !== service.ownerId, // Only for non-vendors
+    refetchInterval: 10000,
   });
 
   useEffect(() => {
@@ -413,7 +422,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                     <Separator orientation="vertical" className="h-4" />
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <MapPin className="h-4 w-4" />
-                      {service.locations?.[0] || 'Switzerland'}
+                      {getFuzzyLocation(service.locations?.[0]) || getFuzzyLocation(service.preferredLocationName) || 'Location not set'}
                     </div>
                     {totalBookings > 0 && (
                       <>
@@ -469,9 +478,16 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   <TabsTrigger value="reviews">Reviews</TabsTrigger>
                   <TabsTrigger value="questions" className="flex items-center gap-2">
                     Questions
+                    {/* Vendor sees unanswered questions count (red) */}
                     {questionCounts && questionCounts.unanswered > 0 && user?.id === service.ownerId && (
                       <Badge variant="destructive" className="text-[10px] h-4 min-w-4 px-1 rounded-full">
                         {questionCounts.unanswered}
+                      </Badge>
+                    )}
+                    {/* Users see new replies count (primary color) */}
+                    {userReplyCounts && userReplyCounts.newReplies > 0 && user?.id !== service.ownerId && (
+                      <Badge className="text-[10px] h-4 min-w-4 px-1 rounded-full bg-primary">
+                        {userReplyCounts.newReplies}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -503,7 +519,7 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                   <div>
                     <h3 className="text-xl font-semibold mb-3">Service Area</h3>
                     <p className="text-muted-foreground mb-4">
-                      Available in {service.locations?.[0] || 'Switzerland'} and surrounding areas
+                      Available in {getFuzzyLocation(service.locations?.[0]) || getFuzzyLocation(service.preferredLocationName) || 'your area'} and surrounding areas
                     </p>
                     <ServiceMap service={service} userLocation={userLocation} />
                   </div>

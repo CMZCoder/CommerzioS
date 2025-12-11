@@ -35,7 +35,7 @@ import {
   RefreshCw, 
   Archive, 
   Clock, 
-  Heart, 
+  Star, 
   Inbox,
   X,
   Check
@@ -94,7 +94,7 @@ type FilterType = 'all' | 'active' | 'archived' | 'expired' | 'saved';
 const FILTERS: { value: FilterType; label: string; icon: React.ReactNode; description: string }[] = [
   { value: 'all', label: 'All Messages', icon: <Inbox className="w-4 h-4" />, description: 'Show all conversations' },
   { value: 'active', label: 'Active', icon: <MessageSquare className="w-4 h-4" />, description: 'Active conversations' },
-  { value: 'saved', label: 'Saved Services', icon: <Heart className="w-4 h-4" />, description: 'From saved services' },
+  { value: 'saved', label: 'Saved Services', icon: <Star className="w-4 h-4" />, description: 'From saved services' },
   { value: 'archived', label: 'Archived', icon: <Archive className="w-4 h-4" />, description: 'Archived conversations' },
   { value: 'expired', label: 'Expired', icon: <Clock className="w-4 h-4" />, description: 'Expired conversations' },
 ];

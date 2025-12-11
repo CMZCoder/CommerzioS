@@ -30,6 +30,7 @@ export default function Home() {
   const { toast } = useToast();
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(10);
   const [showAdvancedRadius, setShowAdvancedRadius] = useState(false);
   const [radiusExpansionMessage, setRadiusExpansionMessage] = useState<string | null>(null);
@@ -505,11 +506,16 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Sticky Category Bar - Always visible for browsing */}
+      {/* Sticky Category Bar - Vercel Design with Subcategory Dropdowns */}
       <StickyCategoryBar
         categories={categories}
         selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        selectedSubcategory={selectedSubcategory}
+        onCategoryChange={(categoryId) => {
+          setSelectedCategory(categoryId);
+          setSelectedSubcategory(null); // Reset subcategory when category changes
+        }}
+        onSubcategoryChange={setSelectedSubcategory}
         serviceCount={services.length}
         categoryCounts={categoryCounts}
         newCounts={{}}

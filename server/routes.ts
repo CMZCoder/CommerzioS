@@ -2962,6 +2962,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get count of questions with new vendor replies for the current user (for question askers)
+  app.get('/api/services/:id/questions/my-replies-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const serviceId = req.params.id;
+
+      const service = await storage.getService(serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      // Get questions asked by this user on this service
+      const myQuestions = await db.select()
+        .from(listingQuestions)
+        .where(and(
+          eq(listingQuestions.serviceId, serviceId),
+          eq(listingQuestions.userId, userId)
+        ));
+
+      if (myQuestions.length === 0) {
+        return res.json({ total: 0, newReplies: 0 });
+      }
+
+      const questionIds = myQuestions.map(q => q.id);
+      const answers = await db.select()
+        .from(listingAnswers)
+        .where(inArray(listingAnswers.questionId, questionIds));
+
+      // Count questions where the last answer is from the vendor (not the user)
+      let newReplies = 0;
+      for (const q of myQuestions) {
+        const qAnswers = answers.filter(a => a.questionId === q.id);
+        if (qAnswers.length > 0) {
+          // Sort by createdAt to get the last answer
+          qAnswers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          const lastAnswer = qAnswers[0];
+          // If last answer is from vendor (not the user who asked), it's a new reply
+          if (lastAnswer.userId === service.ownerId) {
+            newReplies++;
+          }
+        }
+      }
+
+      res.json({ total: myQuestions.length, newReplies });
+    } catch (error) {
+      console.error("Error getting user's question replies count:", error);
+      res.status(500).json({ message: "Failed to get replies count" });
+    }
+  });
+
   app.post('/api/services/:id/questions', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user!.id;
@@ -4088,6 +4138,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get open service requests for vendor (with proposal status)
+  // NOTE: Must be before /:id route to avoid "browse" being parsed as UUID
+  app.get('/api/service-requests/browse', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { categoryId, subcategoryId, canton, limit, offset } = req.query;
+      const result = await getOpenServiceRequestsForVendor(userId, {
+        categoryId: categoryId as string,
+        subcategoryId: subcategoryId as string,
+        canton: canton as string,
+        limit: limit ? parseInt(limit as string) : undefined,
+        offset: offset ? parseInt(offset as string) : undefined,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching service requests for vendor:", error);
+      res.status(500).json({ message: "Failed to fetch service requests" });
+    }
+  });
+
+  // Get saved service requests
+  // NOTE: Must be before /:id route to avoid "saved" being parsed as UUID
+  app.get('/api/service-requests/saved', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const requests = await getSavedServiceRequests(userId);
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching saved service requests:", error);
+      res.status(500).json({ message: "Failed to fetch saved service requests" });
+    }
+  });
+
   // Get a specific service request
   app.get('/api/service-requests/:id', async (req: any, res) => {
     try {
@@ -4249,25 +4332,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get open service requests for vendor (with proposal status)
-  app.get('/api/service-requests/browse', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const { categoryId, subcategoryId, canton, limit, offset } = req.query;
-      const result = await getOpenServiceRequestsForVendor(userId, {
-        categoryId: categoryId as string,
-        subcategoryId: subcategoryId as string,
-        canton: canton as string,
-        limit: limit ? parseInt(limit as string) : undefined,
-        offset: offset ? parseInt(offset as string) : undefined,
-      });
-      res.json(result);
-    } catch (error) {
-      console.error("Error fetching service requests for vendor:", error);
-      res.status(500).json({ message: "Failed to fetch service requests" });
-    }
-  });
-
   // Update service request with notification (cancel proposals option)
   app.patch('/api/service-requests/:id/edit', isAuthenticated, async (req: any, res) => {
     try {
@@ -4307,18 +4371,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error unsaving service request:", error);
       res.status(400).json({ message: error.message || "Failed to unsave service request" });
-    }
-  });
-
-  // Get saved service requests
-  app.get('/api/service-requests/saved', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user!.id;
-      const requests = await getSavedServiceRequests(userId);
-      res.json(requests);
-    } catch (error) {
-      console.error("Error fetching saved service requests:", error);
-      res.status(500).json({ message: "Failed to fetch saved service requests" });
     }
   });
 

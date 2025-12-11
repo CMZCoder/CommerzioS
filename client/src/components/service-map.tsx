@@ -6,6 +6,7 @@ import { apiRequest } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { geocodeLocation } from '@/lib/geocoding';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getFuzzyLocation } from '@/lib/utils';
 
 // Calculate distance using Haversine formula
 const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -136,7 +137,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
       const serviceInfoWindow = new google.maps.InfoWindow({
         content: `<div style="padding: 8px;">
           <p style="font-weight: 600; margin-bottom: 4px;">${service.title}</p>
-          <p style="color: #64748b; font-size: 14px;">${service.locations[0] || 'Service location'}</p>
+          <p style="color: #64748b; font-size: 14px;">${getFuzzyLocation(service.locations?.[0]) || getFuzzyLocation(service.preferredLocationName) || 'Service location'}</p>
         </div>`,
       });
 
@@ -313,7 +314,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
         <p className="text-muted-foreground">Loading map...</p>
         {service.locations && service.locations.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
-            Geocoding: {service.locations[0]}
+            Geocoding: {getFuzzyLocation(service.locations[0]) || 'location'}
           </p>
         )}
       </div>
@@ -328,7 +329,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
         <p className="text-muted-foreground">Location not specified</p>
         {service.locations && service.locations.length > 0 && (
           <p className="text-sm text-muted-foreground mt-1">
-            Serving: {service.locations.join(', ')}
+            Serving: {service.locations.map(loc => getFuzzyLocation(loc) || loc).join(', ')}
           </p>
         )}
       </div>
@@ -347,7 +348,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
         {service.locations && service.locations.length > 0 && (
           <div className="mb-4">
             <p className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-1">Service Location:</p>
-            <p className="text-sm text-amber-700 dark:text-amber-300">{service.locations.join(', ')}</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300">{service.locations.map(loc => getFuzzyLocation(loc) || loc).join(', ')}</p>
           </div>
         )}
         <Button
@@ -440,7 +441,7 @@ export function ServiceMap({ service, userLocation }: ServiceMapProps) {
             <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
               <p className="font-medium">Service Location{service.locations.length > 1 ? 's' : ''}</p>
-              <p className="text-muted-foreground">{service.locations.join(', ')}</p>
+              <p className="text-muted-foreground">{service.locations.map(loc => getFuzzyLocation(loc) || loc).join(', ')}</p>
             </div>
           </div>
         )}
