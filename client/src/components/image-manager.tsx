@@ -320,8 +320,8 @@ export function ImageManager({
           className={`
             border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200
             ${isDraggingOver
-              ? 'border-primary bg-primary/5 scale-[1.02]'
-              : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/30'
+              ? 'border-primary bg-primary/5 scale-[1.02] dark:bg-primary/10'
+              : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-accent/50 dark:hover:bg-accent/10 bg-background dark:bg-card/50'
             }
             ${uploadingImage ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
@@ -397,11 +397,18 @@ export function ImageManager({
                   }`}
                 data-testid={`image-preview-${idx}`}
               >
-                <img
-                  src={getImageUrl(img)}
-                  alt={`Service ${idx}`}
-                  className="w-full h-32 object-cover rounded border-2 border-border"
-                />
+                <div className="w-full h-32 overflow-hidden rounded border-2 border-border">
+                  <img
+                    src={getImageUrl(img)}
+                    alt={`Service ${idx}`}
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: `rotate(${imageMetadata[idx]?.rotation || 0}deg)`,
+                      // Scale down when rotated 90 or 270 degrees to fit container
+                      scale: (imageMetadata[idx]?.rotation === 90 || imageMetadata[idx]?.rotation === 270 || imageMetadata[idx]?.rotation === -90 || imageMetadata[idx]?.rotation === -270) ? '0.75' : '1'
+                    }}
+                  />
+                </div>
 
                 {/* Main image badge - always on first image */}
                 {idx === 0 && (

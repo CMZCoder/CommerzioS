@@ -1219,8 +1219,23 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         return; // Wait for user confirmation
       }
 
+      // Sanitize image metadata for publish
+      const imageMetadataClean = (formData.imageMetadata || []).map(m => ({
+        rotation: typeof m.rotation === 'number' ? m.rotation : 0,
+        zoom: typeof m.zoom === 'number' ? m.zoom : 1,
+        crop: m.crop || { x: 0, y: 0, width: 100, height: 100 },
+        cropPixels: m.cropPixels || undefined
+      }));
+
       // No extra images or package selected - proceed normally
-      createServiceMutation.mutate({ data: { ...formData, locations: validLocations }, status: "active" });
+      createServiceMutation.mutate({
+        data: {
+          ...formData,
+          imageMetadata: imageMetadataClean as ImageMetadata[],
+          locations: validLocations
+        },
+        status: "active"
+      });
     }
   };
 
@@ -1266,8 +1281,23 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
       return; // Wait for user confirmation
     }
 
+    // Sanitize image metadata to ensure it's valid JSON-compatible structure
+    const imageMetadataClean = (formData.imageMetadata || []).map(m => ({
+      rotation: typeof m.rotation === 'number' ? m.rotation : 0,
+      zoom: typeof m.zoom === 'number' ? m.zoom : 1,
+      crop: m.crop || { x: 0, y: 0, width: 100, height: 100 },
+      cropPixels: m.cropPixels || undefined
+    }));
+
     // No extra images or package selected - proceed normally
-    createServiceMutation.mutate({ data: { ...formData, locations: validLocations }, status: "draft" });
+    createServiceMutation.mutate({
+      data: {
+        ...formData,
+        imageMetadata: imageMetadataClean as ImageMetadata[],
+        locations: validLocations
+      },
+      status: "draft"
+    });
   };
 
   // Handler for confirming publish/draft when extra images will be deleted
@@ -1425,7 +1455,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                 {/* Main Info Tab - Images + Basic Info */}
                 <TabsContent value="main" className="space-y-6 mt-0">
                   {/* Images Section with visual card */}
-                  <div className="rounded-xl border bg-gradient-to-br from-slate-50 to-white p-6 space-y-4">
+                  <div className="rounded-xl border bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 p-6 space-y-4">
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                         <Camera className="w-5 h-5 text-primary" />
@@ -2222,7 +2252,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                     onClick={handleSaveDraft}
                     disabled={!formData.title.trim() || createServiceMutation.isPending}
                     data-testid="button-save-draft"
-                    className={draftSaved ? "border-green-500 text-green-600" : ""}
+                    className={`${draftSaved ? "border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/10 hover:text-green-700 dark:hover:text-green-400" : "hover:bg-primary/5 hover:text-primary hover:border-primary/50"} transition-colors`}
                   >
                     {createServiceMutation.isPending ? (
                       <>

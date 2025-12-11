@@ -9,9 +9,9 @@
  */
 
 import { db } from "./db";
-import { 
-  notifications, 
-  notificationPreferences, 
+import {
+  notifications,
+  notificationPreferences,
   pushSubscriptions,
   users,
   type InsertNotification,
@@ -65,7 +65,7 @@ export async function createNotification(params: CreateNotificationParams): Prom
 
     // Get user preferences
     const preferences = await getNotificationPreferences(userId);
-    
+
     // Check if notifications are enabled globally
     if (!preferences.notificationsEnabled) {
       console.log(`[Notification] Skipped: User ${userId} has notifications disabled`);
@@ -73,11 +73,9 @@ export async function createNotification(params: CreateNotificationParams): Prom
     }
 
     // Check if this specific type is enabled
-    const typeSettings = (preferences.typeSettings as Record<string, { in_app: boolean; email: boolean; push: boolean }>)[type];
-    if (!typeSettings) {
-      console.log(`[Notification] Skipped: Type ${type} not found in preferences`);
-      return null;
-    }
+    // Use default settings if type is missing (for backwards compatibility with existing users)
+    const defaultTypeSettings = { in_app: true, email: true, push: false };
+    const typeSettings = (preferences.typeSettings as Record<string, { in_app: boolean; email: boolean; push: boolean }>)[type] || defaultTypeSettings;
 
     // Determine which channels to use
     const shouldSendInApp = preferences.inAppEnabled && typeSettings.in_app;
@@ -143,13 +141,13 @@ export async function createNotification(params: CreateNotificationParams): Prom
     // Send via other channels (async, don't wait)
     if (!isInQuietHours(preferences)) {
       if (shouldSendEmail) {
-        sendNotificationEmail(userId, notification).catch(err => 
+        sendNotificationEmail(userId, notification).catch(err =>
           console.error("[Notification] Email send failed:", err)
         );
       }
 
       if (shouldSendPush) {
-        sendNotificationPush(userId, notification).catch(err => 
+        sendNotificationPush(userId, notification).catch(err =>
           console.error("[Notification] Push send failed:", err)
         );
       }
@@ -169,6 +167,7 @@ function getDefaultIcon(type: NotificationType): string {
   const icons: Record<NotificationType, string> = {
     message: "message-circle",
     booking: "calendar",
+    question: "help-circle",
     referral: "users",
     service: "briefcase",
     payment: "credit-card",
@@ -191,7 +190,7 @@ function isInQuietHours(preferences: NotificationPreferences): boolean {
   try {
     const now = new Date();
     const timezone = preferences.quietHoursTimezone || "UTC";
-    
+
     // Get current time in user's timezone
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -208,7 +207,7 @@ function isInQuietHours(preferences: NotificationPreferences): boolean {
     if (start > end) {
       return currentTime >= start || currentTime < end;
     }
-    
+
     return currentTime >= start && currentTime < end;
   } catch (error) {
     console.error("[Notification] Error checking quiet hours:", error);
@@ -231,7 +230,7 @@ interface GetNotificationsOptions {
  * Gets notifications for a user with optional filtering
  */
 export async function getNotifications(
-  userId: string, 
+  userId: string,
   options: GetNotificationsOptions = {}
 ): Promise<{ notifications: Notification[]; total: number; unreadCount: number }> {
   const { limit = 20, offset = 0, unreadOnly = false, types } = options;
@@ -321,9 +320,9 @@ export async function getUnreadCount(userId: string): Promise<number> {
 export async function markAsRead(notificationId: string, userId: string): Promise<boolean> {
   try {
     const result = await db.update(notifications)
-      .set({ 
-        isRead: true, 
-        readAt: new Date() 
+      .set({
+        isRead: true,
+        readAt: new Date()
       })
       .where(and(
         eq(notifications.id, notificationId),
@@ -344,9 +343,9 @@ export async function markAsRead(notificationId: string, userId: string): Promis
 export async function markAllAsRead(userId: string): Promise<number> {
   try {
     const result = await db.update(notifications)
-      .set({ 
-        isRead: true, 
-        readAt: new Date() 
+      .set({
+        isRead: true,
+        readAt: new Date()
       })
       .where(and(
         eq(notifications.userId, userId),
@@ -435,6 +434,7 @@ export async function getNotificationPreferences(userId: string): Promise<Notifi
       typeSettings: {
         message: { in_app: true, email: true, push: true },
         booking: { in_app: true, email: true, push: true },
+        question: { in_app: true, email: true, push: false }, // Q&A notifications
         referral: { in_app: true, email: false, push: false },
         service: { in_app: true, email: false, push: false },
         payment: { in_app: true, email: true, push: true },
@@ -524,7 +524,7 @@ async function sendNotificationEmail(userId: string, notification: Notification)
 
     // Update notification delivery status
     await db.update(notifications)
-      .set({ 
+      .set({
         emailSentAt: new Date(),
         deliveredVia: sql`${notifications.deliveredVia} || '["email"]'::jsonb`,
       })
@@ -578,16 +578,16 @@ async function sendNotificationPush(userId: string, notification: Notification):
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
       const subscription = subscriptions[i];
-      
+
       if (result.status === "rejected") {
         console.error(`[Notification] Push failed for subscription ${subscription.id}:`, result.reason);
-        
+
         // Increment failure count
         const newFailCount = subscription.failedAttempts + 1;
         if (newFailCount >= 3) {
           // Deactivate after 3 failures
           await db.update(pushSubscriptions)
-            .set({ 
+            .set({
               isActive: false,
               failedAttempts: newFailCount,
               lastFailureReason: String(result.reason),
@@ -595,7 +595,7 @@ async function sendNotificationPush(userId: string, notification: Notification):
             .where(eq(pushSubscriptions.id, subscription.id));
         } else {
           await db.update(pushSubscriptions)
-            .set({ 
+            .set({
               failedAttempts: newFailCount,
               lastFailureReason: String(result.reason),
             })
@@ -606,7 +606,7 @@ async function sendNotificationPush(userId: string, notification: Notification):
 
     // Update notification delivery status
     await db.update(notifications)
-      .set({ 
+      .set({
         pushSentAt: new Date(),
         deliveredVia: sql`${notifications.deliveredVia} || '["push"]'::jsonb`,
       })
@@ -627,8 +627,8 @@ async function sendNotificationPush(userId: string, notification: Notification):
  * Creates a new message notification
  */
 export async function notifyNewMessage(
-  userId: string, 
-  senderName: string, 
+  userId: string,
+  senderName: string,
   conversationId: string,
   preview: string
 ): Promise<void> {
@@ -853,12 +853,12 @@ export async function notifyNewReview(
   reviewPreview?: string
 ): Promise<void> {
   const stars = "⭐".repeat(Math.min(rating, 5));
-  
+
   await createNotification({
     userId,
     type: "review",
     title: `New ${rating}-Star Review! ${stars}`,
-    message: reviewPreview 
+    message: reviewPreview
       ? `${reviewerName} reviewed "${serviceName}": "${reviewPreview.substring(0, 80)}${reviewPreview.length > 80 ? '...' : ''}"`
       : `${reviewerName} left a ${rating}-star review for "${serviceName}"`,
     icon: "star",
@@ -937,11 +937,11 @@ export async function notifyBookingReminder(
     relatedEntityType: "booking",
     relatedEntityId: bookingId,
     actionUrl: `/bookings?booking=${bookingId}`,
-    metadata: { 
-      reminderType, 
-      serviceName, 
-      vendorName, 
-      startTime: startTime.toISOString() 
+    metadata: {
+      reminderType,
+      serviceName,
+      vendorName,
+      startTime: startTime.toISOString()
     },
   });
 }
@@ -959,10 +959,10 @@ export async function notifyBookingCreated(
   startTime: Date,
   isAutoAccepted: boolean = false
 ): Promise<void> {
-  const title = isAutoAccepted 
-    ? "Booking Confirmed! 🎉" 
+  const title = isAutoAccepted
+    ? "Booking Confirmed! 🎉"
     : "Booking Request Sent! 📬";
-  
+
   const message = isAutoAccepted
     ? `Your booking for "${serviceName}" with ${vendorName} has been confirmed for ${formatBookingTime(startTime)}.`
     : `Your booking request for "${serviceName}" has been sent to ${vendorName}. You'll be notified when they respond.`;
@@ -976,12 +976,12 @@ export async function notifyBookingCreated(
     relatedEntityType: "booking",
     relatedEntityId: bookingId,
     actionUrl: `/bookings?booking=${bookingId}`,
-    metadata: { 
-      bookingNumber, 
-      serviceName, 
-      vendorName, 
+    metadata: {
+      bookingNumber,
+      serviceName,
+      vendorName,
       startTime: startTime.toISOString(),
-      isAutoAccepted 
+      isAutoAccepted
     },
   });
 }
@@ -990,9 +990,9 @@ export async function notifyBookingCreated(
  * Helper to format booking time nicely
  */
 function formatBookingTime(date: Date): string {
-  const options: Intl.DateTimeFormatOptions = { 
-    weekday: 'short', 
-    month: 'short', 
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'

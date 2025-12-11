@@ -1,0 +1,5 @@
+npm warn config optional Use `--omit=optional` to exclude optional dependencies, or
+npm warn config `--include=optional` to include them.
+npm warn config
+npm warn config       Default value does install optional deps unless otherwise omitted.
+client/src/pages/home.tsx(285,10): error TS17008: JSX element 'div' has no corresponding closing tag.

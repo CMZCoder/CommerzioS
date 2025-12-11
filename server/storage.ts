@@ -16,6 +16,8 @@ import {
   bannedIdentifiers,
   orders,
   servicePricingOptions,
+  listingQuestions,
+  listingAnswers,
   type User,
   type UserWithPlan,
   type UpsertUser,
@@ -50,6 +52,11 @@ import {
   type InsertOrder,
   type ServicePricingOption,
   type InsertServicePricingOption,
+
+  type ListingQuestion,
+  type InsertListingQuestion,
+  type ListingAnswer,
+  type InsertListingAnswer,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
@@ -181,6 +188,13 @@ export interface IStorage {
   // Category CRUD operations (admin)
   updateCategory(id: string, category: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<void>;
+
+  // Listing Q&A
+  getListingQuestions(serviceId: string, currentUserId?: string): Promise<Array<ListingQuestion & { user: User; answers: Array<ListingAnswer & { user: User }> }>>;
+  getQuestionsForVendor(vendorId: string): Promise<Array<ListingQuestion & { user: User; service: Service; answers: Array<ListingAnswer & { user: User }> }>>;
+  createListingQuestion(question: InsertListingQuestion): Promise<ListingQuestion>;
+  createListingAnswer(answer: InsertListingAnswer, isPrivate: boolean): Promise<ListingAnswer>;
+  getPendingQuestionsCount(userId: string, serviceId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -501,12 +515,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Service stats operations
-  async incrementViewCount(id: string): Promise<void> {
-    await db
-      .update(services)
-      .set({ viewCount: sql`${services.viewCount} + 1` })
-      .where(eq(services.id, id));
-  }
+
 
   async incrementShareCount(id: string): Promise<void> {
     await db
@@ -1510,6 +1519,90 @@ export class DatabaseStorage implements IStorage {
     await db.update(servicePricingOptions)
       .set({ isActive: false })
       .where(eq(servicePricingOptions.id, id));
+  }
+  // Listing Q&A Operations
+  async getListingQuestions(serviceId: string, currentUserId?: string): Promise<Array<ListingQuestion & { user: User; answers: Array<ListingAnswer & { user: User }> }>> {
+    const conditions = [eq(listingQuestions.serviceId, serviceId)];
+
+    if (currentUserId) {
+      conditions.push(or(
+        and(eq(listingQuestions.isAnswered, true), eq(listingQuestions.isPrivate, false)),
+        eq(listingQuestions.userId, currentUserId)
+      ));
+    } else {
+      conditions.push(and(eq(listingQuestions.isAnswered, true), eq(listingQuestions.isPrivate, false)));
+    }
+
+    const questions = await db.query.listingQuestions.findMany({
+      where: and(...conditions),
+      with: {
+        user: true,
+        answers: {
+          with: {
+            user: true
+          },
+          orderBy: (answers, { asc }) => [asc(answers.createdAt)]
+        }
+      },
+      orderBy: (questions, { desc }) => [desc(questions.createdAt)]
+    });
+
+    return questions as Array<ListingQuestion & { user: User; answers: Array<ListingAnswer & { user: User }> }>;
+  }
+
+  async getQuestionsForVendor(vendorId: string): Promise<Array<ListingQuestion & { user: User; service: Service; answers: Array<ListingAnswer & { user: User }> }>> {
+    const results = await db.query.listingQuestions.findMany({
+      where: (questions, { exists, and, eq }) =>
+        exists(
+          db.select()
+            .from(services)
+            .where(and(eq(services.id, questions.serviceId), eq(services.ownerId, vendorId)))
+        ),
+      with: {
+        user: true,
+        service: true,
+        answers: {
+          with: { user: true },
+          orderBy: (answers, { asc }) => [asc(answers.createdAt)]
+        }
+      },
+      orderBy: (questions, { desc }) => [desc(questions.createdAt)]
+    });
+    return results as unknown as Array<ListingQuestion & { user: User; service: Service; answers: Array<ListingAnswer & { user: User }> }>;
+  }
+
+  async createListingQuestion(question: InsertListingQuestion): Promise<ListingQuestion> {
+    const [newQuestion] = await db.insert(listingQuestions).values(question).returning();
+    return newQuestion;
+  }
+
+  async createListingAnswer(answer: InsertListingAnswer, isPrivate: boolean): Promise<ListingAnswer> {
+    return await db.transaction(async (tx) => {
+      const [newAnswer] = await tx.insert(listingAnswers).values(answer).returning();
+
+      await tx.update(listingQuestions)
+        .set({
+          isAnswered: true,
+          isPrivate: isPrivate,
+          updatedAt: new Date()
+        })
+        .where(eq(listingQuestions.id, answer.questionId));
+
+      return newAnswer;
+    });
+  }
+
+  async getPendingQuestionsCount(userId: string, serviceId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(listingQuestions)
+      .where(and(
+        eq(listingQuestions.userId, userId),
+        eq(listingQuestions.serviceId, serviceId),
+        eq(listingQuestions.isAnswered, false)
+      ));
+
+    return Number(result[0]?.count) || 0;
   }
 }
 

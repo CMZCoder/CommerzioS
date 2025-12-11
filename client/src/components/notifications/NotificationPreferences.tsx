@@ -10,10 +10,10 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  Bell, 
-  Mail, 
-  Smartphone, 
+import {
+  Bell,
+  Mail,
+  Smartphone,
   Monitor,
   Moon,
   Volume2,
@@ -30,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { 
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -86,6 +86,11 @@ const notificationTypeInfo: Record<string, { label: string; description: string;
     label: "Bookings",
     description: "Booking confirmations, updates, and reminders",
     icon: "📅",
+  },
+  question: {
+    label: "Questions & Answers",
+    description: "New questions on your services and replies to your questions",
+    icon: "❓",
   },
   referral: {
     label: "Referrals",
@@ -262,8 +267,8 @@ export function NotificationPreferences() {
 
   // Handle type settings change
   const handleTypeSettingChange = (
-    type: string, 
-    channel: "in_app" | "email" | "push", 
+    type: string,
+    channel: "in_app" | "email" | "push",
     value: boolean
   ) => {
     if (!preferences) return;
@@ -347,7 +352,7 @@ export function NotificationPreferences() {
                 <Settings className="h-4 w-4" />
                 Delivery Methods
               </h4>
-              
+
               <div className="grid gap-4 md:grid-cols-3">
                 {/* In-App */}
                 <div className={cn(
@@ -447,7 +452,7 @@ export function NotificationPreferences() {
             <Accordion type="single" collapsible className="w-full">
               {Object.entries(notificationTypeInfo).map(([type, info]) => {
                 const settings = preferences.typeSettings[type] || { in_app: true, email: true, push: false };
-                
+
                 return (
                   <AccordionItem key={type} value={type}>
                     <AccordionTrigger className="hover:no-underline">

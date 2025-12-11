@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { findSimilarSubcategoryName } from "./aiCategoryService";
-import { eq, sql, desc, and, or, inArray } from "drizzle-orm";
-import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests, customerReviews, orders, categories } from "@shared/schema";
+import { eq, sql, desc, and, or, inArray, asc } from "drizzle-orm";
+import { users, reviews, services, notifications, pushSubscriptions, escrowTransactions, escrowDisputes, bookings as bookingsTable, tips, reviewRemovalRequests, customerReviews, orders, categories, listingQuestions, listingAnswers } from "@shared/schema";
 import { setupAuth, isAuthenticated, requireEmailVerified } from "./auth";
 import { isAdmin, adminLogin, adminLogout, getAdminSession } from "./adminAuth";
 import { setupOAuthRoutes } from "./oauthProviders";
@@ -66,6 +66,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from "./notificationService";
+
 import {
   initializePushService,
   isPushEnabled,
@@ -98,6 +99,7 @@ import {
   createBookingCheckoutSession,
   PLATFORM_FEE_PERCENTAGE,
 } from "./stripeService";
+import { moderateMessage } from "./chatService";
 import {
   createDispute,
   getDisputeByBookingId,
@@ -422,9 +424,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error getting upload URL:", error);
-      res.status(500).json({ error: "Failed to get upload URL" });
+      res.status(500).json({ error: "Failed to get upload URL", details: error.message || String(error) });
+    }
+  });
+
+  // Server-proxied upload route - bypasses browser-to-R2 direct upload issues (SSL/CORS on localhost)
+  app.post("/api/objects/upload-proxied", isAuthenticated, async (req: any, res) => {
+    try {
+      const chunks: Buffer[] = [];
+
+      req.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      req.on('end', async () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          const contentType = req.headers['content-type'] || 'application/octet-stream';
+
+          const objectStorageService = new ObjectStorageService();
+          const objectPath = await objectStorageService.uploadBuffer(buffer, contentType);
+
+          // Set public ACL
+          const userId = req.user!.id;
+          await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
+            owner: userId,
+            visibility: "public",
+          });
+
+          res.json({ objectPath });
+        } catch (error: any) {
+          console.error("Error uploading via proxy:", error);
+          res.status(500).json({ error: "Failed to upload", details: error.message || String(error) });
+        }
+      });
+
+      req.on('error', (error: any) => {
+        console.error("Error receiving upload data:", error);
+        res.status(500).json({ error: "Upload failed", details: error.message || String(error) });
+      });
+    } catch (error: any) {
+      console.error("Error in proxied upload:", error);
+      res.status(500).json({ error: "Failed to process upload", details: error.message || String(error) });
     }
   });
 
@@ -446,9 +489,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       res.status(200).json({ objectPath });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error setting service image ACL:", error);
-      res.status(500).json({ error: "Internal server error" });
+      res.status(500).json({ error: "Internal server error", details: error.message || String(error) });
     }
   });
 
@@ -858,6 +901,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const defaultCategory = await storage.getCategoryBySlug("home-services");
         if (defaultCategory) {
           categoryId = defaultCategory.id;
+        } else {
+          // Fallback: Get ANY category if "home-services" doesn't exist
+          const allCategories = await storage.getCategories();
+          if (allCategories.length > 0) {
+            categoryId = allCategories[0].id;
+          }
         }
       }
 
@@ -866,9 +915,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Category is required for active services" });
       }
 
-      // Final safety check - shouldn't happen but ensures type safety
+      // Final safety check for database constraint
       if (!categoryId) {
-        return res.status(400).json({ message: "Unable to determine category. Please select a category manually." });
+        // This should theoretically be reachable only if NO categories exist in the DB at all
+        // But for a draft, we can technically save it if we relax the DB constraint, 
+        // however, the current schema says "notNull()". 
+        // So blocking it is correct, but let's give a better error or ensure seed data exists.
+        return res.status(500).json({ message: "System configuration error: No categories available. Please contact support." });
       }
 
       // Set expiry date (14 days from now)
@@ -902,8 +955,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Build service data with proper types
+      // Sanitize price: empty string should be null for numeric field
+      const sanitizedPrice = validated.price && validated.price !== '' ? validated.price : null;
+
       const serviceData = {
         ...validated,
+        price: sanitizedPrice,
         categoryId,
         ownerId: userId,
         expiresAt,
@@ -924,7 +981,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: fromZodError(error).message });
       }
       console.error("Error creating service:", error);
-      res.status(500).json({ message: "Failed to create service" });
+      console.error("Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to create service", error: error.message || String(error) });
     }
   });
 
@@ -2692,6 +2750,498 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error getting address suggestions:", error);
       res.status(500).json({ message: "Failed to get address suggestions" });
+    }
+  });
+
+  // ===========================================
+  // Q&A ROUTES
+  // ===========================================
+
+  app.get('/api/services/:id/questions', async (req, res) => {
+    try {
+      const serviceId = req.params.id;
+      const userId = req.user?.id; // Optional: viewing as guest
+
+      // Check service existence and owner
+      const service = await storage.getService(serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      const isVendor = userId === service.ownerId;
+
+      // Fetch questions with basic select (avoiding relation query issues)
+      const questionRows = await db.select()
+        .from(listingQuestions)
+        .where(eq(listingQuestions.serviceId, serviceId))
+        .orderBy(desc(listingQuestions.createdAt));
+
+      // Fetch users for questions
+      const questionUserIds = [...new Set(questionRows.map(q => q.userId))];
+      const questionUsers = questionUserIds.length > 0
+        ? await db.select().from(users).where(inArray(users.id, questionUserIds))
+        : [];
+      const userMap = new Map(questionUsers.map(u => [u.id, u]));
+
+      // Fetch answers
+      const questionIds = questionRows.map(q => q.id);
+      const answerRows = questionIds.length > 0
+        ? await db.select().from(listingAnswers).where(inArray(listingAnswers.questionId, questionIds)).orderBy(asc(listingAnswers.createdAt))
+        : [];
+
+      // Fetch answer users
+      const answerUserIds = [...new Set(answerRows.map(a => a.userId))];
+      const answerUsers = answerUserIds.length > 0
+        ? await db.select().from(users).where(inArray(users.id, answerUserIds))
+        : [];
+      const answerUserMap = new Map(answerUsers.map(u => [u.id, u]));
+
+      // Build enriched questions
+      const questions = questionRows.map(q => {
+        const qUser = userMap.get(q.userId);
+        const qAnswers = answerRows.filter(a => a.questionId === q.id).map(a => ({
+          ...a,
+          user: answerUserMap.get(a.userId) ? {
+            id: answerUserMap.get(a.userId)!.id,
+            username: answerUserMap.get(a.userId)!.username,
+            displayName: answerUserMap.get(a.userId)!.displayName,
+            firstName: answerUserMap.get(a.userId)!.firstName,
+            profileImage: answerUserMap.get(a.userId)!.profileImage,
+          } : null
+        }));
+        return {
+          ...q,
+          user: qUser ? {
+            id: qUser.id,
+            username: qUser.username,
+            displayName: qUser.displayName,
+            firstName: qUser.firstName,
+            profileImage: qUser.profileImage,
+          } : null,
+          answers: qAnswers,
+        };
+      });
+
+      // Simplified conversation-level privacy model:
+      // - The entire Q&A thread visibility is controlled by question.isPrivate
+      // - Vendor sees everything
+      // - Question author sees their own Q&A thread
+      // - Others only see Q&A threads where question.isPrivate === false
+
+      const visibleQuestions = questions.filter(q => {
+        if (isVendor) {
+          // Vendor sees all questions
+          return true;
+        }
+
+        const isQuestionAuthor = userId && q.userId === userId;
+
+        if (isQuestionAuthor) {
+          // Question author sees their own Q&A thread
+          return true;
+        }
+
+        // For other viewers: only show public threads
+        return !q.isPrivate;
+      });
+
+      res.json(visibleQuestions);
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      res.status(500).json({ message: "Failed to fetch questions" });
+    }
+  });
+
+  // Get unanswered question count for vendor (questions on their services awaiting reply)
+  app.get('/api/questions/unanswered-count', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+
+      // Get all services owned by this user
+      const userServices = await db.select({ id: services.id })
+        .from(services)
+        .where(eq(services.ownerId, userId));
+
+      if (userServices.length === 0) {
+        return res.json({ count: 0, details: [] });
+      }
+
+      const serviceIds = userServices.map(s => s.id);
+
+      // Get questions on these services that need vendor response
+      // A question needs response if: no answers OR last answer is not from the vendor
+      const allQuestions = await db.select()
+        .from(listingQuestions)
+        .where(inArray(listingQuestions.serviceId, serviceIds));
+
+      if (allQuestions.length === 0) {
+        return res.json({ count: 0, details: [] });
+      }
+
+      const questionIds = allQuestions.map(q => q.id);
+      const allAnswers = await db.select()
+        .from(listingAnswers)
+        .where(inArray(listingAnswers.questionId, questionIds));
+
+      // Count questions that need vendor response
+      let unansweredCount = 0;
+      const details: { serviceId: string; count: number }[] = [];
+
+      for (const serviceId of serviceIds) {
+        const serviceQuestions = allQuestions.filter(q => q.serviceId === serviceId);
+        let serviceUnanswered = 0;
+
+        for (const q of serviceQuestions) {
+          const qAnswers = allAnswers.filter(a => a.questionId === q.id);
+          if (qAnswers.length === 0) {
+            // No answers yet - needs vendor response
+            serviceUnanswered++;
+          } else {
+            // Check if last answer is from vendor (userId)
+            const lastAnswer = qAnswers[qAnswers.length - 1];
+            if (lastAnswer.userId !== userId) {
+              // Last answer was not from vendor - needs response
+              serviceUnanswered++;
+            }
+          }
+        }
+
+        if (serviceUnanswered > 0) {
+          details.push({ serviceId, count: serviceUnanswered });
+        }
+        unansweredCount += serviceUnanswered;
+      }
+
+      res.json({ count: unansweredCount, details });
+    } catch (error) {
+      console.error("Error getting unanswered count:", error);
+      res.status(500).json({ message: "Failed to get unanswered count" });
+    }
+  });
+
+  // Get unanswered questions for a specific service
+  app.get('/api/services/:id/questions/unanswered-count', async (req, res) => {
+    try {
+      const serviceId = req.params.id;
+
+      const service = await storage.getService(serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      const questions = await db.select()
+        .from(listingQuestions)
+        .where(eq(listingQuestions.serviceId, serviceId));
+
+      if (questions.length === 0) {
+        return res.json({ total: 0, unanswered: 0 });
+      }
+
+      const questionIds = questions.map(q => q.id);
+      const answers = await db.select()
+        .from(listingAnswers)
+        .where(inArray(listingAnswers.questionId, questionIds));
+
+      let unanswered = 0;
+      for (const q of questions) {
+        const qAnswers = answers.filter(a => a.questionId === q.id);
+        if (qAnswers.length === 0) {
+          unanswered++;
+        } else {
+          const lastAnswer = qAnswers[qAnswers.length - 1];
+          if (lastAnswer.userId !== service.ownerId) {
+            unanswered++;
+          }
+        }
+      }
+
+      res.json({ total: questions.length, unanswered });
+    } catch (error) {
+      console.error("Error getting service question count:", error);
+      res.status(500).json({ message: "Failed to get question count" });
+    }
+  });
+
+  app.post('/api/services/:id/questions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const serviceId = req.params.id;
+      const { content } = req.body;
+
+      console.log('[Q&A] Creating question - Step 1: Validating content');
+      if (!content || content.length < 5) {
+        return res.status(400).json({ message: "Question content must be at least 5 characters" });
+      }
+
+      console.log('[Q&A] Step 2: Checking service exists');
+      const service = await storage.getService(serviceId);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+
+      console.log('[Q&A] Step 3: Moderating content');
+      const moderation = moderateMessage(content);
+
+      console.log('[Q&A] Step 4: Inserting question into database');
+      const [question] = await db.insert(listingQuestions).values({
+        serviceId,
+        userId,
+        content: moderation.filteredContent,
+        isPrivate: true, // Questions are private by default until vendor replies publicly
+        isAnswered: false,
+      }).returning();
+      console.log('[Q&A] Step 4 complete - Question ID:', question.id);
+
+      console.log('[Q&A] Step 5: Sending notification');
+      if (service.ownerId !== userId) {
+        try {
+          const serviceSlug = service.slug || serviceId;
+          await createNotification({
+            userId: service.ownerId,
+            type: 'question',
+            title: 'New Question',
+            message: `You received a new question on "${service.title}"`,
+            actionUrl: `/service/${serviceSlug}?question=${question.id}`,
+          });
+        } catch (notifError: any) {
+          console.error('[Q&A] Notification failed (non-critical):', notifError.message);
+        }
+      }
+
+      console.log('[Q&A] Step 6: Fetching question creator');
+      // Fetch user info separately to avoid relation query issues
+      const [questionUser] = await db.select().from(users).where(eq(users.id, userId));
+
+      const enrichedQuestion = {
+        ...question,
+        user: questionUser ? {
+          id: questionUser.id,
+          username: questionUser.username,
+          displayName: questionUser.displayName,
+          firstName: questionUser.firstName,
+          profileImage: questionUser.profileImage,
+        } : null,
+        answers: [],
+      };
+
+      console.log('[Q&A] Step 7: Success!');
+      res.status(201).json(enrichedQuestion);
+    } catch (error: any) {
+      console.error("[Q&A] Error creating question:", error);
+      console.error("[Q&A] Error stack:", error.stack);
+      res.status(500).json({ message: "Failed to create question", error: error.message || String(error) });
+    }
+  });
+
+  app.post('/api/services/:id/questions/:questionId/answers', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { questionId } = req.params;
+      const { content, isPrivate } = req.body;
+
+      console.log('[Q&A Answer] Received request:', { questionId, content: content?.substring(0, 30), isPrivate, isPrivateType: typeof isPrivate });
+
+      if (!content || content.length < 2) {
+        return res.status(400).json({ message: "Answer content must be at least 2 characters" });
+      }
+
+      // Check question exists
+      const question = await db.query.listingQuestions.findFirst({
+        where: eq(listingQuestions.id, questionId),
+        with: { service: true }
+      });
+
+      if (!question) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      const isVendor = question.service.ownerId === userId;
+
+      // Moderate content
+      const moderation = moderateMessage(content);
+
+      // Create answer (isPrivate on answer no longer used for visibility control)
+      const [answer] = await db.insert(listingAnswers).values({
+        questionId,
+        userId,
+        content: moderation.filteredContent,
+        isPrivate: false, // No longer used - privacy is controlled at question level
+      }).returning();
+
+      console.log('[Q&A Answer] Created answer:', { id: answer.id });
+
+      // When vendor replies, update question.isPrivate based on their choice
+      // This controls visibility for the entire Q&A thread
+      if (isVendor) {
+        const newIsPrivate = isPrivate === true;
+        await db.update(listingQuestions)
+          .set({ 
+            isAnswered: true,
+            isPrivate: newIsPrivate 
+          })
+          .where(eq(listingQuestions.id, questionId));
+        console.log('[Q&A Answer] Vendor set question privacy to:', newIsPrivate);
+      } else {
+        // Non-vendor replies just mark as answered (doesn't change privacy)
+        await db.update(listingQuestions)
+          .set({ isAnswered: true })
+          .where(eq(listingQuestions.id, questionId));
+      }
+
+      // Notify relevant party - with correct URL that expands the specific question
+      const recipientId = isVendor ? question.userId : question.service.ownerId;
+      const notificationTitle = isVendor ? 'New Reply from Vendor' : 'New Reply to your Question';
+      const serviceSlug = question.service.slug || question.service.id;
+
+      if (recipientId !== userId) {
+        await createNotification({
+          userId: recipientId,
+          type: 'question',
+          title: notificationTitle,
+          message: `New reply on question about "${question.service.title}"`,
+          actionUrl: `/service/${serviceSlug}?question=${questionId}`,
+        });
+      }
+
+      const enrichedAnswer = await db.query.listingAnswers.findFirst({
+        where: eq(listingAnswers.id, answer.id),
+        with: { user: true }
+      });
+
+      res.status(201).json(enrichedAnswer);
+
+    } catch (error) {
+      console.error("Error creating answer:", error);
+      res.status(500).json({ message: "Failed to create answer" });
+    }
+  });
+
+  // Toggle Q&A thread privacy (vendor only)
+  app.patch('/api/questions/:id/privacy', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const { isPrivate } = req.body;
+
+      const question = await db.query.listingQuestions.findFirst({
+        where: eq(listingQuestions.id, id),
+        with: { service: true }
+      });
+
+      if (!question) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      // Only vendor can change privacy
+      const isVendor = question.service.ownerId === userId;
+      if (!isVendor) {
+        return res.status(403).json({ message: "Only the vendor can change Q&A privacy" });
+      }
+
+      const [updated] = await db.update(listingQuestions)
+        .set({ isPrivate: isPrivate === true })
+        .where(eq(listingQuestions.id, id))
+        .returning();
+
+      console.log('[Q&A] Vendor toggled question privacy:', { id, isPrivate: updated.isPrivate });
+      res.json({ success: true, isPrivate: updated.isPrivate });
+
+    } catch (error) {
+      console.error("Error toggling question privacy:", error);
+      res.status(500).json({ message: "Failed to update privacy" });
+    }
+  });
+
+  app.delete('/api/questions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const question = await db.query.listingQuestions.findFirst({
+        where: eq(listingQuestions.id, id),
+        with: { service: true }
+      });
+
+      if (!question) {
+        return res.status(404).json({ message: "Question not found" });
+      }
+
+      // Allow deletion if user is asker OR user is vendor
+      const isOwner = question.userId === userId;
+      const isVendor = question.service.ownerId === userId;
+
+      if (!isOwner && !isVendor) {
+        return res.status(403).json({ message: "Not authorized to delete this question" });
+      }
+
+      await db.delete(listingQuestions).where(eq(listingQuestions.id, id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting question:", error);
+      res.status(500).json({ message: "Failed to delete question" });
+    }
+  });
+
+  app.delete('/api/answers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+
+      const answer = await db.query.listingAnswers.findFirst({
+        where: eq(listingAnswers.id, id),
+        // We need to check if user is answer author OR vendor
+        with: { question: { with: { service: true } } }
+      });
+
+      if (!answer) {
+        return res.status(404).json({ message: "Answer not found" });
+      }
+
+      // Allow deletion if user is answer author OR user is service vendor
+      const isAuthor = answer.userId === userId;
+      const isVendor = answer.question.service.ownerId === userId;
+
+      if (!isAuthor && !isVendor) {
+        return res.status(403).json({ message: "Not authorized to delete this answer" });
+      }
+
+      await db.delete(listingAnswers).where(eq(listingAnswers.id, id));
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting answer:", error);
+      res.status(500).json({ message: "Failed to delete answer" });
+    }
+  });
+
+  app.patch('/api/answers/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const { content } = req.body;
+
+      const answer = await db.query.listingAnswers.findFirst({
+        where: eq(listingAnswers.id, id)
+      });
+
+      if (!answer) {
+        return res.status(404).json({ message: "Answer not found" });
+      }
+
+      if (answer.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized to edit this answer" });
+      }
+
+      const moderation = moderateMessage(content);
+
+      const [updated] = await db.update(listingAnswers)
+        .set({ content: moderation.filteredContent })
+        .where(eq(listingAnswers.id, id))
+        .returning();
+
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating answer:", error);
+      res.status(500).json({ message: "Failed to update answer" });
     }
   });
 
@@ -7905,6 +8455,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting expired archives:", error);
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  // -------------------------------------------------------------------
+  // Listing Q&A Routes
+  // -------------------------------------------------------------------
+
+  // Get questions for a service
+  app.get("/api/services/:id/questions", async (req, res) => {
+    try {
+      const serviceId = req.params.id;
+      const currentUserId = req.user ? (req.user as User).id : undefined;
+
+      const questions = await storage.getListingQuestions(serviceId, currentUserId);
+      res.json(questions);
+    } catch (error) {
+      console.error("Error fetching listing questions:", error);
+      res.status(500).json({ message: "Failed to fetch questions" });
+    }
+  });
+
+  // Ask a question
+  app.post("/api/services/:id/questions", isAuthenticated, async (req: any, res) => {
+    try {
+      const serviceId = req.params.id;
+      const userId = req.user.id;
+      const { content, isPrivate } = req.body;
+
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      // Check limit: max 2 pending questions per user per service
+      const pendingCount = await storage.getPendingQuestionsCount(userId, serviceId);
+      if (pendingCount >= 2) {
+        return res.status(400).json({ message: "You have reached the limit of 2 pending questions for this service." });
+      }
+
+      // Create question
+      const question = await storage.createListingQuestion({
+        serviceId,
+        userId,
+        content,
+        isPrivate: !!isPrivate,
+        isAnswered: false,
+      });
+
+      // Send notification to vendor
+      const service = await storage.getService(serviceId);
+      if (service) {
+        await createNotification({
+          userId: service.ownerId,
+          type: "question", // Ensure this matches enum
+          title: "New Question on Listing",
+          message: `You have a new question on "${service.title}"`,
+          relatedEntityType: "service",
+          relatedEntityId: service.id,
+          actionUrl: `/profile?tab=questions&serviceId=${serviceId}`,
+        });
+      }
+
+      res.status(201).json(question);
+    } catch (error) {
+      console.error("Error creating listing question:", error);
+      res.status(500).json({ message: "Failed to ask question" });
+    }
+  });
+
+  // Answer a question
+  app.post("/api/questions/:id/answers", isAuthenticated, async (req: any, res) => {
+    try {
+      const questionId = req.params.id;
+      const userId = req.user.id;
+      const { content, isPrivate } = req.body;
+
+      if (!content || typeof content !== "string") {
+        return res.status(400).json({ message: "Content is required" });
+      }
+
+      // Create answer and update question status
+      const answer = await storage.createListingAnswer({
+        questionId,
+        userId,
+        content,
+      }, !!isPrivate);
+
+      // Notify the asker (Future improvement: Fetch asker ID and notify)
+
+      res.status(201).json(answer);
+    } catch (error) {
+      console.error("Error answering question:", error);
+      res.status(500).json({ message: "Failed to answer question" });
+    }
+  });
+
+  // Get questions for vendor dashboard
+  app.get("/api/vendor/questions", isAuthenticated, async (req: any, res) => {
+    try {
+      const vendorId = req.user.id;
+      const questions = await storage.getQuestionsForVendor(vendorId);
+      res.json(questions);
+    } catch (error) {
+      console.error("Error fetching vendor questions:", error);
+      res.status(500).json({ message: "Failed to fetch questions" });
     }
   });
 

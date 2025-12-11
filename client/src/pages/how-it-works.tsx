@@ -2,9 +2,12 @@ import { Layout } from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, MessageCircle, CheckCircle, Star, Shield, Zap, Users, ArrowRight, Sparkles, Clock, CreditCard, MapPin } from "lucide-react";
+import { Search, MessageCircle, CheckCircle, Star, Shield, Zap, Users, ArrowRight, Sparkles, Clock, CreditCard, MapPin, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { ServiceFormModal } from "@/components/service-form-modal";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -13,6 +16,9 @@ const fadeInUp = {
 };
 
 export default function HowItWorks() {
+  const { user, isAuthenticated } = useAuth();
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -35,14 +41,14 @@ export default function HowItWorks() {
                 Whether you need a service or want to offer one, our platform makes it easy to connect, book, and get things done.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/">
-                  <Button size="lg" className="bg-card text-foreground hover:bg-muted gap-2 shadow-xl">
+                <Link href="/search">
+                  <Button size="lg" className="bg-white text-slate-900 hover:bg-gray-200 hover:scale-105 hover:shadow-2xl gap-2 shadow-xl transition-all duration-200">
                     <Search className="w-5 h-5" />
                     Find Services
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 gap-2">
+                  <Button size="lg" variant="outline" className="border-white/50 bg-white/10 text-white hover:bg-white/30 hover:scale-105 hover:shadow-lg gap-2 transition-all duration-200">
                     Become a Provider
                     <ArrowRight className="w-5 h-5" />
                   </Button>
@@ -142,7 +148,7 @@ export default function HowItWorks() {
                     { icon: Clock, title: "Easy Management", desc: "Manage bookings, availability, and messages all in one place. Renew listings with one click." },
                     { icon: CreditCard, title: "Secure Payments", desc: "Accept Card, TWINT, or cash. Funds held safely in escrow until service is complete." },
                   ].map((item) => (
-                    <div key={item.title} className="flex gap-4 p-4 rounded-xl bg-muted hover:bg-accent transition-colors">
+                    <div key={item.title} className="flex gap-4 p-4 rounded-xl bg-muted hover:bg-primary/10 dark:hover:bg-accent transition-colors">
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <item.icon className="w-5 h-5 text-primary" />
                       </div>
@@ -177,12 +183,19 @@ export default function HowItWorks() {
                       <span>No long-term commitments</span>
                     </li>
                   </ul>
-                  <Link href="/register">
-                    <Button size="lg" className="w-full bg-card text-foreground hover:bg-muted">
-                      Create Free Account
-                      <ArrowRight className="w-5 h-5 ml-2" />
+                  {isAuthenticated ? (
+                    <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-gray-200 hover:scale-[1.02] hover:shadow-lg transition-all duration-200" onClick={() => setIsServiceModalOpen(true)}>
+                      <Plus className="w-5 h-5 mr-2" />
+                      Post a Service
                     </Button>
-                  </Link>
+                  ) : (
+                    <Link href="/register">
+                      <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-gray-200 hover:scale-[1.02] hover:shadow-lg transition-all duration-200">
+                        Create Free Account
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                      </Button>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
@@ -198,19 +211,29 @@ export default function HowItWorks() {
             Join Switzerland's growing community of service providers and customers
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/">
-              <Button size="lg" className="bg-card text-primary hover:bg-accent shadow-xl" data-testid="link-browse-services">
+            <Link href="/search">
+              <Button size="lg" className="bg-white text-primary hover:bg-gray-200 hover:scale-105 hover:shadow-2xl shadow-xl transition-all duration-200" data-testid="link-browse-services">
                 Browse Services
               </Button>
             </Link>
-            <Link href="/register">
-              <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10" data-testid="link-post-service">
+            {isAuthenticated ? (
+              <Button size="lg" variant="outline" className="border-white/50 bg-white/10 text-white hover:bg-white/30 hover:scale-105 hover:shadow-lg transition-all duration-200" data-testid="link-post-service" onClick={() => setIsServiceModalOpen(true)}>
+                <Plus className="w-5 h-5 mr-2" />
                 Post a Service
               </Button>
-            </Link>
+            ) : (
+              <Link href="/register">
+                <Button size="lg" variant="outline" className="border-white/50 bg-white/10 text-white hover:bg-white/30 hover:scale-105 hover:shadow-lg transition-all duration-200" data-testid="link-post-service">
+                  Post a Service
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Service Form Modal */}
+      <ServiceFormModal open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen} />
     </Layout>
   );
 }

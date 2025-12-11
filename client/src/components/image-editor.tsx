@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Cropper from "react-easy-crop";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -33,12 +33,12 @@ interface ImageEditorProps {
   initialMetadata?: ImageMetadata;
 }
 
-export function ImageEditor({ 
-  open, 
-  onOpenChange, 
-  imageUrl, 
+export function ImageEditor({
+  open,
+  onOpenChange,
+  imageUrl,
   onSave,
-  initialMetadata 
+  initialMetadata
 }: ImageEditorProps) {
   // Keep crop position centered at origin (react-easy-crop uses 0-centered coords)
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
@@ -47,15 +47,22 @@ export function ImageEditor({
   const [croppedArea, setCroppedArea] = useState<Area>({ x: 0, y: 0, width: 100, height: 100 });
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area>({ x: 0, y: 0, width: 0, height: 0 });
 
+  // Track if we've initialized the state to prevent resetting on parent re-renders
+  const hasInitialized = useState(false); // Using state instead of ref to trigger re-render if needed, but actually ref is better for logic check
+  // Wait, I should use useRef or a flag.
+  // Actually, if I use a ref, it persists. 
+  // Let's use a ref.
+  const initializedRef = useRef(false);
+
   // Sync all state with initialMetadata when dialog opens
   useEffect(() => {
-    if (open) {
+    if (open && !initializedRef.current) {
       if (initialMetadata) {
         // Restore all saved metadata
         setZoom(initialMetadata.zoom || 1);
         setRotation(initialMetadata.rotation || 0);
         setCrop({ x: 0, y: 0 }); // Keep at origin - initialCroppedAreaPixels handles framing
-        
+
         // Hydrate cropped area state from saved metadata
         if (initialMetadata.crop) {
           setCroppedArea(initialMetadata.crop);
@@ -63,7 +70,7 @@ export function ImageEditor({
           // Default to full frame if no crop data
           setCroppedArea({ x: 0, y: 0, width: 100, height: 100 });
         }
-        
+
         if (initialMetadata.cropPixels) {
           setCroppedAreaPixels(initialMetadata.cropPixels);
         } else {
@@ -78,6 +85,12 @@ export function ImageEditor({
         setCroppedArea({ x: 0, y: 0, width: 100, height: 100 });
         setCroppedAreaPixels({ x: 0, y: 0, width: 0, height: 0 });
       }
+      initializedRef.current = true;
+    }
+
+    // Reset initialization flag when dialog closes
+    if (!open) {
+      initializedRef.current = false;
     }
   }, [open, initialMetadata]);
 
@@ -93,15 +106,15 @@ export function ImageEditor({
       const aspectRatio = 4 / 3;
       let cropWidth = mediaSize.width;
       let cropHeight = mediaSize.width / aspectRatio;
-      
+
       if (cropHeight > mediaSize.height) {
         cropHeight = mediaSize.height;
         cropWidth = mediaSize.height * aspectRatio;
       }
-      
+
       const cropX = (mediaSize.width - cropWidth) / 2;
       const cropY = (mediaSize.height - cropHeight) / 2;
-      
+
       // Set valid full-frame crop
       const fullFrameCropPixels: Area = {
         x: cropX,
@@ -109,14 +122,14 @@ export function ImageEditor({
         width: cropWidth,
         height: cropHeight,
       };
-      
+
       const fullFrameCrop: Area = {
         x: (cropX / mediaSize.width) * 100,
         y: (cropY / mediaSize.height) * 100,
         width: (cropWidth / mediaSize.width) * 100,
         height: (cropHeight / mediaSize.height) * 100,
       };
-      
+
       setCroppedAreaPixels(fullFrameCropPixels);
       setCroppedArea(fullFrameCrop);
     }
@@ -146,7 +159,7 @@ export function ImageEditor({
         <DialogHeader>
           <DialogTitle>Edit Image</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           {/* Cropper */}
           <div className="relative h-96 bg-slate-900 rounded-lg overflow-hidden">

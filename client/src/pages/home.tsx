@@ -191,7 +191,10 @@ export default function Home() {
 
   const categoryCounts = useMemo(() => {
     const c: Record<string, number> = {};
-    services.forEach((s) => (c[s.categoryId] = (c[s.categoryId] || 0) + 1));
+    services.forEach((s) => {
+      const catId = (s as any).categoryId || (s as any).category?.id;
+      if (catId) c[catId] = (c[catId] || 0) + 1;
+    });
     return c;
   }, [services]);
 
@@ -210,14 +213,14 @@ export default function Home() {
     // If no location set, show all services (category-filtered only)
     if (!searchLocation) {
       let allServices = services || [];
-      if (selectedCategory) allServices = allServices.filter((s) => s.categoryId === selectedCategory);
+      if (selectedCategory) allServices = allServices.filter((s) => (s as any).categoryId === selectedCategory);
       return allServices;
     }
 
     // With location, filter by distance
     if (nearbyLoading) return [];
     let filtered = allNearbyData || [];
-    if (selectedCategory) filtered = filtered.filter((s) => s.categoryId === selectedCategory);
+    if (selectedCategory) filtered = filtered.filter((s) => (s as any).categoryId === selectedCategory);
     return filtered.filter((s) => (s.distance || 0) <= debouncedRadius);
   }, [allNearbyData, searchLocation, nearbyLoading, selectedCategory, debouncedRadius, services]);
 
@@ -225,7 +228,7 @@ export default function Home() {
     if (!searchLocation || nearbyLoading || !allNearbyData.length || autoExpandTriggeredRef.current) return;
 
     let filtered = allNearbyData;
-    if (selectedCategory) filtered = filtered.filter((s) => s.categoryId === selectedCategory);
+    if (selectedCategory) filtered = filtered.filter((s) => (s as any).categoryId === selectedCategory);
     const withinRadius = filtered.filter((s) => (s.distance || 0) <= debouncedRadius);
 
     if (withinRadius.length === 0 && filtered.length > 0) {
@@ -258,6 +261,7 @@ export default function Home() {
       setLocationSearchQuery("");
       setIsMapVisible(true); // Open map when user searches
       setIsMapExpanded(true);
+      setNearbyMode('grid'); // Auto-switch to grid when opening map
       setRadiusKm(10); // Default to 10km radius for location search
       fetchPredictedRadius(result.lat, result.lng);
       setTimeout(() => scrollToServicesSection(), 500);
@@ -283,6 +287,7 @@ export default function Home() {
       setSearchLocation({ lat, lng, name: locationName });
       setIsMapVisible(true); // Open map when user uses their location
       setIsMapExpanded(true);
+      setNearbyMode('grid'); // Auto-switch to grid when opening map
       setRadiusKm(10); // Default to 10km radius when using browser location
       fetchPredictedRadius(lat, lng);
       setTimeout(() => scrollToServicesSection(), 500);
@@ -354,11 +359,11 @@ export default function Home() {
             </p>
 
             {/* Search Box - Two fields */}
-            <div ref={searchContainerRef} className="bg-background rounded-2xl p-2 md:p-3 max-w-3xl mx-auto mb-6 shadow-2xl">
+            <div ref={searchContainerRef} className="bg-background dark:bg-background/50 dark:backdrop-blur-md rounded-2xl p-2 md:p-3 max-w-3xl mx-auto mb-6 shadow-2xl">
               <div className="flex flex-col md:flex-row gap-2">
                 {/* Service Search */}
                 <div ref={serviceSearchRef} className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   <Input
                     value={serviceSearchQuery}
                     onChange={(e) => setServiceSearchQuery(e.target.value)}
@@ -372,7 +377,7 @@ export default function Home() {
                       if (serviceSuggestions.length > 0) setIsServiceSearchOpen(true);
                     }}
                     placeholder="What service are you looking for?"
-                    className="pl-12 pr-10 h-14 text-base border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="w-full pl-11 pr-8 h-14 text-base font-medium text-foreground bg-transparent placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 border-0"
                   />
                   {isServiceSearchLoading && (
                     <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -411,13 +416,13 @@ export default function Home() {
 
                 {/* Location Search */}
                 <div className="relative flex-1">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
                   <Input
                     value={locationSearchQuery}
                     onChange={(e) => setLocationSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleCombinedSearch()}
                     placeholder="Location"
-                    className="pl-12 h-14 text-base border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="w-full pl-11 h-14 text-base font-medium text-foreground bg-transparent placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0 border-0"
                   />
                   {addressSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-2xl z-[100] max-h-80 overflow-y-auto">
@@ -469,7 +474,7 @@ export default function Home() {
               )}
               <Button
                 variant={useLocationPermissions ? "default" : "secondary"}
-                className={`h-11 gap-2 shadow-lg ${useLocationPermissions ? 'bg-primary text-primary-foreground' : 'bg-white dark:bg-slate-800 text-foreground hover:bg-white/90 dark:hover:bg-slate-700'}`}
+                className={`h-11 gap-2 shadow-lg ${useLocationPermissions ? 'bg-primary text-primary-foreground' : 'bg-white dark:bg-slate-800/50 dark:backdrop-blur-md text-foreground hover:bg-gray-100 dark:hover:bg-slate-700/60'}`}
                 onClick={() => {
                   const newValue = !useLocationPermissions;
                   setUseLocationPermissions(newValue);
@@ -500,17 +505,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Sticky Category Bar - Only show if we have search location OR map is visible */}
-      {(searchLocation || isMapVisible) && (
-        <StickyCategoryBar
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          serviceCount={services.length}
-          categoryCounts={categoryCounts}
-          newCounts={{}}
-        />
-      )}
+      {/* Sticky Category Bar - Always visible for browsing */}
+      <StickyCategoryBar
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
+        serviceCount={services.length}
+        categoryCounts={categoryCounts}
+        newCounts={{}}
+      />
 
       {/* Services Section - Always visible so user can access Open Map button */}
       <section ref={nearbyServicesSectionRef} className="py-8 md:py-12 bg-muted/30 border-y border-border">
@@ -540,6 +543,7 @@ export default function Home() {
                       } else {
                         setIsMapVisible(true);
                         setIsMapExpanded(true);
+                        setNearbyMode('grid'); // Auto-switch to grid when opening map
                       }
                     }}
                   >
@@ -668,7 +672,7 @@ export default function Home() {
                   >
                     <CarouselContent>
                       {nearbyServices.map((s) => (
-                        <CarouselItem key={s.id} className="md:basis-1/2 lg:basis-1/3 xl:basis-1/4 pl-4">
+                        <CarouselItem key={(s as any).id} className="md:basis-1/2 lg:basis-1/3 xl:basis-1/4 pl-4">
                           <div className="h-full p-2">
                             <ServiceCard service={s} />
                           </div>
@@ -681,7 +685,7 @@ export default function Home() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {nearbyServices.map((s) => (
-                      <ServiceCard key={s.id} service={s} />
+                      <ServiceCard key={(s as any).id} service={s} />
                     ))}
                   </div>
                 )}

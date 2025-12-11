@@ -142,6 +142,55 @@ export class ObjectStorageService {
   }
 
   /**
+   * Upload a buffer directly to R2 (server-side upload)
+   * Includes retry logic to handle intermittent SSL errors
+   */
+  async uploadBuffer(buffer: Buffer, contentType: string, maxRetries: number = 5): Promise<string> {
+    const objectId = randomUUID();
+    const objectKey = `uploads/${objectId}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: objectKey,
+      Body: buffer,
+      ContentType: contentType,
+    });
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        await this.client.send(command);
+        return `/objects/${objectKey}`;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`R2 upload attempt ${attempt + 1}/${maxRetries} failed:`, error.message || error.code);
+
+        // Check if it's an SSL/network error worth retrying
+        const isRetryable = error.code?.includes('SSL') ||
+          error.code?.includes('NETWORK') ||
+          error.code?.includes('ECONNRESET') ||
+          error.message?.includes('SSL') ||
+          error.message?.includes('socket hang up');
+
+        if (!isRetryable && attempt > 0) {
+          // Non-retryable error after first attempt, give up
+          throw error;
+        }
+
+        // Wait before retrying with exponential backoff
+        if (attempt < maxRetries - 1) {
+          const delay = Math.min(1000 * Math.pow(2, attempt), 10000); // Max 10s
+          console.log(`Retrying R2 upload in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    throw lastError || new Error('Upload failed after retries');
+  }
+
+  /**
    * Get the object key from an object path
    * Converts /objects/uploads/uuid to uploads/uuid
    */

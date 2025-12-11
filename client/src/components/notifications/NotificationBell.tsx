@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { 
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -54,6 +54,7 @@ const typeIcons: Record<string, string> = {
   promotion: "🎁",
   tip: "💰",
   dispute: "⚖️",
+  question: "❓",
 };
 
 // Color mapping for notification types
@@ -68,6 +69,7 @@ const typeColors: Record<string, string> = {
   promotion: "bg-pink-500/10 text-pink-500 border-pink-500/20",
   tip: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   dispute: "bg-red-500/10 text-red-500 border-red-500/20",
+  question: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
 };
 
 export function NotificationBell() {
@@ -155,14 +157,21 @@ export function NotificationBell() {
     if (!notification.isRead) {
       await markReadMutation.mutateAsync(notification.id);
     }
-    
-    if (notification.actionUrl) {
+
+    let url = notification.actionUrl;
+
+    // Override URL for booking notifications to ensure deep linking works
+    if (notification.type === 'booking' && notification.metadata?.bookingId) {
+      url = `/profile?tab=bookings&booking=${notification.metadata.bookingId}`;
+    }
+
+    if (url) {
       setOpen(false);
       // Use SPA navigation for internal links, external for http/https
-      if (notification.actionUrl.startsWith('/')) {
-        navigate(notification.actionUrl);
+      if (url.startsWith('/')) {
+        navigate(url);
       } else {
-        window.location.href = notification.actionUrl;
+        window.location.href = url;
       }
     }
   };
@@ -179,7 +188,7 @@ export function NotificationBell() {
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <Badge 
+            <Badge
               className="absolute -top-1 -right-1 h-5 min-w-[1.25rem] px-1 flex items-center justify-center text-xs font-bold bg-red-500 text-white border-0 animate-pulse"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
@@ -187,8 +196,8 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-[380px] p-0 shadow-xl border-2" 
+      <PopoverContent
+        className="w-[380px] p-0 shadow-xl border-2"
         align="end"
         sideOffset={8}
       >
@@ -240,8 +249,8 @@ export function NotificationBell() {
                   key={notification.id}
                   className={cn(
                     "group relative p-4 transition-colors cursor-pointer",
-                    notification.isRead 
-                      ? "bg-background hover:bg-accent/50" 
+                    notification.isRead
+                      ? "bg-background hover:bg-accent/50"
                       : "bg-indigo-50/50 dark:bg-indigo-950/20 hover:bg-indigo-100/50 dark:hover:bg-indigo-950/30"
                   )}
                   onClick={() => handleNotificationClick(notification)}
@@ -295,6 +304,7 @@ export function NotificationBell() {
                             {notification.type === 'promotion' && 'View offer'}
                             {notification.type === 'tip' && 'View tip'}
                             {notification.type === 'dispute' && 'View dispute'}
+                            {notification.type === 'question' && 'View question'}
                             {notification.type === 'system' && 'Learn more'}
                             <ChevronRight className="w-3 h-3" />
                           </span>

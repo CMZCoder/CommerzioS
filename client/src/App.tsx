@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect, useRoute } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,7 +8,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConfirmDialogProvider } from "@/hooks/useConfirmDialog";
 import { usePageContext } from "@/hooks/use-page-context";
 import { ThemeProvider } from "@/components/theme-provider";
-import { createContext, useContext } from "react";
+import { createContext, useContext, useEffect } from "react";
 import type { PageContextActions } from "@/hooks/use-page-context";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -42,6 +42,30 @@ import NotificationsPage from "@/pages/notifications";
 import CustomerBookingsPage from "@/pages/bookings";
 import DisputesPage from "@/pages/disputes";
 import ServiceRequestsPage from "@/pages/service-requests";
+import { useLocation } from "wouter";
+
+// Redirect component for old /services/:id URLs to /service/:id
+function ServiceRedirect() {
+  const [match, params] = useRoute("/services/:id");
+  const [, setLocation] = useLocation();
+  
+  useEffect(() => {
+    if (match && params?.id) {
+      // Preserve hash and search params when redirecting
+      const hash = window.location.hash;
+      const search = window.location.search;
+      // Convert old hash format (#questions-{id}) to query param (?question={id})
+      let newSearch = search;
+      if (hash.startsWith('#questions-')) {
+        const questionId = hash.replace('#questions-', '');
+        newSearch = search ? `${search}&question=${questionId}` : `?question=${questionId}`;
+      }
+      setLocation(`/service/${params.id}${newSearch}${hash.startsWith('#questions-') ? '' : hash}`);
+    }
+  }, [match, params?.id, setLocation]);
+  
+  return null;
+}
 
 // Create a context for the page context actions
 export const PageContextActionsContext = createContext<PageContextActions | null>(null);
@@ -59,6 +83,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      {/* Redirect from old /services/:id URL format to /service/:id */}
+      <Route path="/services/:id" component={ServiceRedirect} />
       <Route path="/service/:id" component={ServiceDetail} />
       <Route path="/service/:id/book" component={BookServicePage} />
       <Route path="/users/:userId" component={UserProfile} />

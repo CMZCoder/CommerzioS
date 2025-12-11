@@ -7,18 +7,19 @@ import {
   timestamp,
   varchar,
   text,
+  boolean,
   integer,
   decimal,
-  boolean,
+  serial,
+  real,
   unique,
-  AnyPgColumn,
-} from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+  AnyPgColumn
+} from 'drizzle-orm/pg-core';
+import { createInsertSchema } from 'drizzle-zod';
+import { z } from 'zod';
 
-// Session storage table (for Express sessions)
-export const sessions = pgTable(
-  "sessions",
+// Session table
+export const session = pgTable("session",
   {
     sid: varchar("sid").primaryKey(),
     sess: jsonb("sess").notNull(),
@@ -2160,6 +2161,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "review",       // New review received
   "promotion",    // Promotional notifications
   "tip",          // Tip received from customer
+  "question",     // New question or answer on listing
 ]);
 
 /**
@@ -2237,6 +2239,8 @@ export const notificationPreferences = pgTable("notification_preferences", {
   typeSettings: jsonb("type_settings").default({
     message: { in_app: true, email: true, push: true },
     booking: { in_app: true, email: true, push: true },
+    question: { in_app: true, email: true, push: false }, // Q&A notifications
+    tip: { in_app: true, email: true, push: false }, // Tip notifications
     referral: { in_app: true, email: false, push: false },
     service: { in_app: true, email: false, push: false },
     payment: { in_app: true, email: true, push: true },
@@ -2296,6 +2300,69 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   index("idx_push_subscriptions_active").on(table.userId, table.isActive),
   index("idx_push_subscriptions_endpoint").on(table.endpoint),
 ]);
+
+/**
+ * Listing Questions Table
+ */
+export const listingQuestions = pgTable("listing_questions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceId: varchar("service_id").notNull().references(() => services.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // User who asked
+  content: text("content").notNull(),
+  isPrivate: boolean("is_private").default(false).notNull(),
+  isAnswered: boolean("is_answered").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_qa_questions_service_id").on(table.serviceId),
+  index("idx_qa_questions_user_id").on(table.userId),
+]);
+
+export const listingQuestionsRelations = relations(listingQuestions, ({ one, many }) => ({
+  service: one(services, {
+    fields: [listingQuestions.serviceId],
+    references: [services.id],
+  }),
+  user: one(users, {
+    fields: [listingQuestions.userId],
+    references: [users.id],
+  }),
+  answers: many(listingAnswers),
+}));
+
+/**
+ * Listing Answers Table
+ */
+export const listingAnswers = pgTable("listing_answers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  questionId: varchar("question_id").notNull().references(() => listingQuestions.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // User who answered
+  content: text("content").notNull(),
+  isPrivate: boolean("is_private").default(false).notNull(), // Per-answer privacy - controls visibility of this Q&A pair
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_qa_answers_question_id").on(table.questionId),
+  index("idx_qa_answers_user_id").on(table.userId),
+]);
+
+export const listingAnswersRelations = relations(listingAnswers, ({ one }) => ({
+  question: one(listingQuestions, {
+    fields: [listingAnswers.questionId],
+    references: [listingQuestions.id],
+  }),
+  user: one(users, {
+    fields: [listingAnswers.userId],
+    references: [users.id],
+  }),
+}));
+
+/*
+ * Types for Questions and Answers
+ */
+export type ListingQuestion = typeof listingQuestions.$inferSelect;
+export type InsertListingQuestion = typeof listingQuestions.$inferInsert;
+export type ListingAnswer = typeof listingAnswers.$inferSelect;
+export type InsertListingAnswer = typeof listingAnswers.$inferInsert;
 
 export const pushSubscriptionsRelations = relations(pushSubscriptions, ({ one }) => ({
   user: one(users, {
@@ -2584,6 +2651,7 @@ export const NOTIFICATION_TYPES = [
   "review",
   "promotion",
   "tip",
+  "question",
 ] as const;
 
 export type NotificationType = typeof NOTIFICATION_TYPES[number];

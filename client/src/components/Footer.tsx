@@ -3,7 +3,7 @@ import { BRAND } from "@/lib/brand"
 
 export function Footer() {
     return (
-        <footer className="bg-card dark:bg-background border-t border-border text-muted-foreground py-16">
+        <footer className="bg-card dark:bg-background border-t border-border text-muted-foreground py-16 mt-20">
             <div className="container mx-auto px-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
                     {/* Brand Column - Only on large screens */}
@@ -71,7 +71,7 @@ export function Footer() {
                 </div>
 
                 {/* Bottom bar */}
-                <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="border-t border-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground/70">
                         <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
                             <span className="text-xs font-bold text-foreground">C</span>
@@ -80,18 +80,30 @@ export function Footer() {
                         <span className="text-red-500">❤</span>
                     </div>
 
+                    {/* Trust Badges */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 hover:scale-105 transition-all duration-200 cursor-default">
+                            <span className="text-base">🇨🇭</span>
+                            <span className="text-xs font-semibold text-red-600 dark:text-red-400">Swiss Made</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 hover:scale-105 transition-all duration-200 cursor-default">
+                            <span className="text-base">🔒</span>
+                            <span className="text-xs font-semibold text-green-600 dark:text-green-400">SSL Secure</span>
+                        </div>
+                    </div>
+
                     {/* Payment Methods */}
                     <div className="flex items-center gap-3">
                         <span className="text-sm text-muted-foreground/70">Payment Methods:</span>
                         <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
-                                Card
+                            <span className="px-3 py-1.5 text-xs font-medium rounded-lg bg-muted/50 text-foreground border border-border/50 hover:bg-primary/10 hover:border-primary/30 hover:scale-105 hover:shadow-md transition-all duration-200 cursor-default">
+                                💳 Card
                             </span>
-                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
-                                TWINT
+                            <span className="px-3 py-1.5 text-xs font-medium rounded-lg bg-muted/50 text-foreground border border-border/50 hover:bg-primary/10 hover:border-primary/30 hover:scale-105 hover:shadow-md transition-all duration-200 cursor-default">
+                                📱 TWINT
                             </span>
-                            <span className="px-3 py-1 text-xs font-medium rounded bg-muted/50 text-foreground border border-border/50">
-                                Cash
+                            <span className="px-3 py-1.5 text-xs font-medium rounded-lg bg-muted/50 text-foreground border border-border/50 hover:bg-primary/10 hover:border-primary/30 hover:scale-105 hover:shadow-md transition-all duration-200 cursor-default">
+                                💵 Cash
                             </span>
                         </div>
                     </div>

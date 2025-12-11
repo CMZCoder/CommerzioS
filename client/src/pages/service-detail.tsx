@@ -1,4 +1,5 @@
 import { Layout } from "@/components/layout";
+import { SearchAutocomplete } from "@/components/search-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,12 +29,16 @@ import {
   Reply,
   Eye,
   Edit2,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, type ServiceWithDetails, type ReviewWithUser } from "@/lib/api";
+import type { ListingQuestion, ListingAnswer } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { ServiceMap } from "@/components/service-map";
 import {
@@ -79,6 +84,17 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const queryClient = useQueryClient();
   const reviewFormRef = useRef<HTMLDivElement>(null);
 
+  // Controlled tab state - auto-switch to questions tab when ?question= param is present
+  const urlParams = new URLSearchParams(searchString);
+  const questionIdFromUrl = urlParams.get('question');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Initial value: if URL has question param, start on questions tab
+    return questionIdFromUrl ? 'questions' : 'description';
+  });
+  
+  // Track which question to expand and scroll to
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(questionIdFromUrl);
+
   // Carousel State
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -93,10 +109,20 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   const scrollPrev = () => emblaApi && emblaApi.scrollPrev();
   const scrollNext = () => emblaApi && emblaApi.scrollNext();
 
-  // Scroll to top on page load
+  // Handle deep linking: switch to questions tab and set question to expand when URL changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [serviceId]);
+    if (questionIdFromUrl) {
+      setActiveTab('questions');
+      setExpandedQuestionId(questionIdFromUrl);
+    }
+  }, [questionIdFromUrl]);
+
+  // Scroll to top on page load (but not for question deep links)
+  useEffect(() => {
+    if (!questionIdFromUrl) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [serviceId, questionIdFromUrl]);
 
   const { data: service, isLoading: serviceLoading, error: serviceError } = useQuery<ServiceWithDetails>({
     queryKey: [`/api/services/${serviceId}`],
@@ -113,6 +139,14 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
     queryKey: [`/api/favorites/${serviceId}/status`],
     queryFn: () => apiRequest<{ isFavorite: boolean }>(`/api/favorites/${serviceId}/status`),
     enabled: isAuthenticated && !!service,
+  });
+
+  // Query for question counts (for vendors)
+  const { data: questionCounts } = useQuery<{ total: number; unanswered: number }>({
+    queryKey: [`/api/services/${serviceId}/questions/unanswered-count`],
+    queryFn: () => apiRequest(`/api/services/${serviceId}/questions/unanswered-count`),
+    enabled: !!service && user?.id === service.ownerId, // Only for vendors
+    refetchInterval: 10000, // Poll every 10 seconds for real-time badge updates
   });
 
   useEffect(() => {
@@ -255,9 +289,19 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
   if (serviceError || !service) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl font-bold">Service not found</h1>
-          <Button onClick={() => setLocation("/")} className="mt-4">Go Home</Button>
+        <div className="container mx-auto px-4 py-20 flex flex-col items-center justify-center min-h-[60vh]">
+          <h1 className="text-2xl font-bold mb-8">Service not found</h1>
+
+          {/* Search Bar */}
+          <div className="w-full max-w-md mb-8">
+            <SearchAutocomplete />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            <Button onClick={() => setLocation("/")} variant="outline">Go Home</Button>
+            <Button onClick={() => setLocation("/search")}>Explore Services</Button>
+          </div>
         </div>
       </Layout>
     );
@@ -418,11 +462,19 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
               </Card>
 
               {/* Tabs */}
-              <Tabs defaultValue="description" className="w-full">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="w-full justify-start">
                   <TabsTrigger value="description">Description</TabsTrigger>
                   <TabsTrigger value="pricing">Pricing</TabsTrigger>
                   <TabsTrigger value="reviews">Reviews</TabsTrigger>
+                  <TabsTrigger value="questions" className="flex items-center gap-2">
+                    Questions
+                    {questionCounts && questionCounts.unanswered > 0 && user?.id === service.ownerId && (
+                      <Badge variant="destructive" className="text-[10px] h-4 min-w-4 px-1 rounded-full">
+                        {questionCounts.unanswered}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
                   <TabsTrigger value="about">About Vendor</TabsTrigger>
                 </TabsList>
 
@@ -614,6 +666,10 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
                       )}
                     </div>
                   </div>
+                </TabsContent>
+
+                <TabsContent value="questions" className="space-y-6 mt-6">
+                  <ListingQASection serviceId={service.id} ownerId={service.ownerId} expandedQuestionId={expandedQuestionId} />
                 </TabsContent>
 
                 <TabsContent value="about" className="space-y-6 mt-6">
@@ -871,5 +927,400 @@ function ServiceDetailContent({ serviceId }: { serviceId: string }) {
         </div>
       </div>
     </Layout>
+  );
+}
+
+function ListingQASection({ serviceId, ownerId, expandedQuestionId: propExpandedQuestionId }: { 
+  serviceId: string, 
+  ownerId: string,
+  expandedQuestionId?: string | null 
+}) {
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [questionContent, setQuestionContent] = useState("");
+  const [isPrivate, setIsPrivate] = useState(false);
+
+  // Fetch questions
+  const { data: questions = [], isLoading } = useQuery<Array<ListingQuestion & { user: any; answers: Array<ListingAnswer & { user: any }> }>>({
+    queryKey: [`/api/services/${serviceId}/questions`],
+    refetchInterval: 10000, // Poll every 10 seconds for real-time updates
+  });
+
+  // Scroll to the expanded question when it loads (from notification deep link)
+  useEffect(() => {
+    if (propExpandedQuestionId && !isLoading && questions.length > 0) {
+      // Small delay to ensure the question element is rendered
+      setTimeout(() => {
+        const questionElement = document.getElementById(`question-${propExpandedQuestionId}`);
+        if (questionElement) {
+          questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add visual highlight
+          questionElement.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+          setTimeout(() => {
+            questionElement.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+          }, 3000);
+        }
+      }, 200);
+    }
+  }, [propExpandedQuestionId, isLoading, questions.length]);
+
+  const askMutation = useMutation({
+    mutationFn: async (data: { content: string; isPrivate: boolean }) => {
+      return apiRequest(`/api/services/${serviceId}/questions`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions/unanswered-count`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/questions/unanswered-count'] });
+      setQuestionContent("");
+      setIsPrivate(false);
+      toast({ title: "Question submitted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to submit question", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: async ({ questionId, content, isPrivate }: { questionId: string; content: string; isPrivate: boolean }) => {
+      return apiRequest(`/api/services/${serviceId}/questions/${questionId}/answers`, {
+        method: "POST",
+        body: JSON.stringify({ content, isPrivate }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions/unanswered-count`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/questions/unanswered-count'] });
+      toast({ title: "Reply submitted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to reply", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleSubmitQuestion = () => {
+    if (!questionContent.trim()) return;
+    askMutation.mutate({ content: questionContent, isPrivate });
+  };
+
+  const isOwner = user?.id === ownerId;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-xl font-semibold mb-3">Questions & Answers</h3>
+        <p className="text-muted-foreground mb-4">
+          Ask the vendor about this service.
+        </p>
+
+        {/* Ask Form */}
+        {isAuthenticated ? (
+          !isOwner && (
+            <Card className="mb-6">
+              <CardContent className="p-4 space-y-4">
+                <Textarea
+                  placeholder="Ask a question..."
+                  value={questionContent}
+                  onChange={(e) => setQuestionContent(e.target.value)}
+                />
+                <Button onClick={handleSubmitQuestion} disabled={askMutation.isPending || !questionContent.trim()}>
+                  {askMutation.isPending ? "Submitting..." : "Ask Question"}
+                </Button>
+
+              </CardContent>
+            </Card>
+          )
+        ) : (
+          <div className="bg-muted p-4 rounded-lg text-center mb-6">
+            <p className="text-sm mb-2">Login to ask a question</p>
+            <Button variant="outline" size="sm" asChild><Link href="/auth">Login</Link></Button>
+          </div>
+        )}
+
+        {/* Questions List */}
+        {isLoading ? (
+          <div>Loading questions...</div>
+        ) : questions.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">No questions yet.</div>
+        ) : (
+          <div className="space-y-4">
+            {questions.map((q) => (
+              <QuestionItem
+                key={q.id}
+                question={q}
+                isOwner={isOwner}
+                ownerId={ownerId}
+                defaultExpanded={propExpandedQuestionId === q.id}
+                onReply={(content: string, isPrivate: boolean) => replyMutation.mutate({ questionId: q.id, content, isPrivate })}
+                onDeleteQuestion={() => {
+                  // Optimistic update or simple invalidation
+                  apiRequest(`/api/questions/${q.id}`, { method: 'DELETE' }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+                    queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions/unanswered-count`] });
+                    queryClient.invalidateQueries({ queryKey: ['/api/questions/unanswered-count'] });
+                    toast({ title: "Question deleted" });
+                  });
+                }}
+                onDeleteAnswer={(answerId: string) => {
+                  apiRequest(`/api/answers/${answerId}`, { method: 'DELETE' }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+                    queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions/unanswered-count`] });
+                    queryClient.invalidateQueries({ queryKey: ['/api/questions/unanswered-count'] });
+                    toast({ title: "Reply deleted" });
+                  });
+                }}
+                onEditAnswer={(answerId: string, content: string) => {
+                  apiRequest(`/api/answers/${answerId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ content })
+                  }).then(() => {
+                    queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+                    toast({ title: "Reply updated" });
+                  });
+                }}
+                currentUserId={user?.id}
+                serviceId={serviceId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuestionItem({ question, isOwner, ownerId, defaultExpanded = false, onReply, onDeleteQuestion, onDeleteAnswer, onEditAnswer, currentUserId, serviceId }: any) {
+  const [replyContent, setReplyContent] = useState("");
+  const [isReplying, setIsReplying] = useState(false);
+  const [isPrivateReply, setIsPrivateReply] = useState(false);
+  const [showReplies, setShowReplies] = useState(defaultExpanded);
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const isQuestionAuthor = currentUserId && currentUserId === question.userId;
+
+  // Get the last answer to check who replied last
+  const lastAnswer = question.answers?.length > 0
+    ? question.answers[question.answers.length - 1]
+    : null;
+
+  // Check if the current user was the last to reply
+  const currentUserRepliedLast = lastAnswer && lastAnswer.userId === currentUserId;
+
+  // Strict alternating pattern:
+  // - Vendor can reply if: no answers yet OR last answer was not from vendor
+  // - Question author can reply if: vendor has replied AND last answer was from vendor
+  const vendorHasReplied = question.answers?.some((a: any) => a.userId === ownerId);
+
+  // Neither party can post twice in a row
+  const canReply = currentUserId && !currentUserRepliedLast && (
+    isOwner || // Vendor can reply if they haven't replied last
+    (isQuestionAuthor && vendorHasReplied) // Author can reply if vendor has replied and author hasn't replied last
+  );
+  const canDeleteQuestion = isOwner; // Only vendor can delete questions
+
+  const handleReply = () => {
+    if (!replyContent.trim()) return;
+    onReply(replyContent, isPrivateReply);
+    setReplyContent("");
+    setIsReplying(false);
+    setShowReplies(true); // Auto-expand to show new reply
+  };
+
+  const startEdit = (answer: any) => {
+    setEditingAnswerId(answer.id);
+    setEditContent(answer.content);
+  };
+
+  const handleEditSubmit = (answerId: string) => {
+    onEditAnswer(answerId, editContent);
+    setEditingAnswerId(null);
+  };
+
+  // Simplified privacy: use question.isPrivate directly
+  const isQAPrivate = question.isPrivate;
+
+  // Get display name - show "Me" for current user
+  const getDisplayName = (userId: string | undefined, user: any) => {
+    if (currentUserId && userId === currentUserId) return 'Me';
+    return user?.displayName || user?.firstName || 'User';
+  };
+
+  // Toggle privacy handler for vendors
+  const handleTogglePrivacy = async () => {
+    console.log('[Q&A Toggle] Starting toggle, current isPrivate:', question.isPrivate, 'questionId:', question.id);
+    try {
+      const response = await fetch(`/api/questions/${question.id}/privacy`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ isPrivate: !question.isPrivate }),
+      });
+      
+      const data = await response.json();
+      console.log('[Q&A Toggle] Response:', response.status, data);
+      
+      if (response.ok) {
+        // Properly invalidate cache to refresh UI
+        queryClient.invalidateQueries({ queryKey: [`/api/services/${serviceId}/questions`] });
+        toast({ 
+          title: question.isPrivate ? "Q&A is now public" : "Q&A is now private",
+          description: question.isPrivate ? "Other users can see this thread" : "Only you and the asker can see this thread"
+        });
+      } else {
+        toast({ title: "Failed to update privacy", description: data.message || "Unknown error", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error('Failed to toggle privacy:', error);
+      toast({ title: "Failed to update privacy", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Card id={`question-${question.id}`}>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback>{(question.user?.displayName || question.user?.firstName)?.substring(0, 1) || 'U'}</AvatarFallback>
+            </Avatar>
+            <span className="font-semibold text-sm">{getDisplayName(question.userId, question.user)}</span>
+            <span className="text-xs text-muted-foreground">{new Date(question.createdAt).toLocaleDateString()}</span>
+            {isQAPrivate && <Badge variant="outline" className="text-xs"><Lock className="w-3 h-3 mr-1" /> Private</Badge>}
+          </div>
+          <div className="flex gap-1">
+            {/* Vendor toggle button */}
+            {isOwner && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 text-xs gap-1"
+                onClick={handleTogglePrivacy}
+              >
+                {isQAPrivate ? <Eye className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                {isQAPrivate ? "Make Public" : "Make Private"}
+              </Button>
+            )}
+            {canDeleteQuestion && (
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={onDeleteQuestion}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="mb-4 text-sm">{question.content}</p>
+
+        {/* Answers Toggle */}
+        {question.answers && question.answers.length > 0 && (
+          <div className="mb-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-6 p-0 hover:bg-transparent text-primary flex items-center gap-1"
+              onClick={() => setShowReplies(!showReplies)}
+            >
+              {showReplies ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              {showReplies ? "Hide replies" : `View ${question.answers.length} repl${question.answers.length === 1 ? 'y' : 'ies'}`}
+            </Button>
+
+            {showReplies && (
+              <div className="mt-2 ml-4 pl-4 border-l-2 space-y-4">
+                {question.answers.map((a: any) => {
+                  const isAnswerAuthor = currentUserId && currentUserId === a.userId;
+                  const canDeleteAnswer = isOwner || isAnswerAuthor;
+                  const canEditAnswer = isAnswerAuthor;
+                  const isVendorAnswer = a.userId === ownerId;
+
+                  return (
+                    <div key={a.id} className="relative group">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className={`font-semibold text-sm ${isVendorAnswer ? 'text-primary' : ''}`}>
+                            {getDisplayName(a.userId, a.user)}
+                            {isVendorAnswer && <Badge variant="secondary" className="ml-2 text-[10px] h-4">Vendor</Badge>}
+                          </span>
+                          <span className="text-xs text-muted-foreground">{new Date(a.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {canEditAnswer && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => startEdit(a)}>
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                          {canDeleteAnswer && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6 hover:text-destructive" onClick={() => onDeleteAnswer(a.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {editingAnswerId === a.id ? (
+                        <div className="mt-2 space-y-2">
+                          <Textarea value={editContent} onChange={e => setEditContent(e.target.value)} className="min-h-[60px] text-sm" />
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingAnswerId(null)}>Cancel</Button>
+                            <Button size="sm" onClick={() => handleEditSubmit(a.id)}>Save</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-foreground/90">{a.content}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reply Action */}
+        {canReply && (
+          <div className="mt-2">
+            {!isReplying ? (
+              <Button variant="ghost" size="sm" onClick={() => setIsReplying(true)}>
+                <Reply className="w-4 h-4 mr-1" /> Reply
+              </Button>
+            ) : (
+              <div className="space-y-2 mt-2">
+                <Textarea
+                  value={replyContent}
+                  onChange={(e) => setReplyContent(e.target.value)}
+                  placeholder="Write a reply..."
+                  className="h-20"
+                />
+                <div className="flex justify-between items-center">
+                  {isOwner && (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`private-reply-${question.id}`}
+                        checked={isPrivateReply}
+                        onChange={(e) => setIsPrivateReply(e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={`private-reply-${question.id}`} className="text-sm text-muted-foreground select-none">Make private</label>
+                    </div>
+                  )}
+                  {!isOwner && <div />} {/* Spacer */}
+
+                  <div className="flex gap-2 ml-auto">
+                    <Button variant="ghost" size="sm" onClick={() => setIsReplying(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleReply}>Post Reply</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
