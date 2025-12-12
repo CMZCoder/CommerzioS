@@ -4129,7 +4129,7 @@ export default function Profile() {
             </DialogTitle>
             <DialogDescription>
               {user?.passwordHash ? (
-                "You can disconnect this account. You will still be able to log in using your email and password."
+                "You can disconnect this social login. You'll still be able to log in using your email and platform password."
               ) : (
                 "Warning: You don't have a platform password set. Disconnecting this account will log you out and you won't be able to log back in until you set a password."
               )}
@@ -4138,10 +4138,10 @@ export default function Profile() {
 
           <div className="py-4">
             {!user?.passwordHash && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700 rounded-lg p-4 mb-4">
                 <div className="flex gap-2">
                   <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0" />
-                  <div className="text-sm text-amber-800">
+                  <div className="text-sm text-amber-800 dark:text-amber-200">
                     <p className="font-medium mb-1">Set a password first</p>
                     <p>Before disconnecting, we recommend setting a platform password so you can still access your account.</p>
                   </div>
@@ -4150,39 +4150,42 @@ export default function Profile() {
             )}
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setShowDisconnectDialog(false)}
+              className="sm:order-1"
             >
               Cancel
             </Button>
-            {!user?.passwordHash ? (
+            {!user?.passwordHash && (
               <Button
                 onClick={() => {
                   setShowDisconnectDialog(false);
                   setShowChangePasswordDialog(true);
                 }}
+                className="sm:order-2"
               >
-                Set Password First
-              </Button>
-            ) : (
-              <Button
-                variant="destructive"
-                onClick={async () => {
-                  try {
-                    await apiRequest('/api/user/disconnect-oauth', { method: 'POST' });
-                    toast({ title: 'Account disconnected', description: 'Social login has been removed from your account.' });
-                    setShowDisconnectDialog(false);
-                    queryClient.invalidateQueries({ queryKey: ['/api/auth/me'] });
-                  } catch (error: any) {
-                    toast({ title: 'Error', description: error.message || 'Failed to disconnect account', variant: 'destructive' });
-                  }
-                }}
-              >
-                Disconnect
+                Set Platform Password
               </Button>
             )}
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  await apiRequest('/api/user/disconnect-oauth', { method: 'POST' });
+                  toast({ title: 'Account disconnected', description: 'Social login has been removed. Logging you out...' });
+                  setShowDisconnectDialog(false);
+                  // Disconnect should always log out
+                  logout();
+                } catch (error: any) {
+                  toast({ title: 'Error', description: error.message || 'Failed to disconnect account', variant: 'destructive' });
+                }
+              }}
+              className="sm:order-3"
+            >
+              {user?.passwordHash ? 'Disconnect' : 'Log Out & Disconnect'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
