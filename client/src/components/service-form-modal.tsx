@@ -76,6 +76,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   const contextActions = usePageContextActions();
   const initializedRef = useRef(false);
   const isEditMode = !!service;
+  const isDraftEdit = isEditMode && service?.status === 'draft';
 
   const [formData, setFormData] = useState<FormData | null>(isEditMode ? null : {
     title: "",
@@ -427,8 +428,12 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
     }
 
     // Initialize contacts - create ONE contact with both phone and email fields
-    if (formData.contacts.length === 0) {
-      const userName = `${user.firstName} ${user.lastName}`.trim();
+    // Check if contacts are empty OR first contact has no phone/email (for OAuth users who may have empty initialized contact)
+    const needsContactInit = formData.contacts.length === 0 ||
+      (formData.contacts.length === 1 && !formData.contacts[0].phone?.trim() && !formData.contacts[0].email?.trim());
+
+    if (needsContactInit && (user.email || user.phoneNumber)) {
+      const userName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
 
       // Create a single contact with both phone and email (new structure)
       const singleContact: Contact = {
@@ -526,7 +531,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
   });
 
   const updateServiceMutation = useMutation({
-    mutationFn: async (data: FormData) => {
+    mutationFn: async ({ data, publishDraft }: { data: FormData; publishDraft?: boolean }) => {
       const updatedService = await apiRequest(`/api/services/${service?.id}`, {
         method: "PATCH",
         body: JSON.stringify({
@@ -551,6 +556,8 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
           // Extract first phone and email from contacts (new structure)
           contactPhone: data.contacts.find((c: Contact) => c.phone?.trim())?.phone || "",
           contactEmail: data.contacts.find((c: Contact) => c.email?.trim())?.email || "",
+          // If publishing a draft, set status to active
+          ...(publishDraft ? { status: 'active' } : {}),
         }),
       });
 
@@ -581,14 +588,14 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         }
       }
 
-      return updatedService;
+      return { updatedService, publishDraft };
     },
-    onSuccess: () => {
+    onSuccess: ({ publishDraft }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       queryClient.invalidateQueries({ queryKey: [`/api/services/${service?.id}/contacts`] });
       toast({
-        title: "Service Updated!",
-        description: "Your service has been updated successfully.",
+        title: publishDraft ? "Service Published!" : "Service Updated!",
+        description: publishDraft ? "Your service is now live." : "Your service has been updated successfully.",
       });
       onOpenChange(false);
     },
@@ -1147,9 +1154,15 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
         return;
       }
 
+      // If editing a draft and form is complete, publish it
+      const shouldPublish = isDraftEdit && formProgress.isComplete;
+
       updateServiceMutation.mutate({
-        ...formData,
-        locations: validLocations,
+        data: {
+          ...formData,
+          locations: validLocations,
+        },
+        publishDraft: shouldPublish,
       });
     } else {
       // Collect all validation errors
@@ -2304,7 +2317,7 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                         <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
                         Validating...
                       </>
-                    ) : isEditMode ? (
+                    ) : isEditMode && !isDraftEdit ? (
                       updateServiceMutation.isPending ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -2314,6 +2327,21 @@ export function ServiceFormModal({ open, onOpenChange, onSuggestCategory, onCate
                         <>
                           <CheckCircle2 className="w-4 h-4 mr-1.5" />
                           Update Service
+                        </>
+                      )
+                    ) : isDraftEdit ? (
+                      // Draft editing - allow publishing
+                      updateServiceMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                          Publishing...
+                        </>
+                      ) : formProgress.isComplete ? (
+                        "Publish Service"
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                          Update Draft
                         </>
                       )
                     ) : (
