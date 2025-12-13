@@ -141,7 +141,22 @@ export function ChatWindow({
   const isUserBlocked = otherPartyId && blockedUsers.some((u: any) => u.id === otherPartyId);
 
   // Check if conversation is locked due to deactivation
-  const conversationMetadata = conversationData?.metadata ? JSON.parse(conversationData.metadata) : {};
+  // SAFETY: Handle metadata as string or object, with try-catch for malformed JSON
+  let conversationMetadata: Record<string, any> = {};
+  try {
+    const rawMetadata = conversationData?.metadata;
+    if (rawMetadata) {
+      if (typeof rawMetadata === 'string') {
+        conversationMetadata = JSON.parse(rawMetadata);
+      } else if (typeof rawMetadata === 'object') {
+        conversationMetadata = rawMetadata as Record<string, any>;
+      }
+    }
+  } catch (e) {
+    // If parsing fails, default to empty object (unlocked)
+    conversationMetadata = {};
+  }
+
   const isLockedDueToDeactivation = conversationMetadata.lockedDueToDeactivation &&
     conversationMetadata.lockedForUserId === currentUserId;
 
