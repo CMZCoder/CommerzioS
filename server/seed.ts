@@ -7,7 +7,8 @@ import {
   listingQuestions, listingAnswers, favorites, serviceContacts,
   pointsLog, referralTransactions, referralStats, referralConfig,
   userModerationActions, bannedIdentifiers, userReports, userBlocks,
-  notificationPreferences, pushSubscriptions, customerReviews, reviewRemovalRequests
+  notificationPreferences, pushSubscriptions, customerReviews, reviewRemovalRequests,
+  missions, redemptionItems
 } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -1766,6 +1767,9 @@ export async function seedDatabase() {
     // Seed demo chat conversations
     await seedDemoChats();
 
+    // Seed COM Points missions and shop items
+    await seedComPoints();
+
     console.log("Database seeding completed!");
   } catch (error) {
     console.error("Error seeding database:", error);
@@ -2055,5 +2059,74 @@ async function seedDemoNotifications() {
     console.log(`Demo notifications seeded successfully! Created ${notificationCount} notifications.`);
   } catch (error) {
     console.error("Error seeding demo notifications:", error);
+  }
+}
+
+/**
+ * Seed COM Points missions and redemption shop items
+ */
+async function seedComPoints() {
+  try {
+    console.log("Seeding COM Points data...");
+
+    // Seed Missions
+    const missionsData = [
+      // Referral Missions (Tiered)
+      { id: "mission-referral-tier1", name: "Invite 1 Friend", description: "Invite one friend to join the platform", category: "referral", rewardPoints: 50, verificationType: "database_trigger", tier: 1, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-referral-tier2", name: "Invite 10 Friends", description: "Build your network with 10 referrals", category: "referral", rewardPoints: 150, verificationType: "database_trigger", tier: 2, targetCount: 10, isActive: true, isRepeatable: false },
+      { id: "mission-referral-tier3", name: "Invite 25 Friends", description: "Become a Sovereign with 25 referrals", category: "referral", rewardPoints: 350, verificationType: "database_trigger", tier: 3, targetCount: 25, isActive: true, isRepeatable: false },
+      { id: "mission-referral-tier4", name: "Invite 50 Friends", description: "Achieve Mastermind status with 50 referrals", category: "referral", rewardPoints: 800, verificationType: "database_trigger", tier: 4, targetCount: 50, isActive: true, isRepeatable: false },
+      // Social Media Missions
+      { id: "mission-social-twitter", name: "Follow @CommerzioS on X", description: "Connect your X account and follow us", category: "social_media", rewardPoints: 100, verificationType: "oauth", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-social-instagram", name: "Follow @CommerzioS on Instagram", description: "Connect your Instagram and follow us", category: "social_media", rewardPoints: 100, verificationType: "oauth", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-social-share", name: "Share a Vendor Profile", description: "Share a featured vendor on social media", category: "social_media", rewardPoints: 200, verificationType: "api_webhook", tier: null, targetCount: 1, isActive: true, isRepeatable: true },
+      // Engagement Missions
+      { id: "mission-engage-profile", name: "Complete Your Profile", description: "Add a bio, photo, and verify your phone", category: "engagement", rewardPoints: 50, verificationType: "database_trigger", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-engage-review", name: "Leave Your First Review", description: "Share your experience with a vendor", category: "engagement", rewardPoints: 100, verificationType: "database_trigger", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-engage-book5", name: "Book 5 Services", description: "Complete 5 bookings on the platform", category: "engagement", rewardPoints: 200, verificationType: "database_trigger", tier: null, targetCount: 5, isActive: true, isRepeatable: false },
+      // Milestone Missions
+      { id: "mission-milestone-vendor", name: "Become a Vendor", description: "Create your first service listing", category: "milestone", rewardPoints: 150, verificationType: "database_trigger", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+      { id: "mission-milestone-verified", name: "Get Verified (Level 2)", description: "Complete Stripe KYC verification", category: "milestone", rewardPoints: 300, verificationType: "database_trigger", tier: null, targetCount: 1, isActive: true, isRepeatable: false },
+    ] as const;
+
+    for (const mission of missionsData) {
+      const existing = await db.select().from(missions).where(eq(missions.id, mission.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(missions).values(mission as any);
+        console.log(`✓ Mission created: ${mission.name}`);
+      } else {
+        console.log(`• Mission exists: ${mission.name}`);
+      }
+    }
+
+    // Seed Redemption Items
+    const redemptionData = [
+      { id: "redeem-commission-5", name: "5% Commission Discount", description: "Reduce commission by 5% on your next booking (max CHF 200)", costPoints: 1000, itemType: "commission_discount", valueConfig: { discount_percent: 5, max_value_cents: 20000 }, isActive: true, stock: null, maxPerUser: 10 },
+      { id: "redeem-listing-slot", name: "Free Listing Slot", description: "Add one permanent listing slot to your account", costPoints: 500, itemType: "listing_slot", valueConfig: { slots: 1 }, isActive: true, stock: null, maxPerUser: 5 },
+      { id: "redeem-featured-week", name: "Featured Listing (1 Week)", description: "Boost visibility on homepage and top of search", costPoints: 3000, itemType: "featured_listing", valueConfig: { days: 7 }, isActive: true, stock: 50, maxPerUser: null },
+      { id: "redeem-inquiry-credits", name: "50 Inquiry Credits", description: "Get 50 additional inquiry credits for your account", costPoints: 200, itemType: "inquiry_credits", valueConfig: { credits: 50 }, isActive: true, stock: null, maxPerUser: null },
+      { id: "redeem-platform-credits", name: "CHF 10 Platform Credits", description: "Add CHF 10 to your platform credit wallet", costPoints: 1500, itemType: "platform_credits", valueConfig: { amount_cents: 1000 }, isActive: true, stock: null, maxPerUser: null },
+    ] as const;
+
+    for (const item of redemptionData) {
+      const existing = await db.select().from(redemptionItems).where(eq(redemptionItems.id, item.id)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(redemptionItems).values(item as any);
+        console.log(`✓ Shop item created: ${item.name}`);
+      } else {
+        console.log(`• Shop item exists: ${item.name}`);
+      }
+    }
+
+    // Give existing users some starting COM Points
+    const allUsers = await db.select({ id: users.id }).from(users).limit(10);
+    for (const user of allUsers) {
+      await db.update(users).set({ comPointsBalance: 500 }).where(eq(users.id, user.id));
+    }
+    console.log(`✓ Awarded 500 COM Points to ${allUsers.length} users`);
+
+    console.log("COM Points seeding complete!");
+  } catch (error) {
+    console.error("Error seeding COM Points:", error);
   }
 }
