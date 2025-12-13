@@ -1,0 +1,122 @@
+{
+    "common": {
+        "appName": "Commerzio",
+        "tagline": "Marketplace suisse de services",
+        "loading": "Chargement...",
+        "error": "Erreur",
+        "success": "Succès",
+        "save": "Enregistrer",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "edit": "Modifier",
+        "search": "Rechercher",
+        "filter": "Filtrer",
+        "sort": "Trier",
+        "back": "Retour",
+        "next": "Suivant",
+        "submit": "Soumettre",
+        "confirm": "Confirmer",
+        "close": "Fermer"
+    },
+    "nav": {
+        "home": "Accueil",
+        "search": "Rechercher",
+        "categories": "Catégories",
+        "profile": "Profil",
+        "settings": "Paramètres",
+        "notifications": "Notifications",
+        "messages": "Messages",
+        "bookings": "Réservations",
+        "favorites": "Favoris",
+        "rewards": "Récompenses",
+        "help": "Aide",
+        "login": "Connexion",
+        "register": "Inscription",
+        "logout": "Déconnexion"
+    },
+    "auth": {
+        "email": "Adresse e-mail",
+        "password": "Mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "forgotPassword": "Mot de passe oublié?",
+        "rememberMe": "Rester connecté",
+        "loginTitle": "Bon retour",
+        "registerTitle": "Créer un compte",
+        "orContinueWith": "Ou continuer avec"
+    },
+    "services": {
+        "title": "Services",
+        "searchPlaceholder": "Que recherchez-vous?",
+        "noResults": "Aucun résultat trouvé",
+        "filters": "Filtres",
+        "priceRange": "Fourchette de prix",
+        "rating": "Évaluation",
+        "location": "Lieu",
+        "instantBooking": "Réservation instantanée",
+        "verified": "Vérifié",
+        "featured": "Recommandé",
+        "perHour": "par heure",
+        "perJob": "par service",
+        "viewDetails": "Voir les détails",
+        "bookNow": "Réserver maintenant"
+    },
+    "booking": {
+        "title": "Réservation",
+        "selectDate": "Choisir une date",
+        "selectTime": "Choisir une heure",
+        "duration": "Durée",
+        "notes": "Notes",
+        "total": "Total",
+        "deposit": "Acompte",
+        "confirmBooking": "Confirmer la réservation",
+        "bookingConfirmed": "Réservation confirmée!",
+        "pendingApproval": "En attente d'approbation",
+        "statuses": {
+            "pending": "En attente",
+            "confirmed": "Confirmé",
+            "completed": "Terminé",
+            "cancelled": "Annulé"
+        }
+    },
+    "notifications": {
+        "title": "Notifications",
+        "markAllRead": "Tout marquer comme lu",
+        "noNotifications": "Aucune notification",
+        "settings": "Paramètres de notification",
+        "emailNotifications": "Notifications par e-mail",
+        "pushNotifications": "Notifications push",
+        "smsNotifications": "Notifications SMS",
+        "quietHours": "Heures de silence"
+    },
+    "profile": {
+        "title": "Profil",
+        "editProfile": "Modifier le profil",
+        "personalInfo": "Informations personnelles",
+        "firstName": "Prénom",
+        "lastName": "Nom",
+        "phone": "Téléphone",
+        "bio": "À propos de moi",
+        "myServices": "Mes services",
+        "reviews": "Avis",
+        "settings": "Paramètres"
+    },
+    "rewards": {
+        "title": "Récompenses",
+        "points": "Points",
+        "missions": "Missions",
+        "shop": "Boutique",
+        "history": "Historique",
+        "earnPoints": "Gagner des points",
+        "redeemPoints": "Échanger des points"
+    },
+    "footer": {
+        "aboutUs": "À propos",
+        "howItWorks": "Comment ça marche",
+        "helpCenter": "Centre d'aide",
+        "trustSafety": "Confiance & Sécurité",
+        "terms": "CGV",
+        "privacy": "Confidentialité",
+        "contact": "Contact",
+        "copyright": "© 2024 Commerzio. Tous droits réservés."
+    }
+}

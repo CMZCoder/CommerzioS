@@ -1,0 +1,122 @@
+{
+    "common": {
+        "appName": "Commerzio",
+        "tagline": "Marketplace svizzero di servizi",
+        "loading": "Caricamento...",
+        "error": "Errore",
+        "success": "Successo",
+        "save": "Salva",
+        "cancel": "Annulla",
+        "delete": "Elimina",
+        "edit": "Modifica",
+        "search": "Cerca",
+        "filter": "Filtra",
+        "sort": "Ordina",
+        "back": "Indietro",
+        "next": "Avanti",
+        "submit": "Invia",
+        "confirm": "Conferma",
+        "close": "Chiudi"
+    },
+    "nav": {
+        "home": "Home",
+        "search": "Cerca",
+        "categories": "Categorie",
+        "profile": "Profilo",
+        "settings": "Impostazioni",
+        "notifications": "Notifiche",
+        "messages": "Messaggi",
+        "bookings": "Prenotazioni",
+        "favorites": "Preferiti",
+        "rewards": "Premi",
+        "help": "Aiuto",
+        "login": "Accedi",
+        "register": "Registrati",
+        "logout": "Esci"
+    },
+    "auth": {
+        "email": "Indirizzo e-mail",
+        "password": "Password",
+        "confirmPassword": "Conferma password",
+        "forgotPassword": "Password dimenticata?",
+        "rememberMe": "Mantieni accesso",
+        "loginTitle": "Bentornato",
+        "registerTitle": "Crea un account",
+        "orContinueWith": "Oppure continua con"
+    },
+    "services": {
+        "title": "Servizi",
+        "searchPlaceholder": "Cosa stai cercando?",
+        "noResults": "Nessun risultato trovato",
+        "filters": "Filtri",
+        "priceRange": "Fascia di prezzo",
+        "rating": "Valutazione",
+        "location": "Posizione",
+        "instantBooking": "Prenotazione istantanea",
+        "verified": "Verificato",
+        "featured": "In evidenza",
+        "perHour": "all'ora",
+        "perJob": "a servizio",
+        "viewDetails": "Vedi dettagli",
+        "bookNow": "Prenota ora"
+    },
+    "booking": {
+        "title": "Prenotazione",
+        "selectDate": "Seleziona data",
+        "selectTime": "Seleziona ora",
+        "duration": "Durata",
+        "notes": "Note",
+        "total": "Totale",
+        "deposit": "Acconto",
+        "confirmBooking": "Conferma prenotazione",
+        "bookingConfirmed": "Prenotazione confermata!",
+        "pendingApproval": "In attesa di approvazione",
+        "statuses": {
+            "pending": "In attesa",
+            "confirmed": "Confermato",
+            "completed": "Completato",
+            "cancelled": "Annullato"
+        }
+    },
+    "notifications": {
+        "title": "Notifiche",
+        "markAllRead": "Segna tutto come letto",
+        "noNotifications": "Nessuna notifica",
+        "settings": "Impostazioni notifiche",
+        "emailNotifications": "Notifiche e-mail",
+        "pushNotifications": "Notifiche push",
+        "smsNotifications": "Notifiche SMS",
+        "quietHours": "Ore di silenzio"
+    },
+    "profile": {
+        "title": "Profilo",
+        "editProfile": "Modifica profilo",
+        "personalInfo": "Informazioni personali",
+        "firstName": "Nome",
+        "lastName": "Cognome",
+        "phone": "Telefono",
+        "bio": "Su di me",
+        "myServices": "I miei servizi",
+        "reviews": "Recensioni",
+        "settings": "Impostazioni"
+    },
+    "rewards": {
+        "title": "Premi",
+        "points": "Punti",
+        "missions": "Missioni",
+        "shop": "Negozio",
+        "history": "Cronologia",
+        "earnPoints": "Guadagna punti",
+        "redeemPoints": "Riscatta punti"
+    },
+    "footer": {
+        "aboutUs": "Chi siamo",
+        "howItWorks": "Come funziona",
+        "helpCenter": "Centro assistenza",
+        "trustSafety": "Fiducia & Sicurezza",
+        "terms": "Termini",
+        "privacy": "Privacy",
+        "contact": "Contatti",
+        "copyright": "© 2024 Commerzio. Tutti i diritti riservati."
+    }
+}
