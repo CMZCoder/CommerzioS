@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
@@ -113,6 +114,7 @@ export default function BookServicePage() {
     customerPhone: '',
     customerAddress: '',
   });
+  const [selectedListItems, setSelectedListItems] = useState<string[]>([]);
 
   // Pre-populate phone from user profile
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function BookServicePage() {
 
   // Fetch pricing breakdown
   const { data: pricingBreakdown, isLoading: pricingLoading } = useQuery<PricingBreakdownData | null>({
-    queryKey: ['pricing-breakdown', serviceId, selectedOption?.id, dateRange.start?.toISOString(), dateRange.end?.toISOString()],
+    queryKey: ['pricing-breakdown', serviceId, selectedOption?.id, dateRange.start?.toISOString(), dateRange.end?.toISOString(), selectedListItems],
     queryFn: async (): Promise<PricingBreakdownData | null> => {
       if (!dateRange.start || !dateRange.end) return null;
 
@@ -143,6 +145,7 @@ export default function BookServicePage() {
           pricingOptionId: selectedOption?.id,
           startTime: dateRange.start.toISOString(),
           endTime: dateRange.end.toISOString(),
+          context: { selectedListItems },
         }),
       });
     },
@@ -168,6 +171,7 @@ export default function BookServicePage() {
           customerMessage: formData.customerMessage,
           customerPhone: formData.customerPhone,
           customerAddress: formData.customerAddress,
+          selectedListItems,
         }),
       });
 
@@ -448,6 +452,63 @@ export default function BookServicePage() {
                         onChange={setDateRange}
                         minDate={new Date()}
                       />
+
+                      {service?.priceList && Array.isArray(service.priceList) && service.priceList.length > 0 && (
+                        <div className="mt-8">
+                          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-primary" />
+                            Additional Options
+                          </h3>
+                          <div className="grid gap-3">
+                            {service.priceList.map((item: any, idx: number) => (
+                              <div
+                                key={idx}
+                                className={cn(
+                                  "flex items-center space-x-3 border p-4 rounded-lg transition-all cursor-pointer",
+                                  selectedListItems.includes(item.description)
+                                    ? "bg-primary/5 border-primary shadow-sm"
+                                    : "hover:bg-accent/50 hover:border-accent-foreground/20"
+                                )}
+                                onClick={() => {
+                                  const exists = selectedListItems.includes(item.description);
+                                  if (exists) {
+                                    setSelectedListItems(selectedListItems.filter(i => i !== item.description));
+                                  } else {
+                                    setSelectedListItems([...selectedListItems, item.description]);
+                                  }
+                                }}
+                              >
+                                <Checkbox
+                                  checked={selectedListItems.includes(item.description)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedListItems([...selectedListItems, item.description]);
+                                    } else {
+                                      setSelectedListItems(selectedListItems.filter(i => i !== item.description));
+                                    }
+                                  }}
+                                  id={`item-${idx}`}
+                                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                />
+                                <div className="flex-1">
+                                  <label
+                                    htmlFor={`item-${idx}`}
+                                    className="block font-medium text-sm cursor-pointer select-none"
+                                  >
+                                    {item.description}
+                                  </label>
+                                  {item.unit && (
+                                    <span className="text-xs text-muted-foreground">{item.unit}</span>
+                                  )}
+                                </div>
+                                <Badge variant={selectedListItems.includes(item.description) ? "default" : "secondary"}>
+                                  CHF {item.price}
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                   </>
                 )}
