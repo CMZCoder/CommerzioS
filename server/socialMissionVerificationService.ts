@@ -11,7 +11,7 @@
  */
 
 import { db } from "./db";
-import { oauthTokens, users, userMissions, missions } from "@shared/schema";
+import { oauthTokens, users, userMissions, missions, bookings, reviews } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
 // Types
@@ -69,7 +69,7 @@ export async function getSocialToken(
  */
 export async function hasSocialConnection(
     userId: string,
-    provider: "twitter" | "instagram" | "facebook"
+    provider: "twitter" | "facebook"
 ): Promise<boolean> {
     const token = await getSocialToken(userId, provider);
     return token !== null;
@@ -331,23 +331,64 @@ export async function verifyMission(
  * Verify user has made their first booking
  */
 async function verifyFirstBooking(userId: string): Promise<VerificationResult> {
-    // This would check the bookings table
-    // For now, return unverified
-    return {
-        verified: false,
-        message: "First booking not yet completed.",
-    };
+    try {
+        const [booking] = await db
+            .select({ id: bookings.id })
+            .from(bookings)
+            .where(eq(bookings.customerId, userId))
+            .limit(1);
+
+        if (booking) {
+            return {
+                verified: true,
+                message: "First booking completed!",
+                details: { bookingId: booking.id },
+            };
+        }
+
+        return {
+            verified: false,
+            message: "First booking not yet completed.",
+        };
+    } catch (error) {
+        console.error("Error verifying first booking:", error);
+        return {
+            verified: false,
+            message: "Failed to verify first booking.",
+        };
+    }
 }
 
 /**
  * Verify user has left their first review
  */
 async function verifyFirstReview(userId: string): Promise<VerificationResult> {
-    // This would check the reviews table
-    return {
-        verified: false,
-        message: "First review not yet submitted.",
-    };
+    try {
+        const [review] = await db
+            .select({ id: reviews.id })
+            .from(reviews)
+            .where(eq(reviews.reviewerId, userId))
+            .limit(1);
+
+        if (review) {
+            return {
+                verified: true,
+                message: "First review submitted!",
+                details: { reviewId: review.id },
+            };
+        }
+
+        return {
+            verified: false,
+            message: "First review not yet submitted.",
+        };
+    } catch (error) {
+        console.error("Error verifying first review:", error);
+        return {
+            verified: false,
+            message: "Failed to verify first review.",
+        };
+    }
 }
 
 /**
