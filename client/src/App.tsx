@@ -33,6 +33,7 @@ import ForgotPasswordPage from "@/pages/forgot-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import VerifyEmailPage from "@/pages/verify-email";
 import ReferralsPage from "@/pages/referrals";
+import RewardsPage from "@/pages/rewards";
 import ChatPage from "@/pages/chat";
 import VendorBookingsPage from "@/pages/vendor-bookings";
 import MyBookingsPage from "@/pages/my-bookings";
@@ -119,6 +120,8 @@ function Router() {
       {/* Referral routes */}
       <Route path="/referrals" component={ReferralsPage} />
       <Route path="/invite" component={ReferralsPage} />
+      {/* COM Points Rewards */}
+      <Route path="/rewards" component={RewardsPage} />
       {/* Chat routes */}
       <Route path="/chat" component={ChatPage} />
       <Route path="/messages" component={ChatPage} />
