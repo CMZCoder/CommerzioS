@@ -233,6 +233,7 @@ import { fromZodError } from "zod-validation-error";
 import { ObjectStorageService, ObjectNotFoundError } from "./r2Storage";
 import { getArchiveStats, runManualCleanup, deleteExpiredArchives } from "./imageArchiveService";
 import { z } from "zod";
+import { registerCreditsRoutes } from "./routes/credits.routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint - useful for monitoring and load balancers
@@ -249,6 +250,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // OAuth routes (Google, Twitter, Facebook)
   setupOAuthRoutes(app);
+
+  // Credit routes (booking redesign)
+  registerCreditsRoutes(app);
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
