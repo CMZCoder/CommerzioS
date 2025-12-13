@@ -239,6 +239,11 @@ export const users = pgTable("users", {
   // Track user registration order for early bird
   registrationNumber: integer("registration_number"),
 
+  // Launch 100 qualification tracking
+  hasPaymentMethod: boolean("has_payment_method").default(false).notNull(),
+  launch100RevokedAt: timestamp("launch_100_revoked_at"),
+  launch100RevocationReason: text("launch_100_revocation_reason"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => [
